@@ -14,6 +14,7 @@ package axl.utils
 	import flash.events.Event;
 	import flash.geom.Rectangle;
 	import flash.media.SoundMixer;
+	import flash.system.Capabilities;
 	
 	import axl.ui.IprogBar;
 	import axl.ui.Messages;
@@ -38,16 +39,16 @@ package axl.utils
 	
 	public class U
 	{
-		/**
-		 * indicate tracings
-		 */
+		
+		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
 		/**
 		 * indicates if stage is in full screen interactive mode or not<br>
-		 * indicates if U.rec is based on stage.fullScreen*W/H* or stage.stage*W/H*
-		 * USE IT BEFORE INIT. CHANGES AFTER WON'T AFFECT ANYTHING
+		 * indicates if <code>U.REC</code> is based on <i>stage.fullScreen*W/H*</i> or <i>stage.stage*W/H*</i>
+		 * <br>According to on playerType.match: <i> /^(StandAlone|ActiveX|PlugIn)/i </i>
 		 */
-		public static var ISWEB:Boolean = true;
+		public static function get ISWEB():Boolean { return isWeb }
+		private static var isWeb:Boolean = flash.system.Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i);
 		/**
 		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY
 		 */
@@ -59,8 +60,6 @@ package axl.utils
 		 * and Config class wont be instantiated
 		 */
 		public static var configPath:String;
-		
-		
 		
 		private static var rec:Rectangle;
 		private static var uSTG:flash.display.Stage;
@@ -87,19 +86,7 @@ package axl.utils
 		private static var uconfig:Config;
 		
 		private static var ubin:BinAgent;
-		private static var loaderPrefix:String = '';
 		
-		private static var locationPrefixes:Vector.<String> = new Vector.<String>();
-		public static function pushAlternativeDirPrefix(path:String):void 
-		{ 
-			if(locationPrefixes.indexOf(path) < 0)
-				locationPrefixes.push(path);
-		}
-		public static function unshiftAlternativeDirPrefix(path:String):void 
-		{ 
-			if(locationPrefixes.indexOf(path) < 0)
-				locationPrefixes.unshift(path);
-		}
 		
 		/** returns starling instance. Equivalent of starling.core.Starling.current */
 		public static function get starlingInstance():Starling { return ustarlingInstance }
@@ -453,9 +440,9 @@ package axl.utils
 			udesignedForHeight = designedForHei;
 			rootStarlingClass = starlingRootClass;
 			SoundMixer.audioPlaybackMode  = 'media';
-				
 			
-			U.pushAlternativeDirPrefix(flashRoot.loaderInfo.url.substr(0,flashRoot.loaderInfo.url.lastIndexOf('/')));
+			// this should user do himself in order to get right order of directories lookup
+			//Ldr.alternativeDirPrefixPush(flashRoot.loaderInfo.url.substr(0,flashRoot.loaderInfo.url.lastIndexOf('/')));
 			
 			if(flashRoot.stage == null)
 				flashRoot.addEventListener(flash.events.Event.ADDED_TO_STAGE, stageCreated);
