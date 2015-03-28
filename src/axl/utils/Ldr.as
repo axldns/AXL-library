@@ -14,6 +14,7 @@ package  axl.utils
 	import flash.net.URLLoader;
 	import flash.net.URLLoaderDataFormat;
 	import flash.net.URLRequest;
+	import flash.system.ApplicationDomain;
 	import flash.system.ImageDecodingPolicy;
 	import flash.system.LoaderContext;
 	import flash.utils.ByteArray;
@@ -24,6 +25,9 @@ package  axl.utils
 	 */
 	public class Ldr
 	{
+		private static var fileInterfaceAvailable:Boolean =  flash.system.ApplicationDomain.currentDomain.hasDefinition('flash.filesystem::File');
+		private static var FileClass:Class = fileInterfaceAvailable ? flash.utils.getDefinitionByName('flash.filesystem::File') as Class : null;
+		
 		private static var objects:Object = {};
 		private static var loaders:Object = {};
 		private static var mQueue:Array = [];
@@ -32,68 +36,65 @@ package  axl.utils
 		private static var IS_LOADING:Boolean;
 		
 		private static var _context:LoaderContext;
-		private static var mCheckPolicyFile:Boolean;
-		public static function get checkPolicyFile():Boolean { return mCheckPolicyFile; }
-		public static function set checkPolicyFile(value:Boolean):void { mCheckPolicyFile = value }
+		private static var checkPolicyFile:Boolean;
 		
-		private static var locationPrefixes:Vector.<String> = new Vector.<String>();
+		private static var locationPrefixes:Array = [];
+		
 		/**
-		 * Alternative directories allow you to lookup for files to load in any number of directories in a single call.
+		 * (AIR only)
+		 */
+		public static var defaultStoreDirectory:String;
+		
+		/**
+		 * defaultPathPrefixes allow you to look up for files to load in any number of directories in a single call.
+		 * <b>Every</b> load call is prefixed but prefix can also be an empty string.
+		 * <br><b>Every</b> load and loadQueue call can have a separate pathPrefixes array (see load and loadQueueSynchro desc). 
 		 *<br><br>
-		 * Set up your alternativeDirPrefixes like <code>[File.applicationStorageDirectory,  File.applicationDirectory, "http://domain.com/app"]</code>
-		 * to load <strong>/assets/example.file</strong> first from storage, if does not exist - check in <strong>app:/assets/example.fle</strong>, 
-		 * if it's not there - try <strong>http://domain.com/app/example.file</strong>
-		 * Highly recommended to unshift <code><i>root</i>.loaderInfo.url.substr(0,<i>root</i>.loaderInfo.url.lastIndexOf('/')</code> for web apps.
-		 * <br>NOT THERE YET:
-		 * <br>Combine it with <code>Ldr.loadBehaviours</code> to save (http|ftp) loaded files to <code>Ldr.saveDirectory</code> (AIR only)
-		 * or to disable alternative directories checking at all. Unshift empty string to check original request first.
-		 */
-		public static function  get alternativeDirPrefixes():Vector.<String> { return locationPrefixes }
+		 * Mixing <i>File</i> class constatns and domain addresses can set a nice flow with easily updateable set of assets and fallbacks.
+		 * <br>
+		 * <code>
+		 * defaultPathPrefixes[0] = File.applicationStorageDirectory;<br>
+		 * defaultPathPrefixes[1] = "http://domain.com/app";<br>
+		 * defaultPathPrefixes[2] = File.applicationDirectory.nativePath;<br>
+		 * <br>
+		 * Ldr.load("/assets/example.file",onComplete);
+		 * </code>
+		 * <br>to check 
+		 * <br><strong>app-storage:/assets/example.file</strong> onError:
+		 * <br><strong>http://domain.com/app/assets/example.file</strong> onError
+		 * <br><strong>app:/assets/example.fle</strong> onError : onComplete(null);
+		 * <br><br>Highly recommended to push
+		 * <br><code><i>root</i>.loaderInfo.url.substr(0,<i>root</i>.loaderInfo.url.lastIndexOf('/')</code>
+		 * <br>for web apps.
+		 * <br>relative paths are allowed with standard ActionsScirpt rules.
+		 * @see Ldr#loadQueueSynchro */
+		public static function  get defaultPathPrefixes():Array { return locationPrefixes }
 		
-		/** @see Ldr # alternativeDirPrefixes() */
-		public static function alternativeDirPrefixPush(path:String):void 
-		{ 
-			if(locationPrefixes.indexOf(path) < 0)
-				locationPrefixes.push(path);
-		}
+		/** returns number of object to load in <u>current</u> queue */
+		public static function numQueued():int { return mQueue.length }
 		
-		/** @see Ldr # alternativeDirPrefixes() */
-		public static function alternativeDirPrefixUnshift(path:String):void 
-		{ 
-			if(locationPrefixes.indexOf(path) < 0)
-				locationPrefixes.unshift(path);
-		}
+		/** returns number of queues excluding current one */
+		public static function numQueues():int { return alterQueue.length }
 		
-		/** @see Ldr # alternativeDirPrefixes() */
-		public static function removeAlternativeDirPrefix(path:String):void
-		{
-			var i:int = locationPrefixes.indexOf(path);
-			if(i > -1) locationPrefixes.splice(i,1);
-		}
+		/** tells you if any loading is in progress */
+		public static function get isLoading():Boolean 	{ return IS_LOADING || numQueues.length > 0 }
 		
-		/** returns current number of paths to load in <u>current</u>queue */
-		public static function numQueue():int { return mQueue.length }
-		
-		 /** tells you if any loading is in progress */
-		public static function get isLoading():Boolean 	{ return IS_LOADING || isNextQueueScheduled }
-		
-		/**
-		 * If Loader is busy with loading something (file, list of files),  and you request to load something else before it finishes - your request is queued
-		 * in separate queue. this tells you how many queues is queued apart from current queue
-		 */
-		public static function get isNextQueueScheduled():int {	return alterQueue.length }
 		
 		/**
 		 * Main function to get resource reference.<br>
-		 * Returns null / undefined if asset is not loaded or data as follows if loaded:<br>
+		 * 
 		 * <ul>
 		 * <li>flash.disply.DisplayObject / Bitmap for jpg, jpeg, png, gif</li>
 		 * <li>flash.media.Sound for mp3</li>
-		 * <li> ByteArray / UTF for any binary (xml, json, txt, atf, etc..)
+		 * <li> String / ByteArray / UTF for any binary (xml, json, txt, atf, etc..)
 		 * <ul>
-		 * @param v : resource full name with extension but without address. 
+		 * @param v : filename with extension but without subpath. 
 		 * <br> Resource names are formed based on path you <code>addToQueue</code> 
 		 * or passed directly to <code>loadQueueSynchro</code> array
+		 * @return null / undefined if asset is not loaded or data as follows if loaded:<br>
+		 * 
+		 * @see Ldr#loadQueueSynchro
+		 * @see Ldr#defaultPathPrefixes
 		 */
 		public static function getme(v:String):Object { return objects[v] }
 		
@@ -113,29 +114,52 @@ package  axl.utils
 		}
 		
 		/**
-		 * Loads all assets (unlike Starling assets manager) synchroniously from array of paths.
+		 * Loads all assets <strong>synchroniously</strong> from array of paths or subpaths,
+		 * checks for alternative directories, stores loaded files to directories (AIR only).
+		 * It does not allow to load same asset twice. Use <code>Ldr.unload</code> to remove previously loaded files.
 		 *
-		 * @param array : array of paths (subpaths),
-		 * @param onComplete : function of 0 arguments, dispatched once all elements are loaded
-		 * @param onQueueProgress : function of  1 argument - name of asset available
+		 * @param array : array  of paths or subpaths e.g. : assets/images/a.jpg or http://abc.de/fg.hi
+		 * @param onComplete : function to execute once all elements of current queue are loaded
+		 * @param individualComplete : <code>function(loadedAssetName:String)</code>
+		 * @param onProgress : <code>function(percentageOfCurrentAsset:Number, numAssetsRemainingCurrentQueue:int, 
+		 * currentAssetName:String)</code>
+		 * @param pathPrefixes: Vector or array of Strings(preffered) or File class instances pointing to directories.
+		 *  This argument can override <code>Ldr.defaultPathPrefixes</code>
+		 * <br> final requests are formed as pathPrefixes[x] + pathList[y]
+		 * <ul><li><i>null</i> will use pathList[y] only</li>
+		 * <li><i>:default</i> uses <u>Ldr.defaultPathPrefixes</u></li></ul>
+		 * @param storeDirectory: (AIR) <i>:default</i> uses <u>Ldr.defaultStoreDirectory</u>, <i>null</i> disables storing, any other tries to resolve path and store loaded asset accordingly
 		 * @return if busy with other loading - index on which this request is queued
+		 * 
+		 * @see Ldr#defaultPathPrefixes
 		 */
-		public static function loadQueueSynchro(pathsList:Array=null, onComplete:Function=null, individualComplete:Function=null,onProgress:Function=null):*
+		public static function loadQueueSynchro(pathsList:Array=null, onComplete:Function=null, individualComplete:Function=null
+												,onProgress:Function=null, pathPrefixes:Object=':default', storeDirectory:String=":default"):*
 		{
 			if(IS_LOADING)
 				return alterQueue.push(function():void { loadQueueSynchro(pathsList,onComplete,individualComplete,onProgress) });
 			
+			var originalPath:String;
+			var concatenatedPath:String;
+			var filename:String;
 			var extension:String;
-			var url:String;
-			var fullname:String;
-			var urlLoader:URLLoader;
-			var loaderInfo:LoaderInfo;
+			var subpath:String;
+			var prefix:String
+			
 			var numElements:int;
 			var listeners:Array;
-			var alternativePathIndex:int=-1;
-			var numAlternativePaths:int = locationPrefixes.length;
-			var originalUrl:String;
+			
+			var prefixes:Object = (pathPrefixes == ':default' ? Ldr.defaultPathPrefixes : pathPrefixes);
+			var storePath:String = (storeDirectory == ':default' ? Ldr.defaultStoreDirectory : storeDirectory);
+			
+			var prefixIndex:int=0;
+			var numPrefixes:int = prefixes.length;
+			
 			var urlRequest:URLRequest;
+			var urlLoader:URLLoader;
+			var loaderInfo:LoaderInfo;
+			
+			if(!prefixes || (prefixes.length < 1)) prefixes = [""];
 			
 			if(pathsList)
 				mQueue = mQueue.concat(pathsList);
@@ -146,59 +170,62 @@ package  axl.utils
 			
 			function nextElement():void
 			{
+				// validate end of queue
 				numElements = mQueue.length;
 				if(numElements < 1)
 				{
 					IS_LOADING = false;
 					if(onComplete is Function)
 						onComplete();
-					if(isNextQueueScheduled)
+					if(alterQueue.length >0)
 						alterQueue.shift()();
 					return;
 				}
-				url = mQueue.pop();
 				
-				if(alternativePathIndex < 0)
+				// validate prefix and subpath
+				prefix = validatePrefix(prefixes[prefixIndex]);
+				subpath =  validateSubpath(mQueue.pop());
+				if(!prefix || !subpath)
+					return nextElement();
+				
+				// get initial details
+				if(!originalPath)
 				{
-					originalUrl = url.substr(0);
-					var i:int = originalUrl.lastIndexOf("/") +1;
-					var j:int = originalUrl.lastIndexOf("\\")+1;
-					var k:int = originalUrl.lastIndexOf(".") +1;
+					originalPath = subpath.substr()
+					var i:int = originalPath.lastIndexOf("/") +1;
+					var j:int = originalPath.lastIndexOf("\\")+1;
+					var k:int = originalPath.lastIndexOf(".") +1;
 					
-					extension	= originalUrl.slice(k);
-					fullname 	= originalUrl.slice(i>j?i:j);
+					extension	= originalPath.slice(k);
+					filename 	= originalPath.slice(i>j?i:j);
 				}
 				
-				if(objects[fullname] || loaders[fullname])
+				//validate already existing elements
+				if(objects[filename] || loaders[filename])
 				{
-					log("OBJECT ALREADY EXISTS: " + fullname + ' / ' + objects[fullname] + ' / ' +  loaders[fullname]);
+					log("OBJECT ALREADY EXISTS: " + filename + ' / ' + objects[filename] + ' / ' +  loaders[filename]);
 					return nextElement();
 				}
+				
+				//merge prefix & subpath
+				concatenatedPath = getConcatenatedPath(prefix, originalPath);
+				
+				
+				//setup loaders and load
 				urlLoader = new URLLoader();
 				urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
-				loaders[fullname] = urlLoader;
+				loaders[filename] = urlLoader;
 				
 				listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
 				addListeners.apply(null, listeners);
 				
-				urlRequest = new URLRequest(url);
+				urlRequest = new URLRequest(concatenatedPath);
 				urlLoader.load(urlRequest);
+				// end of nextElement flow - waiting for eventDispatchers
 				
 				function onError(e:Event):void
 				{
-					log("error: " + e.toString());
-					if(++alternativePathIndex < numAlternativePaths)
-					{
-						log('trying alternative [' +alternativePathIndex + '] : ' +  Ldr.locationPrefixes[alternativePathIndex]);
-						var newPath:String =  getAlternativePath(Ldr.locationPrefixes[alternativePathIndex], originalUrl);
-						mQueue.push(newPath);
-						bothLoadersComplete(null,false);
-					}
-					else
-					{
-						log("no more alternatives");
-						bothLoadersComplete(null);
-					}
+					bothLoadersComplete(null);
 				}
 				
 				function onHttpResponseStatus(e:HTTPStatusEvent):void
@@ -216,12 +243,12 @@ package  axl.utils
 				function onLoadProgress(e:ProgressEvent):void
 				{
 					if (onProgress is Function && e.bytesTotal > 0)
-						onProgress(e.bytesLoaded / e.bytesTotal, mQueue.length, fullname);
+						onProgress(e.bytesLoaded / e.bytesTotal, mQueue.length, filename);
 				}
 				
-				function onUrlLoaderComplete(e:Object):void //////////////////////////////////////////////////// URL COMPLETE
+				function onUrlLoaderComplete(e:Object):void
 				{
-					var bytes:ByteArray = transformData(urlLoader.data as ByteArray, url);
+					var bytes:ByteArray = transformData(urlLoader.data as ByteArray, concatenatedPath);
 					switch (extension.toLowerCase())
 					{
 						case "mpeg":
@@ -246,46 +273,67 @@ package  axl.utils
 					bothLoadersComplete(event.target.content);
 				}
 				
-				function bothLoadersComplete(asset:Object, resetAlternativePath:Boolean=true):void
+				function bothLoadersComplete(asset:Object):void
 				{
-					objects[fullname] = asset;
-					delete loaders[fullname];
+					objects[filename] = asset;
+					delete loaders[filename];
 					
-					if (urlLoader)
+					if(urlLoader)
 						removeListeners.apply(null, listeners);
 					
-					if (loaderInfo)
+					if(loaderInfo)
 					{
 						loaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
 						loaderInfo.removeEventListener(Event.COMPLETE, onLoaderComplete);
 					}
 					
-					if(resetAlternativePath)
-						alternativePathIndex = -1;
-					if(individualComplete is Function)
-						individualComplete(fullname);
-					nextElement();
+					U.bin.trrace('['+prefixIndex+']', asset ? 'loaded:' : 'fail:',  urlRequest.url);
+					
+					if((asset == null) && (++prefixIndex < numPrefixes))
+						mQueue.push(originalPath);
+					else
+					{
+						prefixIndex=0;
+						originalPath = null;
+						if(individualComplete is Function)
+							individualComplete(filename);
+					}
+					return nextElement();
 				}
+			}
+		
+			function validatePrefix(p:Object):String
+			{
+				if(p is String) return p as String;
+				if(p && p.hasOwnProperty('url')) return p.url as String;
+				if(++prefixIndex < numPrefixes) return validatePrefix(prefixes[prefixIndex]);
+				else return null;
+			}
+			function validateSubpath(p:Object):String
+			{
+				if(p is String) return p as String;
+				if(p && p.hasOwnProperty('url')) return p.url as String;
+				else return null;
 			}
 		}
 		
-		private static function getAlternativePath(prefix:String, originalUrl:String):String
+		private static function getConcatenatedPath(prefix:String, originalUrl:String):String
 		{
-			var out:String= '';
-			if(U.ISWEB || prefix.match(/^(http|ftp)/i))
+			if(prefix.match( /(\/$|\\$)/) && originalUrl.match(/(^\/|^\\)/))
+				prefix = prefix.substr(0,-1);
+			if(!fileInterfaceAvailable || U.ISWEB || prefix.match(/^(http:|https:|ftp:|ftps:)/i))
 				return prefix + originalUrl;
-			try {
-				var FileClass:Object = flash.utils.getDefinitionByName('flash.filesystem::File');
+			else
+			{
 				// workaround for inconsistency of traversing up directories. FP takes working dir, AIR doesn't
 				var initPath:String = prefix.match(/^(\.\.|$)/i) ?  FileClass.applicationDirectory.nativePath + '/' + prefix : prefix
-				var f:Object = new FileClass(initPath);
-				out = f.resolvePath(f.nativePath + originalUrl).nativePath;
+				try {
+					var f:Object = new FileClass(initPath) 
+					initPath = f.resolvePath(f.nativePath + originalUrl).nativePath;
+				}
+				catch (e:*) { U.bin.trrace(e), initPath = prefix + originalUrl}
+				return initPath;
 			}
-			catch(e:Error) { 
-				trace(e);
-				out = prefix + originalUrl;
-			}
-			return out;
 		}
 		
 		private static function instantiateImage(bytes:ByteArray, onIoError:Function, onLoaderComplete:Function):LoaderInfo
@@ -293,17 +341,17 @@ package  axl.utils
 			var loader:Loader = new Loader();
 			
 			var loaderInfo:LoaderInfo = loader.contentLoaderInfo;
-				loaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
-				loaderInfo.addEventListener(Event.COMPLETE, onLoaderComplete);
-				
-				loader.loadBytes(bytes, context);
+			loaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
+			loaderInfo.addEventListener(Event.COMPLETE, onLoaderComplete);
+			
+			loader.loadBytes(bytes, context);
 			return loaderInfo;
 		}
 		
 		private static function instantiateSound(bytes:ByteArray):Sound
 		{
 			var sound:Sound = new Sound();
-				sound.loadCompressedDataFromByteArray(bytes, bytes.length);
+			sound.loadCompressedDataFromByteArray(bytes, bytes.length);
 			bytes.clear();
 			return sound;
 		}
@@ -327,7 +375,6 @@ package  axl.utils
 			urlLoader.removeEventListener(Event.COMPLETE, onUrlLoaderComplete);
 		}
 		
-		
 		/** This method is called when raw byte data has been loaded from an URL or a file.
 		 *  Override it to process the downloaded data in some way (e.g. decompression) or
 		 *  to cache it on disk. */
@@ -348,15 +395,25 @@ package  axl.utils
 		private static function log(v:String):void { U.bin.trrace("LDR:", v) }
 		
 		/**
-		 * Loads specific file upon request. It's being queued if loader is busy and will dispatch onComplete as soon as its ready to.
-		 * 
-		 * @param path : path to file
-		 * @param onComplete : function which accepts one parameter. 1: Loaded object.
-		 * @param onProgress (optional): function which acctpts 1 param. 1: Number(0-1)
+		 * Loads specific file upon request. Provides translation of loadQueueSynchro in following way:
+		 * <ul>
+		 * <li><i>onComplete</i> is executed with loaded object instead of name only</li>
+		 * <li>onProgress (if specified) is executed with percentage only</li>
+		 * </ul>
+		 * @param path : path/subpath to file
+		 * @param onComplete : <code>function(loadedObject:Object=null)</code>
+		 * @param onProgress : <code>function(percentage:Number:0-1)</code>
+		 * @param pathPrefixes: vector or array of prefixes to concat individual path with
+		 * <i>*default</i> uses <u>Ldr.alternativeDirPrefixes</u>
+		 * @param storeDirectory: (AIR) <i>*default uses</i> <u>Ldr.defaultStoreDirectory</u>, <i>null</i> disables storing, any other tries to resolve path and store loaded asset accordingly
+		 * @see Ldr#loadQueueSynchro
+		 * @see Ldr#defaultPathPrefixes
+		 * @see Ldr#defaultStoreDirectory
 		 */
-		public static function load(path:String, onComplete:Function, onProgress:Function=null):void
-		{
-			Ldr.loadQueueSynchro([path],null,completer,(onProgress is Function) ? translateProgress : null);
+		public static function load(path:String, onComplete:Function, onProgress:Function=null,
+									pathPrefixes:Object='*default', storeDirectory:String="*default"):*
+		{	
+			Ldr.loadQueueSynchro([path],null,completer,(onProgress is Function) ? translateProgress : null, pathPrefixes,storeDirectory );
 			function translateProgress(single:Number, all:Number, nam:String):void { onProgress(single) }
 			function completer(aname:String):void {	onComplete(Ldr.getme(aname)) }
 		}
