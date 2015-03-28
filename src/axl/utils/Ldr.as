@@ -3,6 +3,7 @@ package  axl.utils
 	/**
 	 * [axldns free coding 2015]
 	 */
+	import flash.display.Bitmap;
 	import flash.display.Loader;
 	import flash.display.LoaderInfo;
 	import flash.events.Event;
@@ -29,7 +30,9 @@ package  axl.utils
 		private static var FileClass:Class = fileInterfaceAvailable ? flash.utils.getDefinitionByName('flash.filesystem::File') as Class : null;
 		
 		private static var objects:Object = {};
+		private static var urlLoaders:Object = {};
 		private static var loaders:Object = {};
+		
 		private static var mQueue:Array = [];
 		private static var alterQueue:Vector.<Function> = new Vector.<Function>();
 		
@@ -201,9 +204,9 @@ package  axl.utils
 				}
 				
 				//validate already existing elements
-				if(objects[filename] || loaders[filename])
+				if(objects[filename] || urlLoaders[filename] || loaders[filename])
 				{
-					log("OBJECT ALREADY EXISTS: " + filename + ' / ' + objects[filename] + ' / ' +  loaders[filename]);
+					U.bin.trrace("OBJECT ALREADY EXISTS:",filename,'/',objects[filename],'/', urlLoaders[filename],'/', loaders[filename]);
 					return nextElement();
 				}
 				
@@ -214,7 +217,7 @@ package  axl.utils
 				//setup loaders and load
 				urlLoader = new URLLoader();
 				urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
-				loaders[filename] = urlLoader;
+				urlLoaders[filename] = urlLoader;
 				
 				listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
 				addListeners.apply(null, listeners);
@@ -270,13 +273,14 @@ package  axl.utils
 				function onLoaderComplete(event:Object):void
 				{
 					urlLoader.data.clear();
+					loaders[filename] = loaderInfo.loader;
 					bothLoadersComplete(event.target.content);
 				}
 				
 				function bothLoadersComplete(asset:Object):void
 				{
 					objects[filename] = asset;
-					delete loaders[filename];
+					delete urlLoaders[filename];
 					
 					if(urlLoader)
 						removeListeners.apply(null, listeners);
@@ -416,6 +420,48 @@ package  axl.utils
 			Ldr.loadQueueSynchro([path],null,completer,(onProgress is Function) ? translateProgress : null, pathPrefixes,storeDirectory );
 			function translateProgress(single:Number, all:Number, nam:String):void { onProgress(single) }
 			function completer(aname:String):void {	onComplete(Ldr.getme(aname)) }
+		}
+		
+		/**
+		 * Unloads / clears / disposes loaded data, removes display objects from display list
+		 * <br> It won't affect sub-instantiated elements (XMLs, Textures, JSON parsed objects) but will make them 
+		 * unavailable to restore (e.g. Starling.handleLostContext)
+		 */
+		public static function unload(filename:String):void
+		{
+			var o:Object= objects[filename];
+			var l:Loader = loaders[filename];
+			var u:URLLoader = urlLoaders[filename];
+			if(o)
+			{
+				if(o.hasOwnProperty('parent') && o.parent)
+					o.parent.removeChild(o);
+				if(o is Bitmap && o.bitmapData)
+				{
+					o.bitmapData.dispose();
+					o.bitmapData = null;
+				}
+				try { o.close() } catch (e:*) {}
+			}
+			if(l)
+			{
+				if(l.hasOwnProperty('parent') && l.parent)
+					l.parent.removeChild(l);
+				if(l.loaderInfo)
+					l.loaderInfo.bytes.clear();
+				l.unload();
+				l.unloadAndStop();
+			}
+			if(u && u.data)
+				u.data.clear();
+			
+			o =null, l = null,u = null;
+			objects[filename] = null;
+			loaders[filename] = null;
+			urlLoaders[filename] = null;
+			delete urlLoaders[filename];
+			delete loaders[filename];
+			delete objects[filename];
 		}
 		
 		private static function get context():LoaderContext
