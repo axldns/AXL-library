@@ -23,11 +23,13 @@ package  axl.utils
 	
 	/**
 	 * Core assets loader. Supports loading queues (arrays of paths) and alternative directories. Keeps all objects. Access it via getMe();
+	 * other differences to starling: supports alternative paths: '../../'
 	 */
 	public class Ldr
 	{
-		private static var fileInterfaceAvailable:Boolean =  flash.system.ApplicationDomain.currentDomain.hasDefinition('flash.filesystem::File');
-		private static var FileClass:Class = fileInterfaceAvailable ? flash.utils.getDefinitionByName('flash.filesystem::File') as Class : null;
+		private static var fileInterfaceAvailable:Boolean =  ApplicationDomain.currentDomain.hasDefinition('flash.filesystem::File');
+		private static var FileClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::File') as Class : null;
+		private static var FileStreamClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::FileStream') as Class : null;
 		
 		private static var objects:Object = {};
 		private static var urlLoaders:Object = {};
@@ -45,13 +47,41 @@ package  axl.utils
 		
 		/**
 		 * (AIR only)
+		 * 
+		 *  @default  FileClass.applicationStorageDirectory
+		 * 
+		 *  @see Ldr#loadQueueSynchro
+		 *  @see Ldr#defaultOverwriteBehaviour
 		 */
-		public static var defaultStoreDirectory:String;
+		public static var defaultStoreDirectory:Object = fileInterfaceAvailable ? FileClass.applicationStorageDirectory : null;
+		
+		/**
+		 * (AIR only)
+		 * Defines what files to overwrite if path where the file was loaded from is different to store directory.
+		 * <br>This behaviour can be overriden by specifing appropriate load argument (see <i>load</i> 
+		 * and <i>loadQueueSynchro</i> desc). 
+		 * <ul>
+		 * <li><u>all</u> - all conflict files will be overwritten</li>
+		 * <li><u>none</u>, <u>null</u> or incorrect values - no overwriting at all</li> 
+		 * <li><u>networkOnly</u> - only files loaded from paths starting like <i>http*</i> or <i>ftp*</i> will be overwritten</li>
+		 * <li><u>olderThan_<i>unixTimestamp</i></u></li> -e.g. to overwrite only files older than midday 1 APR 2015 use <code>olderThan_1427889600</code>
+		 * <li><u><code>Array/Vector/Directory</code></u></li> - only contents present in specified list of paths, list of files, specified directory
+		 * will get owerwritten</li>
+		 * <li><u>customFilter</u> - <code>function(existingFile:File):Boolean</code> let you decide for every particular file
+		 * true - overrwrite, false - dont. Performance is on you in this case
+		 * </ul>
+		 * 
+		 * @default networkOnly
+		 * 
+		 * @see Ldr#loadQueueSynchro
+		 */
+		public static var defaultOverwriteBehaviour:Object = 'networkOnly';
+		
 		
 		/**
 		 * defaultPathPrefixes allow you to look up for files to load in any number of directories in a single call.
 		 * <b>Every</b> load call is prefixed but prefix can also be an empty string.
-		 * <br><b>Every</b> load and loadQueue call can have a separate pathPrefixes array (see load and loadQueueSynchro desc). 
+		 * <br>This behaviour can be overriden by specifing appropriate load argument (see load and loadQueueSynchro desc). 
 		 *<br><br>
 		 * Mixing <i>File</i> class constatns and domain addresses can set a nice flow with easily updateable set of assets and fallbacks.
 		 * <br>
@@ -94,7 +124,7 @@ package  axl.utils
 		 * @param v : filename with extension but without subpath. 
 		 * <br> Resource names are formed based on path you <code>addToQueue</code> 
 		 * or passed directly to <code>loadQueueSynchro</code> array
-		 * @return null / undefined if asset is not loaded or data as follows if loaded:<br>
+		 * @return null / undefined if asset is not loaded or data as above if loaded:<br>
 		 * 
 		 * @see Ldr#loadQueueSynchro
 		 * @see Ldr#defaultPathPrefixes
@@ -122,22 +152,27 @@ package  axl.utils
 		 * It does not allow to load same asset twice. Use <code>Ldr.unload</code> to remove previously loaded files.
 		 *
 		 * @param array : array  of paths or subpaths e.g. : assets/images/a.jpg or http://abc.de/fg.hi
-		 * @param onComplete : function to execute once all elements of current queue are loaded
-		 * @param individualComplete : <code>function(loadedAssetName:String)</code>
+		 * @param onComplete : function to execute once queue is done. this suppose to execute always, 
+		 * regardles of issues with particular asssets
+		 * @param individualComplete : <code>function(loadedAssetName:String)</code> this function may not be executed if particular asset fails to laod
 		 * @param onProgress : <code>function(percentageOfCurrentAsset:Number, numAssetsRemainingCurrentQueue:int, 
 		 * currentAssetName:String)</code>
 		 * @param pathPrefixes: Vector or array of Strings(preffered) or File class instances pointing to directories.
-		 *  This argument can override <code>Ldr.defaultPathPrefixes</code>
 		 * <br> final requests are formed as pathPrefixes[x] + pathList[y]
 		 * <ul><li><i>null</i> will use pathList[y] only</li>
 		 * <li><i>:default</i> uses <u>Ldr.defaultPathPrefixes</u></li></ul>
 		 * @param storeDirectory: (AIR) <i>:default</i> uses <u>Ldr.defaultStoreDirectory</u>, <i>null</i> disables storing, any other tries to resolve path and store loaded asset accordingly
+		 * @param overwriteExistingFiles (AIR) 'networkOnly' || 'all' || 'none' || 'olderThan_<i>unixTimestamp</i>' || Array/Vector of subpaths or File instances
+		 * <br><i>:default</i> uses  <u>Ldr.defaultOverwriteBehaviour</u>
 		 * @return if busy with other loading - index on which this request is queued
 		 * 
 		 * @see Ldr#defaultPathPrefixes
+		 * @see Ldr#defaultStoreDirectory
+		 * @see Ldr#defaultOverwriteBehaviour
 		 */
 		public static function loadQueueSynchro(pathsList:Array=null, onComplete:Function=null, individualComplete:Function=null
-												,onProgress:Function=null, pathPrefixes:Object=':default', storeDirectory:String=":default"):*
+												,onProgress:Function=null, pathPrefixes:Object=":default", storeDirectory:Object=":default",
+												 overwriteExistingFiles:Object=":default"):*
 		{
 			if(IS_LOADING)
 				return alterQueue.push(function():void { loadQueueSynchro(pathsList,onComplete,individualComplete,onProgress) });
@@ -147,13 +182,17 @@ package  axl.utils
 			var filename:String;
 			var extension:String;
 			var subpath:String;
-			var prefix:String
+			var prefix:String;
+			
+			var prefixes:Object = (pathPrefixes == ':default' ? Ldr.defaultPathPrefixes : pathPrefixes);
+			if(fileInterfaceAvailable)
+			{
+				var storePath:Object = (storeDirectory == ':default' ? Ldr.defaultStoreDirectory : storeDirectory);
+				var overwrite:Object = (overwriteExistingFiles == ":default" ? Ldr.defaultOverwriteBehaviour : overwriteExistingFiles);
+			}
 			
 			var numElements:int;
 			var listeners:Array;
-			
-			var prefixes:Object = (pathPrefixes == ':default' ? Ldr.defaultPathPrefixes : pathPrefixes);
-			var storePath:String = (storeDirectory == ':default' ? Ldr.defaultStoreDirectory : storeDirectory);
 			
 			var prefixIndex:int=0;
 			var numPrefixes:int = prefixes.length;
@@ -194,7 +233,7 @@ package  axl.utils
 				// get initial details
 				if(!originalPath)
 				{
-					originalPath = subpath.substr()
+					originalPath = subpath.substr();
 					var i:int = originalPath.lastIndexOf("/") +1;
 					var j:int = originalPath.lastIndexOf("\\")+1;
 					var k:int = originalPath.lastIndexOf(".") +1;
@@ -252,6 +291,7 @@ package  axl.utils
 				function onUrlLoaderComplete(e:Object):void
 				{
 					var bytes:ByteArray = transformData(urlLoader.data as ByteArray, concatenatedPath);
+					saveIfRequested(bytes);
 					switch (extension.toLowerCase())
 					{
 						case "mpeg":
@@ -309,16 +349,38 @@ package  axl.utils
 			function validatePrefix(p:Object):String
 			{
 				if(p is String) return p as String;
-				if(p && p.hasOwnProperty('url')) return p.url as String;
+				if(p && p.hasOwnProperty('nativePath')) return p.nativePath as String;
 				if(++prefixIndex < numPrefixes) return validatePrefix(prefixes[prefixIndex]);
 				else return null;
 			}
-			function validateSubpath(p:Object):String
+			
+			
+			function saveIfRequested(data:ByteArray):void
 			{
-				if(p is String) return p as String;
-				if(p && p.hasOwnProperty('url')) return p.url as String;
-				else return null;
+				if(storePath && Ldr.fileInterfaceAvailable)
+				{
+					var storePrefix:String = validatePrefix(storePath);
+					try{
+						var f:Object = new FileClass(getConcatenatedPath(storePrefix, originalPath));
+						trace("resolved path:", f.url);
+						var fr:Object = new FileStreamClass();
+						fr.open(f, 'write');
+						fr.writeBytes(data);
+						fr.close();
+						fr = null;
+						f = null;
+						U.bin.trrace("saved", storePrefix, originalPath);
+						
+					} catch (e:*) {U.bin.trrace("save failed",storePrefix, originalPath) }
+				}
 			}
+		}
+		
+		private static function  validateSubpath(p:Object):String
+		{
+			if(p is String) return p as String;
+			if(p && p.hasOwnProperty('nativePath')) return p.nativePath as String;
+			else return null;
 		}
 		
 		private static function getConcatenatedPath(prefix:String, originalUrl:String):String
@@ -331,11 +393,13 @@ package  axl.utils
 			{
 				// workaround for inconsistency of traversing up directories. FP takes working dir, AIR doesn't
 				var initPath:String = prefix.match(/^(\.\.|$)/i) ?  FileClass.applicationDirectory.nativePath + '/' + prefix : prefix
+					trace('init path', initPath);
 				try {
 					var f:Object = new FileClass(initPath) 
 					initPath = f.resolvePath(f.nativePath + originalUrl).nativePath;
+					f = null;
 				}
-				catch (e:*) { U.bin.trrace(e), initPath = prefix + originalUrl}
+				catch (e:*) { U.bin.trrace(prefix + originalUrl, e), initPath = prefix + originalUrl}
 				return initPath;
 			}
 		}
@@ -391,7 +455,10 @@ package  axl.utils
 			if (headers)
 			{
 				for each (var header:Object in headers)
-				if (header.name == headerName) return header.value;
+				{
+					trace("HEADER", header.name, header.value);
+					if (header.name == headerName) return header.value;
+				}
 			}
 			return null;
 		}
