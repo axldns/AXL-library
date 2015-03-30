@@ -24,7 +24,7 @@ package axl.utils
 	import starling.display.Stage;
 	import starling.events.Event;
 	import starling.textures.Texture;
-	
+
 	/**
 	 * Geometric utilty, handy tool, stage setter, quick refference. 
 	 * Use <code>init</code> to init app flow: 
@@ -39,7 +39,6 @@ package axl.utils
 	
 	public class U
 	{
-		
 		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
 		/**
@@ -53,14 +52,12 @@ package axl.utils
 		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY
 		 */
 		public static var onInited:Function;
-		
 		/**
 		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY.
 		 * Pass a path to well formated xml (pattern) to load your config. If you omite it, none of the assets will be loaded at launch,
 		 * and Config class wont be instantiated
 		 */
 		public static var configPath:String;
-		
 		private static var rec:Rectangle;
 		private static var uSTG:flash.display.Stage;
 		private static var uRSTG:starling.display.Stage;
@@ -82,20 +79,12 @@ package axl.utils
 		private static var bsplash:DisplayObject;
 		private static var progressBar:IprogBar;
 		
-		private static var uassets:Assets;
-		private static var uconfig:Config;
-		
 		private static var ubin:BinAgent;
 		
 		
 		/** returns starling instance. Equivalent of starling.core.Starling.current */
 		public static function get starlingInstance():Starling { return ustarlingInstance }
 		
-		/** returns settings instance reference. Read Config class description to see what it does */
-		public static function get config():Config { return uconfig }
-		
-		/** returns assets instance reference. Read Assets class description to see what it does */
-		public static function get assets():Assets { return uassets }
 		
 		/*** returns bin agent reference. Read BinAgent class description to see what it does */
 		public static function get bin():BinAgent{ return ubin	}
@@ -256,6 +245,7 @@ package axl.utils
 			ob = null;
 			cont = null;
 			return totalSize - gap;
+			Ldr.defaultOverwriteBehaviour
 		}
 		
 		public static function distributePattern(cont:Object, gap:Object=0, horizontal:Boolean=true, offset:Number=0, scaleGapAndOffset:Boolean=false):Number
@@ -441,14 +431,10 @@ package axl.utils
 			rootStarlingClass = starlingRootClass;
 			SoundMixer.audioPlaybackMode  = 'media';
 			
-			// this should user do himself in order to get right order of directories lookup
-			//Ldr.alternativeDirPrefixPush(flashRoot.loaderInfo.url.substr(0,flashRoot.loaderInfo.url.lastIndexOf('/')));
-			
 			if(flashRoot.stage == null)
 				flashRoot.addEventListener(flash.events.Event.ADDED_TO_STAGE, stageCreated);
 			else
 				stageCreated();
-			
 		}
 		
 		protected static function stageCreated(event:flash.events.Event=null):void
@@ -462,37 +448,30 @@ package axl.utils
 			
 			Easing.init(STGf);
 			
-			uassets = new Assets();
 			if(configPath)
-			{
-				uconfig = new Config(configPath);
-				bin.trrace('CONFIG ADR');
-				uconfig.addEventListener(flash.events.Event.COMPLETE, configLoaded);
-				uconfig.load();
-			}
+				loadConfig();
 			else
 				initStarling();
 		}
-		
-		protected static function configLoaded(event:flash.events.Event):void
+		private static function loadConfig():void { Ldr.load(configPath,configLoaded) }
+		protected static function configLoaded():void
 		{
-			bin.trrace('--CONFIG LOADED--');
-			uconfig.removeEventListener(flash.events.Event.COMPLETE, configLoaded);
-			
-			var assetsToLoad:int = uconfig.assetsList.length;
-			var assetsLoaded:int = 0;
-			
-			if(progressBar)
-				STGf.addChild(progressBar as DisplayObject);
-			uassets.loadFromArray(U.config.assetsList, allAssetsLoaded, progressBar ? assetQueuedProgress : null);
-			
+			if(Ldr.getme(configPath) is XML)
+			{
+				bin.trrace('--CONFIG LOADED--');
+				if(progressBar)
+					STGf.addChild(progressBar as DisplayObject);
+				Ldr.load(Ldr.getme(configPath), initAssetsLoaded, progressBar ? assetQueuedProgress : null);
+			}
+			else
+				Messages.msg("Can't load config file. Tap to try again", loadConfig);
 			function assetQueuedProgress(n:String):void
 			{
-				progressBar.setProgress(++assetsLoaded / assetsToLoad);
+				progressBar.setProgress(Ldr.numCurrentRemaining / Ldr.numCurrentQueued);
 			}
 		}
 		
-		private static function allAssetsLoaded():void
+		private static function initAssetsLoaded():void
 		{
 			bin.trrace('--ASSETS LOADED--');
 			initStarling();
