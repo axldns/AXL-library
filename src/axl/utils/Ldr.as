@@ -17,7 +17,9 @@ import flash.utils.ByteArray;
 import flash.utils.getDefinitionByName;
 
 import axl.utils.Ldr;
-
+/**
+ * This class represents each <b> queue </b> (not a single asset)
+ */
 internal class Req extends EventDispatcher {
 	
 	public static var fileInterfaceAvailable:Boolean =  ApplicationDomain.currentDomain.hasDefinition('flash.filesystem::File');
@@ -35,6 +37,7 @@ internal class Req extends EventDispatcher {
 	private static var numAllOriginal:int=0; // all queus original
 	private var numElements:int =0; // current queue remaining
 	private var numOriginal:int=0; // current queue total
+	private var numCurrentLoaded:int = 0; // this increases when data is there and nulls out on destroy;
 	
 	public var prefix:String;
 	public var prefixIndex:int=0;
@@ -58,6 +61,7 @@ internal class Req extends EventDispatcher {
 	public var onComplete:Function;
 	public var individualComplete:Function;
 	public var onProgress:Function;
+	
 	private var pathList:Vector.<String> = new Vector.<String>();
 	
 	public var isLoading:Boolean;
@@ -74,6 +78,7 @@ internal class Req extends EventDispatcher {
 	public static function get numAllQueued():int { return numAllOriginal }
 	public static  function allQueuesDone():void { numAllOriginal =  numAllElements = 0}
 	
+	public function get numLoaded():Number { return numCurrentLoaded }
 	public function get numRemaining():int { return numElements }
 	public function get numQueued():int { return numOriginal }
 
@@ -89,17 +94,16 @@ internal class Req extends EventDispatcher {
 		numOriginal -=l;  		// this get null out while Req is done
 		numAllElements -= l; 	// this get substracted onBothLoadersComplete
 		numAllOriginal -= l;	// this get substracted while all queues are done by Ldr class
-		trace("FLATLIST", flatList);
 		for(i=0,j= flatList.length; i<j; i++)
 			if(pathList.indexOf(flatList[i]) < 0)
 				pathList.push(flatList[i]);
 		flatList.length = 0;
 		flatList = null;
-		trace("PATHLIST", pathList);
 		l = pathList.length;
 		numOriginal +=l;
 		numAllElements += l;
 		numAllOriginal += l;
+		log("[Ldr][Queue] added to queue. state:", Ldr.state);
 		return l;
 	}
 	
@@ -122,6 +126,7 @@ internal class Req extends EventDispatcher {
 		numOriginal +=l;
 		numAllElements += l;
 		numAllOriginal += l;
+		log("[Ldr][Queue] removed from queue. state: ' ", Ldr.state);
 		return l;
 	}
 	
@@ -181,7 +186,6 @@ internal class Req extends EventDispatcher {
 	{
 		isLoading = false;
 		isDone = true;
-		numOriginal = 0;
 		this.dispatchEvent(eventComplete);
 	}
 	
@@ -189,7 +193,6 @@ internal class Req extends EventDispatcher {
 	{
 		// validate end of queue
 		numElements = pathList.length;
-		log("nextelement", Req.numAllRemaining, '/', numAllOriginal);
 		if(numElements < 1)
 			return finalize();
 		if(!isLoading) // can be paused
@@ -212,14 +215,13 @@ internal class Req extends EventDispatcher {
 		//validate already existing elements - this should be up to user if he wants to unload current contents !
 		if(objects[filename] || urlLoaders[filename] || loaders[filename])
 		{
-			log(this,"OBJECT ALREADY EXISTS:",filename,'/',objects[filename],'/', urlLoaders[filename],'/', loaders[filename]);
+			log("[Ldr][Queue] OBJECT ALREADY EXISTS:",filename);//,'/',objects[filename],'/', urlLoaders[filename],'/', loaders[filename]);
 			return nextElement();
 		}
 		
 		//merge prefix & subpath
 		concatenatedPath = getConcatenatedPath(prefix, originalPath);
 		
-		log('setup loader for', concatenatedPath);
 		//setup loaders and load
 		urlLoader = new URLLoader();
 		urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
@@ -228,6 +230,7 @@ internal class Req extends EventDispatcher {
 		listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
 		addListeners.apply(null, listeners);
 		urlRequest = new URLRequest(concatenatedPath);
+		log("[Ldr][Queue] loading:", urlRequest.url);
 		urlLoader.load(urlRequest);
 		// end of nextElement flow - waiting for eventDispatchers
 		return true
@@ -246,9 +249,10 @@ internal class Req extends EventDispatcher {
 	
 	private function onUrlLoaderComplete(e:Object):void
 	{
-		log('first loader complete', e != null);
+		log("[Ldr][Queue] loaded:", filename, '  |processing');
 		var bytes:ByteArray = urlLoader.data as ByteArray;
-		saveIfRequested(bytes);
+		if(bytes)
+			saveIfRequested(bytes);
 		switch (extension.toLowerCase())
 		{
 			case "mpeg":
@@ -265,7 +269,7 @@ internal class Req extends EventDispatcher {
 				bothLoadersComplete(XML(bytes));
 				break
 			case 'json':
-				bothLoadersComplete(JSON.parse(bytes.readUTF()))
+				bothLoadersComplete(JSON.parse(bytes.readUTFBytes(bytes.length)))
 				break;
 			default: // any other remains untouched, atf is here too
 				bothLoadersComplete(bytes);
@@ -275,10 +279,9 @@ internal class Req extends EventDispatcher {
 	
 	private function bothLoadersComplete(asset:Object):Boolean // check if it does not crash because of type returning
 	{
-		log('adding..', filename);
 		objects[filename] = asset;
 		delete urlLoaders[filename];
-		// do not delete loaders!
+		var url:String = urlRequest.url;
 		if(urlLoader)
 			removeListeners.apply(null, listeners);
 		
@@ -288,17 +291,31 @@ internal class Req extends EventDispatcher {
 			loaderInfo.removeEventListener(Event.COMPLETE, onLoaderComplete);
 		}
 		
-		trace('['+prefixIndex+']', asset ? 'loaded:' : 'fail:',  urlRequest.url);
+		
 		
 		if((asset == null) && (++prefixIndex < numPrefixes))
+		{
 			pathList.push(originalPath);
+			log("[Ldr][Queue] soft fail ["+String(prefixIndex-1)+'/'+ String(prefixes.length-1)+ ']:', url, 
+				'\n[Ldr][Queue] Trying alternative dir:', prefixes[prefixIndex]);
+		}
 		else
 		{
+			if(asset != null)
+			{
+				log("[Ldr][Queue] LOADED:", filename);
+				numCurrentLoaded++;
+			}
+			else
+			{
+				log("[Ldr][Queue] HARD FAIL:", subpath, "NO MORE ALTERNATIVES");
+			}
 			prefixIndex=0;
 			originalPath = null;
 			numAllElements--;
 			if(individualComplete is Function)
 				individualComplete(filename);
+			log("[Ldr][Queue] next element. state:", Ldr.state);
 		}
 		return nextElement();
 	}
@@ -311,11 +328,12 @@ internal class Req extends EventDispatcher {
 			var storePrefix:String = validatePrefix(storePath);
 			var sameDirectory:Boolean;
 			try{
-				log('saving async', originalPath);
-				var f:Object = new FileClass(getConcatenatedPath(storePrefix, originalPath));
+				log("[Ldr][Queue][Save] processing:", originalPath);
+				var path:String = getConcatenatedPath(storePrefix, originalPath);
+				var f:Object = new FileClass(path);
 				sameDirectory = (f.nativePath == concatenatedPath);
 				if(sameDirectory)
-					return log("Load and Store directory are equal, abort");
+					return log("[Ldr][Queue][Save] Load and Store directory are equal, abort");
 				var fr:Object = new FileStreamClass();
 					fr.addEventListener(Event.COMPLETE, fropen);
 					fr.openAsync(f, 'write');
@@ -325,11 +343,11 @@ internal class Req extends EventDispatcher {
 					fr.writeBytes(data);
 					fr.close();
 					fr = null;
+					log("[Ldr][Queue][Save] saved:", f.nativePath, '[', data.length / 1024, 'kb]');
 					f = null;
-					log("saved", storePrefix, originalPath,  data ? data.length / 1024 : 0, 'kb');
 				}
 			} catch (e:*) {
-				log("save failed",storePrefix, originalPath,e, data ? data.length / 1024 : 0, 'kb')
+				log("[Ldr][Queue][Save] FAIL:",path,e)
 			}
 		}
 	}
@@ -379,7 +397,10 @@ internal class Req extends EventDispatcher {
 				initPath = f.resolvePath(f.nativePath + originalUrl).nativePath;
 				f = null;
 			}
-			catch (e:*) { log(prefix + originalUrl, e), initPath = prefix + originalUrl}
+			catch (e:*) { 
+				log('[Ldr][Queue] can not resolve path:',prefix + originalUrl, e, 'trying as URLloader');
+				initPath = prefix + originalUrl;
+			}
 			return initPath;
 		}
 	}
@@ -408,13 +429,8 @@ internal class Req extends EventDispatcher {
 	private  function getHttpHeader(headers:Array, headerName:String):String
 	{
 		if (headers)
-		{
 			for each (var header:Object in headers)
-			{
-				trace("HEADER", header.name, header.value);
 				if (header.name == headerName) return header.value;
-			}
-		}
 		return null;
 	}
 	
@@ -448,7 +464,8 @@ internal class Req extends EventDispatcher {
 	
 	public function destroy():void
 	{
-		// TODO Auto Generated method stub
+		numOriginal = 0;
+		numCurrentLoaded = 0;
 	}
 }
 package  axl.utils
@@ -461,6 +478,8 @@ package  axl.utils
 	import flash.events.Event;
 	import flash.media.Sound;
 	import flash.net.URLLoader;
+	import flash.system.System;
+	import flash.utils.getTimer;
 	
 	/**
 	 * <h1>Singletone files loader </h1>
@@ -487,7 +506,11 @@ package  axl.utils
 	 */
 	public class Ldr
 	{
-	
+		
+		private static function log(...args):void { if(_verbose is Function) _verbose.apply(null,args) }
+		public static function set verbose(func:Function):void { _verbose = func, Req.verbose = _verbose }
+		private static var _verbose:Function;
+		verbose = trace;
 		
 		private static var objects:Object = {};
 		private static var urlLoaders:Object = {};
@@ -583,6 +606,8 @@ package  axl.utils
 		 * and already loaded files within session (from the moment there were no queues at all). Gets back to 0 once all queues are done. */
 		public static function get numTotalQueued():int { return Req.numAllQueued}
 		
+		public static function get numCurrentLoaded():int  { return (numQueues > 0) ? requests[0].numLoaded : 0 }
+		
 		
 		/** 
 		 * adds path, file or list to load to current queue. 
@@ -630,17 +655,40 @@ package  axl.utils
 		 * @see Ldr#load
 		 * @see Ldr#defaultPathPrefixes
 		 */
-		public static function getme(v:String):Object { return objects[v] || getmeFromPath(v) }
-		public static function getmeFromPath(v:String):Object
+		public static function getAny(v:String):Object { return objects[v] || getmeFromPath(v) }
+		private static function getmeFromPath(v:String):Object
 		{
 			var i:int = v.lastIndexOf('/')+1, j:int = v.lastIndexOf('\\')+1;
 			return objects[v.substr(i>j?i:j)];
 		}
 		
-		public static function getBitmap(v:String):Bitmap { return getme(v) as Bitmap }
-		public static function getXML(v:String):XML { return getme(v) as XML }
-		public static function getJSON(v:String):Object { return getme(v) }
-		public static function getSound(v:String):Sound { return getme(v) as Sound }
+		public static function getBitmap(v:String):Bitmap { return getAny(v) as Bitmap }
+		public static function getXML(v:String):XML { return getAny(v) as XML }
+		public static function getJSON(v:String):Object { return getAny(v) }
+		public static function getSound(v:String):Sound { return getAny(v) as Sound }
+		public static function getMatching(regexp:String,target:Array=null, onlyTypes:Array=null):Array
+		{
+			target = target || [];
+			var ti:int = target.length;
+			for (var s:String in objects)
+				if(s.match(regexp))
+					target[ti++] = objects[s];
+			if(onlyTypes is Array)
+				for(;ti-->0;)
+					for(var c:Class in onlyTypes)
+						if(!(target[ti] is c))
+							target.splice(ti++,1);
+			return target;
+		}
+		public static function getNames(regexp:String='',target:Vector.<String>=null):Vector.<String>
+		{
+			target = target || new Vector.<String>();
+			var ti:int = target.length;
+			for (var s:String in objects)
+				if(s.match(regexp))
+					target[ti++] = s;
+			return target;
+		}
 			
 		/**
 		 * Loads all assets <strong>synchroniously</strong> from array of paths or subpaths,
@@ -696,12 +744,12 @@ package  axl.utils
 												,onProgress:Function=null, pathPrefixes:Object=":default", storeDirectory:Object=":default",
 												 overwriteExistingFiles:Object=":default"):int
 		{
-			Req.verbose = trace;
+			log("[Ldr] load request while state:", state);
 			var req:Req, id:int = 0;
 			if(resources == null)
 			{
 				if((requests.length < 1))
-					return -1;
+					return (onComplete is Function) ? onComplete() : -1;
 				else if(requests[0].isLoading)
 					return 0;
 				else
@@ -724,7 +772,6 @@ package  axl.utils
 				req.onProgress = onProgress;
 				
 				req.addPaths(resources);
-				
 			if(!IS_LOADING)
 			{
 				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
@@ -751,14 +798,27 @@ package  axl.utils
 					Req.allQueuesDone();
 					req = null;
 				}
+				log("[Ldr] load request completed. state:", state);
 				if(rComplete is Function)
 					rComplete();
 				rComplete=null;
 			}		
 		}
-		private static function log(v:String):void { U.bin.trrace("LDR:", v) }
 		
-	
+		public static function get state():String
+		{
+			var s:String = String(
+			'| isLoading:' + isLoading + 
+			'| numQueues:' + numQueues + 
+			'| numTotalQueued:' +  numTotalQueued + 
+			'| numTotalRemaining:' + numTotalRemaining +  
+			'| numCurrentQueued:' + numCurrentQueued +  
+			'| numCurrentRemaining:' +  numCurrentRemaining + 
+			'| numCurrentLoaded:' + numCurrentLoaded +
+			'| timestamp:' +  new Date().time + '|'
+			);
+			return s;
+		}
 		
 		/**
 		 * Unloads / clears / disposes loaded data, removes display objects from display list
@@ -779,6 +839,8 @@ package  axl.utils
 					o.bitmapData.dispose();
 					o.bitmapData = null;
 				}
+				else if (o is XML)
+					flash.system.System.disposeXML(o as XML)
 				try { o.close() } catch (e:*) {}
 			}
 			if(l)
@@ -801,6 +863,5 @@ package  axl.utils
 			delete loaders[filename];
 			delete objects[filename];
 		}
-		
 	}
 }

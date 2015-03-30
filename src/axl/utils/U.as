@@ -456,12 +456,12 @@ package axl.utils
 		private static function loadConfig():void { Ldr.load(configPath,configLoaded) }
 		protected static function configLoaded():void
 		{
-			if(Ldr.getme(configPath) is XML)
+			if(Ldr.getAny(configPath) is XML)
 			{
 				bin.trrace('--CONFIG LOADED--');
 				if(progressBar)
 					STGf.addChild(progressBar as DisplayObject);
-				Ldr.load(Ldr.getme(configPath), initAssetsLoaded, progressBar ? assetQueuedProgress : null);
+				initAssetsLoaded();//Ldr.load(Ldr.getme(configPath), initAssetsLoaded, progressBar ? assetQueuedProgress : null);
 			}
 			else
 				Messages.msg("Can't load config file. Tap to try again", loadConfig);
