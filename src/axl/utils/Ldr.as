@@ -46,13 +46,13 @@ internal class Req extends EventDispatcher {
 	public static function get numAllRemaining():int { return _numAllRemaining}
 	public static function get numAllQueued():int { return _numAllQueued }
 	public static function get numAllLoaded():int { return _numAllLoaded }
-	public static function get numAllSkipped():int { return _numAllQueued - _numAllRemaining - _numAllLoaded }
+	public static function get numAllSkipped():int { return _numAllQueued - _numAllLoaded - _numAllRemaining }
 	
 	public function currentQueueDone():void { numCurrentQueued = numCurrentLoaded = numCurrentRemaining = 0 }
 	public function get numLoaded():int { return numCurrentLoaded }
 	public function get numRemaining():int { return numCurrentRemaining }
 	public function get numQueued():int { return numCurrentQueued }
-	public function get numSkipped():int { return numCurrentQueued - numCurrentRemaining - numCurrentLoaded }
+	public function get numSkipped():int { return numCurrentQueued - numCurrentLoaded - numCurrentRemaining }
 
 	private var prefixList:Vector.<String> = new Vector.<String>();
 	private var prefix:String;
