@@ -17,6 +17,7 @@ import flash.utils.ByteArray;
 import flash.utils.getDefinitionByName;
 
 import axl.utils.Ldr;
+
 /**
  * This class represents each <b> queue </b> (not a single asset)
  */
@@ -26,43 +27,57 @@ internal class Req extends EventDispatcher {
 	public static var FileClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::File') as Class : null;
 	public static var FileStreamClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::FileStream') as Class : null;
 	
+	private static function log(...args):void { if(verbose is Function) verbose.apply(null,args) }
+	public static var verbose:Function;
 	
 	public static var loaders:Object;
 	public static var urlLoaders:Object;
 	public static var objects:Object;
-	public static var verbose:Function;
-	private static function log(...args):void { if(verbose is Function) verbose.apply(null,args) }
 	
-	private static var numAllElements:int=0; // all queues remaining
-	private static var numAllOriginal:int=0; // all queus original
-	private var numElements:int =0; // current queue remaining
-	private var numOriginal:int=0; // current queue total
-	private var numCurrentLoaded:int = 0; // this increases when data is there and nulls out on destroy;
 	
-	public var prefix:String;
-	public var prefixIndex:int=0;
-	private var uprefixes:Object;
-	public var numPrefixes:int;
+	private static var _numAllRemaining:int=0; // -- every item loaded or skipped. 0 on all queues done
+	private static var _numAllQueued:int=0; //  ++ every item queued. 0 on all queues done
+	private static var _numAllLoaded:int=0; // ++ every item loaded. 0 on all queues done
+	private var numCurrentRemaining:int =0; // -- current queue item loaded or skipped. 0 current queue done
+	private var numCurrentQueued:int=0; // ++ current queue item added. 0 current queue done
+	private var numCurrentLoaded:int=0; // ++ current queue item loaded. 0 current queue done
 	
-	public var originalPath:String;
-	public var concatenatedPath:String;
-	public var filename:String;
-	public var extension:String;
-	public var subpath:String;
+	public static function allQueuesDone():void { _numAllQueued = _numAllRemaining = _numAllLoaded = 0}
+	public static function get numAllRemaining():int { return _numAllRemaining}
+	public static function get numAllQueued():int { return _numAllQueued }
+	public static function get numAllLoaded():int { return _numAllLoaded }
+	public static function get numAllSkipped():int { return _numAllQueued - _numAllRemaining - _numAllLoaded }
 	
-	public var storePath:Object;
-	public var overwrite:Object
+	public function currentQueueDone():void { numCurrentQueued = numCurrentLoaded = numCurrentRemaining = 0 }
+	public function get numLoaded():int { return numCurrentLoaded }
+	public function get numRemaining():int { return numCurrentRemaining }
+	public function get numQueued():int { return numCurrentQueued }
+	public function get numSkipped():int { return numCurrentQueued - numCurrentRemaining - numCurrentLoaded }
+
+	private var prefixList:Vector.<String> = new Vector.<String>();
+	private var prefix:String;
+	private var prefixIndex:int=0;
+	private var numPrefixes:int;
+	
+	private var pathList:Vector.<String> = new Vector.<String>();
+	private var originalPath:String;
+	private var concatenatedPath:String;
+	private var subpath:String;
+	private var filename:String;
+	private var extension:String;
+	
+	public var writefiles:Object
+	private var storePrefix:String;
 	
 	private var listeners:Array;
 	
 	public var urlRequest:URLRequest;
 	public var urlLoader:URLLoader;
 	public var loaderInfo:LoaderInfo;
+	
 	public var onComplete:Function;
 	public var individualComplete:Function;
 	public var onProgress:Function;
-	
-	private var pathList:Vector.<String> = new Vector.<String>();
 	
 	public var isLoading:Boolean;
 	public var isDone:Boolean;
@@ -74,60 +89,68 @@ internal class Req extends EventDispatcher {
 		
 	}
 	
-	public static function get numAllRemaining():int { return numAllElements}
-	public static function get numAllQueued():int { return numAllOriginal }
-	public static  function allQueuesDone():void { numAllOriginal =  numAllElements = 0}
-	
-	public function get numLoaded():Number { return numCurrentLoaded }
-	public function get numRemaining():int { return numElements }
-	public function get numQueued():int { return numOriginal }
-
-	/**
-	 * array or vector or xml. translates to strings
-	 */
 	public function addPaths(v:Object):int
 	{
-		
 		var flatList:Vector.<String> = new Vector.<String>();
 			flatList = getFlatList(v, flatList);
 		var i:int, j:int, l:int = pathList.length;
-		numOriginal -=l;  		// this get null out while Req is done
-		numAllElements -= l; 	// this get substracted onBothLoadersComplete
-		numAllOriginal -= l;	// this get substracted while all queues are done by Ldr class
+		counters(-l);
 		for(i=0,j= flatList.length; i<j; i++)
 			if(pathList.indexOf(flatList[i]) < 0)
-				pathList.push(flatList[i]);
+				pathList[l++] = flatList[i];
 		flatList.length = 0;
 		flatList = null;
-		l = pathList.length;
-		numOriginal +=l;
-		numAllElements += l;
-		numAllOriginal += l;
+		counters(l);
 		log("[Ldr][Queue] added to queue. state:", Ldr.state);
 		return l;
 	}
 	
 	public function removePaths(v:Object):int
 	{
-		
 		var flatList:Vector.<String> = new Vector.<String>();
 		flatList = getFlatList(v, flatList);
 		var i:int, j:int, k:int, l:int = pathList.length;
-		numOriginal -=l;
-		numAllElements -= l;
-		numAllOriginal -= l;
+		counters(-l);
 		for(i=0,j= flatList.length; i<j; i++) {
 			k = pathList.indexOf(flatList[i]);
 			if(k>-1)
-				pathList.splice(k,1);}
+				pathList.splice(k,1), i--;
+		}
 		flatList.length = 0;
 		flatList = null;
 		l = pathList.length;
-		numOriginal +=l;
-		numAllElements += l;
-		numAllOriginal += l;
+		counters(l);
 		log("[Ldr][Queue] removed from queue. state: ' ", Ldr.state);
 		return l;
+	}
+	
+	private function counters(v:int):void
+	{
+		numCurrentRemaining +=v;
+		numCurrentQueued += v;
+		_numAllRemaining += v;
+		_numAllQueued += v;
+	}
+	
+	public function addPrefixes(v:Object):int
+	{
+		var flatList:Vector.<String> = new Vector.<String>();
+		flatList = getFlatList(v, flatList);
+		var i:int, j:int, k:int, l:int = prefixList.length;
+		for(i=0,j= flatList.length; i<j; i++)
+			if(prefixList.indexOf(flatList[i]) < 0)
+				prefixList[l++] = flatList[i];
+		flatList.length = 0;
+		flatList = null;
+		numPrefixes = prefixList.length;
+		return numPrefixes;
+	}
+	
+	public function set storePath(v:Object):void
+	{
+		if(v is String) storePrefix = v  as String;
+		else if(fileInterfaceAvailable && v is FileClass && v.isDirectory) storePrefix = v.nativePath;
+		else storePrefix = null;
 	}
 	
 	private function getFlatList(v:Object, ar:Vector.<String>):Vector.<String>
@@ -153,62 +176,63 @@ internal class Req extends EventDispatcher {
 			flat.push(addition + nodefiles[i].toString());
 	}
 	
-	public function get prefixes():Object { return uprefixes }
 	
-	public function set prefixes(value:Object):void
+	private function get validatedPrefix():String
 	{
-		uprefixes = value;
-		if(!prefixes || (prefixes.length < 1))
-			prefixes = [""];
-		numPrefixes = prefixes.length;
-	}
-	
-	private function validatePrefix(p:Object):String
-	{
-		if(p is String) return p as String;
-		if(p && p.hasOwnProperty('nativePath')) return p.nativePath as String;
-		if(++prefixIndex < numPrefixes) return validatePrefix(prefixes[prefixIndex]);
+		if(prefixList.length < 1)
+		{
+			prefixList[0] = '';
+			numPrefixes = prefixList.length;
+		}
+		if(prefixIndex < numPrefixes) return prefixList[prefixIndex];
 		else return null;
 	}
+	
+	private function getSubpathDetails():void
+	{
+		originalPath = subpath.substr();
+		var i:int = originalPath.lastIndexOf("/") +1;
+		var j:int = originalPath.lastIndexOf("\\")+1;
+		var k:int = originalPath.lastIndexOf(".") +1;
+		
+		extension	= originalPath.slice(k);
+		filename 	= originalPath.slice(i>j?i:j);
+	}	
+	
 	
 	public function stop():void { pathList = null }
 	
 	public function load():void
 	{
-		isLoading = true
-		if(pathList != null)
-			nextElement();
-		else
-			finalize();
+		log("[Ldr][Queue] start");
+		isLoading = true;
+		nextElement();
 	}
 	
 	private function finalize():void
 	{
+		this.dispatchEvent(eventComplete);
 		isLoading = false;
 		isDone = true;
-		this.dispatchEvent(eventComplete);
 	}
 	
 	private function nextElement():Boolean
 	{
 		// validate end of queue
-		numElements = pathList.length;
-		if(numElements < 1)
+		numCurrentRemaining = pathList.length;
+		if(numCurrentRemaining < 1)
 			return finalize();
 		if(!isLoading) // can be paused
 			return false
 		
-		// strips nativePath from files. from now on we deal with strings only
-		prefix = validatePrefix(prefixes[prefixIndex]);
+		prefix = validatedPrefix;
 		subpath = pathList.pop();
 		
-		//can ommit incorect data since we've validated prefix existence
-		// at set prefixes. subpath should throw an error or log message at least though
+		//subpath should throw an error or log message at least though
 		if(!(prefix is String) || !(subpath is String))
 			return nextElement();
 		
-		// get initial details. originalPath is nulled out in 
-		// onBothloadersComplete if there are no more alternative prefixes
+		// get initial details. originalPath is nulled out in onBothloadersComplete
 		if(!originalPath)
 			getSubpathDetails();		
 		
@@ -216,6 +240,10 @@ internal class Req extends EventDispatcher {
 		if(objects[filename] || urlLoaders[filename] || loaders[filename])
 		{
 			log("[Ldr][Queue] OBJECT ALREADY EXISTS:",filename);//,'/',objects[filename],'/', urlLoaders[filename],'/', loaders[filename]);
+			_numAllRemaining--;
+			numCurrentRemaining--;
+			if(individualComplete is Function)
+				individualComplete(filename);
 			return nextElement();
 		}
 		
@@ -235,17 +263,6 @@ internal class Req extends EventDispatcher {
 		// end of nextElement flow - waiting for eventDispatchers
 		return true
 	}
-	
-	private function getSubpathDetails():void
-	{
-		originalPath = subpath.substr();
-		var i:int = originalPath.lastIndexOf("/") +1;
-		var j:int = originalPath.lastIndexOf("\\")+1;
-		var k:int = originalPath.lastIndexOf(".") +1;
-		
-		extension	= originalPath.slice(k);
-		filename 	= originalPath.slice(i>j?i:j);
-	}	
 	
 	private function onUrlLoaderComplete(e:Object):void
 	{
@@ -277,7 +294,7 @@ internal class Req extends EventDispatcher {
 		}
 	}
 	
-	private function bothLoadersComplete(asset:Object):Boolean // check if it does not crash because of type returning
+	private function bothLoadersComplete(asset:Object):Boolean
 	{
 		objects[filename] = asset;
 		delete urlLoaders[filename];
@@ -291,20 +308,19 @@ internal class Req extends EventDispatcher {
 			loaderInfo.removeEventListener(Event.COMPLETE, onLoaderComplete);
 		}
 		
-		
-		
 		if((asset == null) && (++prefixIndex < numPrefixes))
 		{
 			pathList.push(originalPath);
-			log("[Ldr][Queue] soft fail ["+String(prefixIndex-1)+'/'+ String(prefixes.length-1)+ ']:', url, 
-				'\n[Ldr][Queue] Trying alternative dir:', prefixes[prefixIndex]);
+			log("[Ldr][Queue] soft fail ["+String(prefixIndex-1)+'/'+ String(prefixList.length-1)+ ']:', url, 
+				'\n[Ldr][Queue] Trying alternative dir:', validatedPrefix);
 		}
 		else
 		{
 			if(asset != null)
 			{
-				log("[Ldr][Queue] LOADED:", filename);
+				log("[Ldr][Queue] LOADED:", url);
 				numCurrentLoaded++;
+				_numAllLoaded++;
 			}
 			else
 			{
@@ -312,10 +328,11 @@ internal class Req extends EventDispatcher {
 			}
 			prefixIndex=0;
 			originalPath = null;
-			numAllElements--;
+			_numAllRemaining--;
+			numCurrentRemaining--;
 			if(individualComplete is Function)
 				individualComplete(filename);
-			log("[Ldr][Queue] next element. state:", Ldr.state);
+			log("[Ldr][Queue] element completed. state:", Ldr.state);
 		}
 		return nextElement();
 	}
@@ -323,34 +340,30 @@ internal class Req extends EventDispatcher {
 	
 	private function saveIfRequested(data:ByteArray):void
 	{
-		if(storePath && FileClass)
+		if(storePrefix && fileInterfaceAvailable)
 		{
-			var storePrefix:String = validatePrefix(storePath);
 			var sameDirectory:Boolean;
 			try{
-				log("[Ldr][Queue][Save] processing:", originalPath);
+				log("[Ldr][Queue][Save] saving:", originalPath);
 				var path:String = getConcatenatedPath(storePrefix, originalPath);
 				var f:Object = new FileClass(path);
 				sameDirectory = (f.nativePath == concatenatedPath);
 				if(sameDirectory)
 					return log("[Ldr][Queue][Save] Load and Store directory are equal, abort");
 				var fr:Object = new FileStreamClass();
-					fr.addEventListener(Event.COMPLETE, fropen);
 					fr.openAsync(f, 'write');
-				
-				function fropen(e:Event):void {
-					fr.removeEventListener(Event.COMPLETE, fropen);
 					fr.writeBytes(data);
 					fr.close();
 					fr = null;
-					log("[Ldr][Queue][Save] saved:", f.nativePath, '[', data.length / 1024, 'kb]');
+					log("[Ldr][Queue][Save] SAVED:", f.nativePath, '[', data.length / 1024, 'kb]');
 					f = null;
-				}
 			} catch (e:*) {
 				log("[Ldr][Queue][Save] FAIL:",path,e)
 			}
 		}
 	}
+	
+	// event handlers
 	private function onHttpResponseStatus(e:HTTPStatusEvent):void
 	{
 		if (extension == null)
@@ -365,10 +378,9 @@ internal class Req extends EventDispatcher {
 	
 	private function onLoadProgress(e:ProgressEvent):void
 	{
-		if (onProgress is Function && e.bytesTotal > 0)
-			onProgress(e.bytesLoaded / e.bytesTotal, numOriginal - numElements, numOriginal, filename);
+		if(e.bytesTotal > 0)
+			onProgress(e.bytesLoaded / e.bytesTotal, numCurrentQueued - numCurrentRemaining, numCurrentQueued, filename);
 	}
-	
 	
 	private function onLoaderComplete(event:Object):void
 	{
@@ -382,6 +394,7 @@ internal class Req extends EventDispatcher {
 		bothLoadersComplete(null);
 	}
 	
+	// helpers
 	private function getConcatenatedPath(prefix:String, originalUrl:String):String
 	{
 		if(prefix.match( /(\/$|\\$)/) && originalUrl.match(/(^\/|^\\)/))
@@ -404,7 +417,6 @@ internal class Req extends EventDispatcher {
 			return initPath;
 		}
 	}
-	
 	
 	private static function instantiateImage(bytes:ByteArray, onIoError:Function, onLoaderComplete:Function):LoaderInfo
 	{
@@ -434,23 +446,25 @@ internal class Req extends EventDispatcher {
 		return null;
 	}
 	
-	private static function addListeners(urlLoader:URLLoader, onIoError:Function, onSecurityError:Function, 
+	private function addListeners(urlLoader:URLLoader, onIoError:Function, onSecurityError:Function, 
 										 onHttpResponseStatus:Function, onLoadProgress:Function, onUrlLoaderComplete:Function):void
 	{
 		urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
 		urlLoader.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onSecurityError);
 		urlLoader.addEventListener(HTTPStatusEvent.HTTP_STATUS, onHttpResponseStatus);
-		urlLoader.addEventListener(ProgressEvent.PROGRESS, onLoadProgress);
 		urlLoader.addEventListener(Event.COMPLETE, onUrlLoaderComplete);
+		if(onProgress is Function)
+			urlLoader.addEventListener(ProgressEvent.PROGRESS, onLoadProgress);
 	}
-	private static function removeListeners(urlLoader:URLLoader, onIoError:Function, onSecurityError:Function, 
+	private  function removeListeners(urlLoader:URLLoader, onIoError:Function, onSecurityError:Function, 
 											onHttpResponseStatus:Function, onLoadProgress:Function, onUrlLoaderComplete:Function):void
 	{
 		urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onIoError);
 		urlLoader.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, onSecurityError);
 		urlLoader.removeEventListener(HTTPStatusEvent.HTTP_STATUS, onHttpResponseStatus);
-		urlLoader.removeEventListener(ProgressEvent.PROGRESS, onLoadProgress);
 		urlLoader.removeEventListener(Event.COMPLETE, onUrlLoaderComplete);
+		if(urlLoader.hasEventListener(ProgressEvent.PROGRESS))
+			urlLoader.removeEventListener(ProgressEvent.PROGRESS, onLoadProgress);
 	}
 	
 	private static var _context:LoaderContext;
@@ -464,8 +478,7 @@ internal class Req extends EventDispatcher {
 	
 	public function destroy():void
 	{
-		numOriginal = 0;
-		numCurrentLoaded = 0;
+		
 	}
 }
 package  axl.utils
@@ -479,7 +492,6 @@ package  axl.utils
 	import flash.media.Sound;
 	import flash.net.URLLoader;
 	import flash.system.System;
-	import flash.utils.getTimer;
 	
 	/**
 	 * <h1>Singletone files loader </h1>
@@ -510,24 +522,22 @@ package  axl.utils
 		private static function log(...args):void { if(_verbose is Function) _verbose.apply(null,args) }
 		public static function set verbose(func:Function):void { _verbose = func, Req.verbose = _verbose }
 		private static var _verbose:Function;
+		private static const defaultValue:String = ":default";
+		
 		verbose = trace;
 		
 		private static var objects:Object = {};
 		private static var urlLoaders:Object = {};
 		private static var loaders:Object = {};
+		private static var requests:Vector.<Req> = new Vector.<Req>();
 		
 		Req.loaders = loaders;
 		Req.objects = objects;
 		Req.urlLoaders = urlLoaders;
 		
-		private static var requests:Vector.<Req> = new Vector.<Req>();
-		//private static var requests:Array = [];
-		
 		private static var IS_LOADING:Boolean;
-		
 		public static var policyFileCheck:Boolean;
 		
-		private static var locationPrefixes:Array = [];
 		
 		/**
 		 * (AIR only)
@@ -559,7 +569,7 @@ package  axl.utils
 		 * 
 		 * @see Ldr#load
 		 */
-		public static var defaultOverwriteBehaviour:Object = 'networkOnly';
+		public static var defaultStoringBehaviour:Object = '';
 		
 		
 		/**
@@ -585,28 +595,47 @@ package  axl.utils
 		 * <br>for web apps.
 		 * <br>relative paths are allowed with standard ActionsScirpt rules.
 		 * @see Ldr#load */
-		public static function  get defaultPathPrefixes():Array { return locationPrefixes }
+		public static var defaultPathPrefixes:Object = [];
 		
 		/** tells you if any loading is in progress */
-		public static function get isLoading():Boolean 	{ return IS_LOADING }
-		
-		/** returns remaining number of object to load in <u>current</u> queue */
-		public static function get numCurrentRemaining():int { return (numQueues > 0) ? requests[0].numRemaining : 0 }
-		
-		/** returns number of paths which has been originally scheduled to load (takes add- and remove- toCurrentQueue into account)*/
-		public static function get numCurrentQueued():int { return (numQueues > 0) ? requests[0].numQueued : 0}
+		public static function get isLoading():Boolean 	{ return (numQueues > 0) &&  requests[0].isLoading }
 		
 		/** returns number of queues including current one */
 		public static function get numQueues():int { return requests.length }
 		
-		/** returns number of all remainig elements in all queues including current one. */
-		public static function get numTotalRemaining():int { return Req.numAllRemaining }
+		/** returns number of elelements remained to load within current queue. 0 if there is no current queue */
+		public static function get numCurrentRemaining():int { return (numQueues > 0) ? requests[0].numRemaining : 0}
 		
-		/** returns number of all originally queued elements in all queues. includes current queue
-		 * and already loaded files within session (from the moment there were no queues at all). Gets back to 0 once all queues are done. */
-		public static function get numTotalQueued():int { return Req.numAllQueued}
+		/** returns number of elements that has been originally scheduled to load. 0 if there is no current queue */
+		public static function get numCurrentQueued():int { return (numQueues > 0) ? requests[0].numQueued : 0}
 		
-		public static function get numCurrentLoaded():int  { return (numQueues > 0) ? requests[0].numLoaded : 0 }
+		/** returns number of successfully loaded elements in current queue. 0 if there is no current queue */
+		public static function get numCurrentLoaded():int { return (numQueues > 0) ? requests[0].numLoaded : 0}
+		
+		/** returns number of elements that failed to load within current queue. 0 if there is no current queue */
+		public static function get numCurrentSkipped():int { return (numQueues > 0) ? requests[0].numSkipped : 0}
+		
+		/** returns number of all remainig elements in all queues. Rolls back to 0 when all queues are done*/
+		public static function get numAllRemaining():int { return Req.numAllRemaining }
+		
+		/** returns number of all originally queued elements in all queues. Rolls back to 0 once all queues are done. */
+		public static function get numAllQueued():int { return Req.numAllQueued }
+		
+		/** returns number of all successfully loaded elements in all queues.  Rolls back to 0 once all queues are done. */
+		public static function get numAllLoaded():int { return Req.numAllLoaded }
+		
+		/** returns number of all elements that failed to load within all queues. Rolls back to 0 once all queues are done. */
+		public static function get numAllSkipped():int { return Req.numAllSkipped } 
+		
+		
+		/*
+		private static var _numAllRemaining:int=0; // -- every item loaded or skipped. 0 on all queues done
+		private static var _numAllQueued:int=0; //  ++ every item queued. 0 on all queues done
+		private static var _numAllLoaded:int=0; // ++ every item loaded. 0 on all queues done
+		private var numCurrentRemaining:int =0; // ++every item added, --current queue item loaded or skipped. 0 current queue done
+		private var numCurrentQueued:int=0; // ++ current queue item added. 0 current queue done
+		private var numCurrentLoaded:int=0; // ++ current queue item loaded. 0 current queue done
+		*/
 		
 		
 		/** 
@@ -695,10 +724,13 @@ package  axl.utils
 		 * checks for alternative directories, stores loaded files to directories (AIR only).
 		 * It does not allow to load same asset twice. Use <code>Ldr.unload</code> to remove previously loaded files.
 		 *
-		 * @param resources :  basic types [string, file, xml] or list types: [array, vector,xmllist] of basic types. 
-		 * <br>Simple elements must always point to path/subpath file with an extension. eg.: <code> ["/assets/images/a.jpg", "http://abc.de/fg.hi"]</code> 
-		 * <br> Resources can be mixed together and embed to the reasonable level of depth - lists are parsed recursively.
-		 * <br>(air)Can read File class instances
+		 * @param resources : Basic types: <code>String, File, XML, XMLList</code> 
+		 * or collections: <code>Array, Vector</code> of basic types. 
+		 * <br>Basic elements must always point to file with an extension. 
+		 * eg.: <code> ["/assets/images/a.jpg", "http://abc.de/fg.hi"]</code> 
+		 * <br>or: (AIR) <code> File.applicationStorgeDirectory.getDirectoryListing()</code>
+		 * Exception is File. If it points to directory, whole directory will be scanned recursively. 
+		 * <br> Resources can be mixed together and embed to the reasonable level of depth - lists are parsed recursively too!
 		 * <br> XML nodes may be of two names: files and file. files attribute <i>dir</i> will be prefixed to every value of file node inside it.
 		 * <pre>
 		 * < files dir="/assets">
@@ -715,45 +747,86 @@ package  axl.utils
 		 * <br>/asset/images/two.png
 		 * <br>/assets/images/two.jpg
 		 * <br>/config/workflow/init.xml
+		 * 
 		 * @param onComplete : function to execute once queue is done. this suppose to execute always, 
-		 * regardles of issues with particular asssets. Exception is calling Ldr.load with null for <u>resources</u> parameter while no queue is awaiting to start. 
-		 * @param individualComplete : <code>function(loadedAssetName:String)</code> this function may not be executed if particular asset fails to laod
+		 * regardles of issues with particular asssets. Exception is calling <code>Ldr.load(null, ..anyArgs)</code>
+		 * while queue is already loading. This prevents before overwriting listeners and/or dispatching 
+		 * when actually not done. 
+		 * 
+		 * @param individualComplete : <code>function(loadedAssetName:String)</code> this function 
+		 * may not be executed if loader can't resolve either prefix  or path to resource, 
+		 * but it is executed if loading failes - 
+		 * <code>Ldr.getAny(loadedAssetName)</code> would return <code>null</code> in this case.
+		 * As long as you pass correct resource types, function should always get executed.
+		 * <br>individualComplete function will get executed only once for one item, 
+		 * regardless of how many prefixes has been checked for it before.
+		 * 
 		 * @param onProgress : function which should accept four arguments:
 		 * <ul>
 		 * <li><i>Number</i> - bytesLoaded / bytesTotal of current asset
-		 * <li><i>int</i> - number of already loaded assets
+		 * <li><i>int</i> - number of already loaded assets in current queue
 		 * <li><i>int</i> - total number assets in current queue
 		 * <li><i>String</i> - processed file name
 		 * </ul>
 		 * To get info of all queues query Ldr.numQueues, Ldr.numTotalQueued, Ldr.numTotalRemaining whenever you need it. 
-		 * Probably on individualComplete would be right moment to do so
-		 * @param pathPrefixes: Vector or array of Strings(preffered) or File class instances pointing to directories.
-		 * <br> final requests are formed as pathPrefixes[x] + pathList[y]
-		 * <ul><li><i>null</i> will use pathList[y] only</li>
-		 * <li><i>:default</i> uses <u>Ldr.defaultPathPrefixes</u></li></ul>
-		 * @param storeDirectory: (AIR) <i>:default</i> uses <u>Ldr.defaultStoreDirectory</u>, <i>null</i> disables storing, any other tries to resolve path and store loaded asset accordingly
-		 * @param overwriteExistingFiles (AIR) 'networkOnly' || 'all' || 'none' || 'olderThan_<i>unixTimestamp</i>' || Array/Vector of subpaths or File instances
-		 * <br><i>:default</i> uses  <u>Ldr.defaultOverwriteBehaviour</u>
-		 * @return index of the queue this request has been placed on. -1 if pathList is empty and and tere are no queues to process
+		 * Probably on individualComplete would be right moment to do so.
+		 * 
+		 * @param pathPrefixes: resource or resource list pointing to directories. 
+		 * These values will be prefixed to <code>resources</code> defined elemements.
+		 * Simplyfing, final patch will be formed as 
+		 * <code> pathPrefixes[i] + resources[j] </code> 
+		 * If loading fails, pathPrefixes index will keep increassing until 
+		 * a) resource will get loaded or b) pathPrefixes index will reach maximum value.
+		 * In both cases pathPrefix index will roll back to 0 for the next element. 
+		 * Process applies to every queued item, therefore use your pathPrefixes wisely.
+		 * Object is parsed simmilar way as <code>resources</code> argument but: 
+		 * <br><b>1</b> pathPrefixes must not point to files (directories only)
+		 * <br><b>2</b> pathPrefixes can also be set following way:
+		 * <ul>
+		 * 	<li><code>null</code> will match pathList only (empty prefix adds itself)</li>
+		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultPathPrefixes</u></li>
+		 * </ul>
+		 * 
+		 * @param storeDirectory (AIR): 
+		 * Defines where to store loaded files if storing criteria match. Storing can be 
+		 * disabled at all or apply to specific resources only.
+		 * <ul>
+		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultStoreDirectory</u></li>
+		 * 	<li><code>null</code> and/or incorrect values - disables storing</li>
+		 * 	<li>any other values (Strings, Files): tries to resolve path + file subpath and store it according
+		 * 	to storingBehaviours</li>
+		 * </ul>
+		 * 
+		 * @param storingBehaviour (AIR):
+		 * 	<ul>
+		 * 	<li><code>RegExp</code> particular resource will be stored in storeDirectory
+		 *  	if its URL matches your your RegExp. Good scenario to store network updated files only by 
+		 * 		passing <code>/^(http:|https:|ftp:|ftps:)/i</code> or to filter it by extensions. 
+		 * 		<br>Pass RegExp('') to store/overwrite all files from this queue.
+		 * 		<br>Define storeDirectory as <code>null</code> to disable storing files from this queue.
+		 *  <li><code>Date</code> or <code>Number</code> where number is unix timestamp. This stores files if 
+		 *		<br> a) file does not exist in storeDirectory yet
+		 *		<br> b) your date is greater than existing file modification date.
+		 * <li><code>Ldr.behaviours.default</code> will perform using <u>Ldr.defaultStoringBehaviour</u> values.
+		 * </ul>
+		 * @return index of the queue this request has been placed on. -1 if resources is null
+		 *  and and tere are no queues to process
 		 * 
 		 * @see Ldr#defaultPathPrefixes
 		 * @see Ldr#defaultStoreDirectory
 		 * @see Ldr#defaultOverwriteBehaviour
 		 */
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
-												,onProgress:Function=null, pathPrefixes:Object=":default", storeDirectory:Object=":default",
-												 overwriteExistingFiles:Object=":default"):int
+												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
+												 storeDirectory:Object=Ldr.defaultValue, storingBehaviour:Object=Ldr.defaultValue):int
 		{
-			log("[Ldr] load request while state:", state);
+			log("[Ldr] request load. State:", state);
 			var req:Req, id:int = 0;
 			if(resources == null)
 			{
-				if((requests.length < 1))
-					return (onComplete is Function) ? onComplete() : -1;
-				else if(requests[0].isLoading)
-					return 0;
-				else
-					req = requests[0];
+				if(requests.length < 1) return (onComplete is Function) ? onComplete() : -1;
+				else if(requests[0].isLoading) return 0;
+				else req = requests[0];
 			}
 			else
 			{
@@ -761,17 +834,17 @@ package  axl.utils
 				id = requests.push(req)-1;
 			}
 			
-				req.prefixes = (pathPrefixes == ':default' ? Ldr.defaultPathPrefixes : pathPrefixes);
 			if(Req.fileInterfaceAvailable)
 			{
-				req.storePath = (storeDirectory == ':default' ? Ldr.defaultStoreDirectory : storeDirectory);
-				req.overwrite = (overwriteExistingFiles == ":default" ? Ldr.defaultOverwriteBehaviour : overwriteExistingFiles);
+				req.storePath = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
+				req.writefiles = (storingBehaviour == Ldr.defaultValue ? Ldr.defaultStoringBehaviour : storingBehaviour);
 			}
 				req.onComplete = onComplete;
 				req.individualComplete = individualComplete;
 				req.onProgress = onProgress;
 				
 				req.addPaths(resources);
+				req.addPrefixes((pathPrefixes == Ldr.defaultValue ? Ldr.defaultPathPrefixes : pathPrefixes));
 			if(!IS_LOADING)
 			{
 				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
@@ -781,13 +854,17 @@ package  axl.utils
 			return id;
 			function completeHandler(e:Event):void
 			{
+				var st:String = state;
 				var rComplete:Function = req.onComplete;
 				requests.splice(id,1);
 				req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
 				req.destroy();
+				req.currentQueueDone();
+				
 				IS_LOADING = (numQueues > 0);
 				if(IS_LOADING)
 				{
+					log("[Ldr] current queue finished with state:", st);
 					req = requests[0];
 					id = 0;
 					req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
@@ -797,8 +874,8 @@ package  axl.utils
 				{
 					Req.allQueuesDone();
 					req = null;
+					log("[Ldr] all queues finished. state:", st);
 				}
-				log("[Ldr] load request completed. state:", state);
 				if(rComplete is Function)
 					rComplete();
 				rComplete=null;
@@ -807,15 +884,18 @@ package  axl.utils
 		
 		public static function get state():String
 		{
-			var s:String = String(
-			'| isLoading:' + isLoading + 
-			'| numQueues:' + numQueues + 
-			'| numTotalQueued:' +  numTotalQueued + 
-			'| numTotalRemaining:' + numTotalRemaining +  
-			'| numCurrentQueued:' + numCurrentQueued +  
-			'| numCurrentRemaining:' +  numCurrentRemaining + 
-			'| numCurrentLoaded:' + numCurrentLoaded +
-			'| timestamp:' +  new Date().time + '|'
+			var s:String = String('-' + 
+			'\n isLoading:' + isLoading + 
+			'\n numQueues:' + numQueues + 
+			'\n numAllQueued:' +  numAllQueued + 
+			'\n numAllRemaining:' + numAllRemaining + 
+			'\n numAllLoaded:' + numAllLoaded +
+			'\n numAllSkipped:' + numAllSkipped +
+			'\n numCurrentQueued:' + numCurrentQueued +  
+			'\n numCurrentRemaining:' +  numCurrentRemaining + 
+			'\n numCurrentLoaded:' + numCurrentLoaded +
+			'\n numCurrentSkipped:' + numCurrentSkipped +
+			'\n timestamp:' +  new Date().time + '\n-'
 			);
 			return s;
 		}
