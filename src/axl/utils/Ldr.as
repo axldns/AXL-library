@@ -6,6 +6,7 @@ import flash.events.HTTPStatusEvent;
 import flash.events.IOErrorEvent;
 import flash.events.ProgressEvent;
 import flash.events.SecurityErrorEvent;
+import flash.filesystem.File;
 import flash.media.Sound;
 import flash.net.URLLoader;
 import flash.net.URLLoaderDataFormat;
@@ -139,7 +140,7 @@ internal class Req extends EventDispatcher {
 	public function addPrefixes(v:Object):int
 	{
 		var flatList:Vector.<String> = new Vector.<String>();
-		flatList = getFlatList(v, flatList);
+		flatList = getFlatList(v, flatList,false);
 		var i:int, j:int, k:int, l:int = prefixList.length;
 		for(i=0,j= flatList.length; i<j; i++)
 			if(prefixList.indexOf(flatList[i]) < 0)
@@ -165,11 +166,15 @@ internal class Req extends EventDispatcher {
 		else storePrefix = null;
 	}
 	
-	private function getFlatList(v:Object, ar:Vector.<String>):Vector.<String>
+	private function getFlatList(v:Object, ar:Vector.<String>,filesLookUp:Boolean=true):Vector.<String>
 	{
 		var i:int = ar.length;
 		if(v is String) ar[i] = v;
-		else if (v.hasOwnProperty('nativePath')) ar[i] = v.nativePath;
+		else if (fileInterfaceAvailable && v is FileClass)//ar[i] = v.nativePath;
+		{
+			if(filesLookUp) processFilesRecurse(v, ar); // paths
+			else if(v.isDirectory) ar[i] = v.nativePath; // prefixes 
+		}
 		else if (v is XML || v is XMLList) processXml(XML(v), ar);
 		else if(v is Array || v is Vector.<FileClass> || v is Vector.<String> || v is Vector.<XML> || v is Vector.<XMLList>)
 			for(var j:int = 0, k:int = v.length;  j < k; j++)
@@ -177,9 +182,16 @@ internal class Req extends EventDispatcher {
 		return ar;
 	}
 	
-	private function processFileList(f:Object, flat:Vector.<String>):void
+	private function processFilesRecurse(f:Object, flat:Vector.<String>):void
 	{
-		
+		if(f.isDirectory)
+		{
+			var v:Array = f.getDirectoryListing();
+			while(v.length)
+				processFilesRecurse(v.pop(),flat);
+			v = null;
+		} else { flat.push(f.nativePath) }
+		f = null;
 	}
 	
 	private function processXml(node:XML, flat:Vector.<String>, addition:String=''):void
@@ -400,7 +412,8 @@ internal class Req extends EventDispatcher {
 			catch (e:ArgumentError) { log("[Ldr][Queue]["+filename+"][Save] FAIL:",path,e) }
 			
 			//validation and filters
-			if(!storingCriteriaMatch(f, urlRequest.url))
+			f = storingFilter(f, urlRequest.url);
+			if(f == null)
 				return log("[Ldr][Queue]["+filename+"][Save] Storing criteria doesn't match, abort");
 			
 			//writing to disc
@@ -415,44 +428,48 @@ internal class Req extends EventDispatcher {
 			f = null;
 		}
 	}
-	
-	private function storingCriteriaMatch(file:Object, url:String):Boolean
+	private function baseValidation(file:Object, url:String):Object
+	{
+		if(!(file is FileClass) || file.isDirectory){
+			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] file is not File");
+			return null;
+		}
+		else if(file.url == url){
+			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] store and load directiries are equal");
+			return null;
+		}
+		return file;
+	}
+	private function storingFilter(file:Object, url:String):Object
 	{
 		Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria]", storingBehaviour, file, url);
-		if(!(file is FileClass)){
-			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] file is not File");
-			return false
-		}
 		
-		else if(file.nativePath == concatenatedPath){
-			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] store and load directiries are equal");
-			return false;
-		}
-		else if((storingBehaviour is Function) && (storingBehaviour.length == 2))
+		if(baseValidation(file, url) == null) return null
+		if((storingBehaviour is Function) && (storingBehaviour.length == 2))
 		{
 			log("[Ldr][Queue]["+filename+"][Save][criteria] user function");
-			return storingBehaviour.apply(file, url);
+			return baseValidation(storingBehaviour.apply(null,[file, url]),url);
 		}
 		else if(storingBehaviour is RegExp) 
 		{
 			log("[Ldr][Queue]["+filename+"][Save][criteria] regexp match");
-			return url.match(storingBehaviour);
+			return url.match(storingBehaviour) ? file : null;
 		}
 		else if(storingBehaviour is Date)
 		{
 			log("[Ldr][Queue]["+filename+"][Save][criteria] date comparison");
-			if(!file.exists) return true;
-			return file.modificationDate.time < storingBehaviour.time;
+			if(!file.exists) return file;
+			return (file.modificationDate.time < storingBehaviour.time) ? file : null
 		}
 		else if(storingBehaviour is Number)
 		{
 			log("[Ldr][Queue]["+filename+"][Save][criteria] number comparison");
-			if(!file.exists) return true;
+			if(!file.exists) return file;
 			return (file.modificationDate.time < storingBehaviour)
 		}
 		else {
 			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] unrecognized criteria\n", flash.utils.describeType(storingBehaviour));
-			return false;
+			return null;
 		}
 	}
 	
@@ -857,7 +874,7 @@ package  axl.utils
 		 * Defines where to store loaded files if <code>storingBehaviour</code> allows to do so.
 		 *  If value can't be interpreted as storable directory - <code>null</code> will be assigned. E.g.:<br>
 		 * 	 <code>
-		 * 	Ldr.load("/assets/image.png",null,null,null,"http://domain.com",File.applicationStorageDirectory,new RegExp(''));
+		 * 	Ldr.load("/assets/image.png",null,null,null,"http://domain.com",File.applicationStorageDirectory,/""/);
 		 * 	</code>
 		 * <br>would load: http://domain.com/assets/image.png
 		 * <br>would save: app-storage:/assets/image.png
@@ -879,9 +896,11 @@ package  axl.utils
 		 *  <li><code>Date</code> or <code>Number</code> where number is unix timestamp. This stores files if 
 		 *		<br> a) file does not exist in storeDirectory yet
 		 *		<br> b) your date is greater than existing file modification date.</li>
-		 * 	<li><code>function(existing:File, loadedFrom:String):Boolean</code> - this allows you to decide
-		 * 		if file should get saved/overwritten. This function will be called for every element loaded 
-		 * 		from address different to storeDirectory. Performance is on you in this case.
+		 * 	<li><code>function(existing:File, loadedFrom:String):File</code> - 
+		 * 		<br>This function will be called for every element loaded from address different to storeDirectory. 
+		 * 		This allows you to decide if file should get saved/overwritten and on what path too. 
+		 * 		If you pass null, directory or any incorrect value - file won't be stored. If you pass any valid file, data will be stored.
+		 * 		Performance is on you in this case.
 		 * </ul>
 		 * @return index of the queue this request has been placed on. -1 if resources is null
 		 *  and and tere are no queues to process
