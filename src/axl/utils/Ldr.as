@@ -14,6 +14,7 @@ import flash.system.ApplicationDomain;
 import flash.system.ImageDecodingPolicy;
 import flash.system.LoaderContext;
 import flash.utils.ByteArray;
+import flash.utils.describeType;
 import flash.utils.getDefinitionByName;
 
 import axl.utils.Ldr;
@@ -23,10 +24,10 @@ import axl.utils.Ldr;
  */
 internal class Req extends EventDispatcher {
 	
+	public static const fileInterfaceAvailable:Boolean =  ApplicationDomain.currentDomain.hasDefinition('flash.filesystem::File');
+	public static const FileClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::File') as Class : null;
+	public static const FileStreamClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::FileStream') as Class : null;
 	private static const networkRegexp:RegExp = /^(http:|https:|ftp:|ftps:)/i;
-	public static var fileInterfaceAvailable:Boolean =  ApplicationDomain.currentDomain.hasDefinition('flash.filesystem::File');
-	public static var FileClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::File') as Class : null;
-	public static var FileStreamClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::FileStream') as Class : null;
 	
 	private static function log(...args):void { if(verbose is Function) verbose.apply(null,args) }
 	public static var verbose:Function;
@@ -69,7 +70,7 @@ internal class Req extends EventDispatcher {
 	private var filename:String;
 	private var extension:String;
 	
-	public var writefiles:Object
+	public var storingBehaviour:Object
 	private var storePrefix:String;
 	
 	private var listeners:Array;
@@ -149,10 +150,18 @@ internal class Req extends EventDispatcher {
 		return numPrefixes;
 	}
 	
-	public function set storePath(v:Object):void
+	public function set storeDirectory(v:Object):void
 	{
-		if(v is String) storePrefix = v  as String;
-		else if(fileInterfaceAvailable && v is FileClass && v.isDirectory) storePrefix = v.nativePath;
+		if(!fileInterfaceAvailable) storePrefix = null;
+		if(v is String){
+			try { 
+				var f:Object = new FileClass(v);
+				storePrefix = f.isDirectory ? f.nativePath : null;
+			}
+			catch(e:ArgumentError) { storePrefix = null }
+			f = null;
+		}
+		else if(v is FileClass && v.isDirectory) storePrefix = v.nativePath;
 		else storePrefix = null;
 	}
 	
@@ -204,27 +213,33 @@ internal class Req extends EventDispatcher {
 	
 	private function getConcatenatedPath(prefix:String, originalUrl:String):String
 	{
+		if(prefix.length < 1) return originalUrl;
 		if(networkOverPrefixes && originalUrl.match(networkRegexp))
-			return originalUrl;
-		if(prefix.match( /(\/$|\\$)/) && originalUrl.match(/(^\/|^\\)/))
-			prefix = prefix.substr(0,-1);
-		if(!fileInterfaceAvailable || prefix.match(networkRegexp))
-			return prefix + originalUrl;
-		else
 		{
-			// workaround for inconsistency of traversing up directories. FP takes working dir, AIR doesn't
-			var initPath:String = prefix.match(/^(\.\.)/i) ?  FileClass.applicationDirectory.nativePath + '/' + prefix : prefix
-			try {
-				var f:Object = new FileClass(initPath) 
-				initPath = f.resolvePath(f.nativePath + originalUrl).nativePath;
-				f = null;
-			}
-			catch (e:*) { 
-				log('[Ldr][Queue] can not resolve path:',prefix + originalUrl, e, 'trying as URLloader');
-				initPath = prefix + originalUrl;
-			}
-			return initPath;
+			prefixIndex =numPrefixes;
+			return originalUrl;
 		}
+		if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
+		{
+			// workaround for inconsistency in traversing up directories. 
+			// FP takes working dir, AIR doesn't. There are also isssues with
+			// FileClass.applicationDirectory.resolvePath(..).nativePath - still points to the same dir
+			// FileClass.applicationDirectory.nativePath + '/' + prefix; - Sandbox violation
+			// workaround for inconsistency of traversing up directories. FP takes working dir, AIR doesn't
+			var cp:String = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix; 
+			try {
+				var f:Object = new FileClass(cp) ;
+				return  f.resolvePath(f.nativePath + originalUrl).nativePath;
+			} catch (e:*) { log('[Ldr][Queue] can not resolve path:',prefix + originalUrl, e, 'trying as URLloader')
+			} finally { f = null }
+		}
+		//fixes concat two styles an doubles. all go to "/" since this is default url style, ios supports that, windows can resolve
+		var joint:String = prefix.substr(-1) + originalUrl.charAt(0);
+		if(joint == '//' || joint == '\\')
+			prefix = prefix.substr(0,-1);
+		else if (!joint.match(/(\\|\/)/))
+			prefix += '/';
+		return String(prefix + originalUrl).replace(/\\/gi, "/");
 	}
 	
 	public function stop():void { pathList = null }
@@ -369,26 +384,70 @@ internal class Req extends EventDispatcher {
 	
 	private function saveIfRequested(data:ByteArray):void
 	{
-		if(storePrefix && fileInterfaceAvailable)
+		if((storePrefix != null) && fileInterfaceAvailable)
 		{
-			var sameDirectory:Boolean;
-			try{
-				log("[Ldr][Queue][Save] saving:", originalPath);
-				var path:String = getConcatenatedPath(storePrefix, originalPath);
-				var f:Object = new FileClass(path);
-				sameDirectory = (f.nativePath == concatenatedPath);
-				if(sameDirectory)
-					return log("[Ldr][Queue][Save] Load and Store directory are equal, abort");
-				var fr:Object = new FileStreamClass();
-					fr.openAsync(f, 'write');
-					fr.writeBytes(data);
-					fr.close();
-					fr = null;
-					log("[Ldr][Queue][Save] SAVED:", f.nativePath, '[', data.length / 1024, 'kb]');
-					f = null;
-			} catch (e:*) {
-				log("[Ldr][Queue][Save] FAIL:",path,e)
-			}
+			trace("STORE PREFIX IS", storePrefix, '[', storePrefix.length,']');
+			var f:Object;
+			var path:String = getConcatenatedPath(storePrefix, originalPath);
+			log("[Ldr][Queue]["+filename+"][Save] saving:", path);
+			//resolving file locating
+			try{ f= new FileClass(path) } 
+			catch (e:ArgumentError) { log("[Ldr][Queue]["+filename+"][Save] FAIL:",path,e) }
+			
+			//validation and filters
+			if(!storingCriteriaMatch(f, urlRequest.url))
+				return log("[Ldr][Queue]["+filename+"][Save] Storing criteria doesn't match, abort");
+			
+			//writing to disc
+			var fr:Object = new FileStreamClass();
+			try{ 
+				fr.open(f, 'write'); // openAsync doesn't fire COMPLETE in write mode so can't stick to where remove async listeners  
+				fr.writeBytes(data);
+				fr.close();
+				fr = null;
+				log("[Ldr][Queue]["+filename+"][Save] SAVED:", f.nativePath, '[', data.length / 1024, 'kb]');
+			} catch (e:Error) { log("[Ldr][Queue]["+filename+"][Save] FAIL: cant save as:",f.nativePath,'\n',e) }
+			f = null;
+		}
+	}
+	
+	private function storingCriteriaMatch(file:Object, url:String):Boolean
+	{
+		Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria]", storingBehaviour, file, url);
+		if(!(file is FileClass)){
+			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] file is not File");
+			return false
+		}
+		
+		else if(file.nativePath == concatenatedPath){
+			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] store and load directiries are equal");
+			return false;
+		}
+		else if((storingBehaviour is Function) && (storingBehaviour.length == 2))
+		{
+			log("[Ldr][Queue]["+filename+"][Save][criteria] user function");
+			return storingBehaviour.apply(file, url);
+		}
+		else if(storingBehaviour is RegExp) 
+		{
+			log("[Ldr][Queue]["+filename+"][Save][criteria] regexp match");
+			return url.match(storingBehaviour);
+		}
+		else if(storingBehaviour is Date)
+		{
+			log("[Ldr][Queue]["+filename+"][Save][criteria] date comparison");
+			if(!file.exists) return true;
+			return file.modificationDate.time < storingBehaviour.time;
+		}
+		else if(storingBehaviour is Number)
+		{
+			log("[Ldr][Queue]["+filename+"][Save][criteria] number comparison");
+			if(!file.exists) return true;
+			return (file.modificationDate.time < storingBehaviour)
+		}
+		else {
+			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] unrecognized criteria\n", flash.utils.describeType(storingBehaviour));
+			return false;
 		}
 	}
 	
@@ -656,8 +715,7 @@ package  axl.utils
 		 */
 		public static function addToCurrentQueue(resourceOrList:Object):int
 		{
-			if(numQueues > 0)
-				return requests[0].addPaths(resourceOrList);
+			if(numQueues > 0) return requests[0].addPaths(resourceOrList);
 			else
 			{
 				requests.push(new Req());
@@ -810,7 +868,10 @@ package  axl.utils
 		 * 		<br>Define storeDirectory as <code>null</code> to disable storing files from this queue.
 		 *  <li><code>Date</code> or <code>Number</code> where number is unix timestamp. This stores files if 
 		 *		<br> a) file does not exist in storeDirectory yet
-		 *		<br> b) your date is greater than existing file modification date.
+		 *		<br> b) your date is greater than existing file modification date.</li>
+		 * 	<li><code>function(existing:File, loadedFrom:String):Boolean</code> - this allows you to decide
+		 * 		if file should get saved/overwritten. This function will be called for every element loaded 
+		 * 		from address different to storeDirectory. Performance is on you in this case.
 		 * </ul>
 		 * @return index of the queue this request has been placed on. -1 if resources is null
 		 *  and and tere are no queues to process
@@ -839,8 +900,8 @@ package  axl.utils
 			
 			if(Req.fileInterfaceAvailable)
 			{
-				req.storePath = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
-				req.writefiles = (storingBehaviour == Ldr.defaultValue ? Ldr.defaultStoringBehaviour : storingBehaviour);
+				req.storeDirectory = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
+				req.storingBehaviour = (storingBehaviour == Ldr.defaultValue ? Ldr.defaultStoringBehaviour : storingBehaviour);
 			}
 				req.onComplete = onComplete;
 				req.individualComplete = individualComplete;
