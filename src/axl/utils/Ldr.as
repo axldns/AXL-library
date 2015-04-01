@@ -177,6 +177,11 @@ internal class Req extends EventDispatcher {
 		return ar;
 	}
 	
+	private function processFileList(f:Object, flat:Vector.<String>):void
+	{
+		
+	}
+	
 	private function processXml(node:XML, flat:Vector.<String>, addition:String=''):void
 	{
 		var nodefiles:XMLList = node.files;
@@ -220,7 +225,7 @@ internal class Req extends EventDispatcher {
 			return originalUrl;
 		}
 		if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
-		{
+		{ trace('--');
 			// workaround for inconsistency in traversing up directories. 
 			// FP takes working dir, AIR doesn't. There are also isssues with
 			// FileClass.applicationDirectory.resolvePath(..).nativePath - still points to the same dir
@@ -849,13 +854,18 @@ package  axl.utils
 		 * </ul>
 		 * 
 		 * @param storeDirectory (AIR): 
-		 * Defines where to store loaded files if storing criteria match. Storing can be 
-		 * disabled at all or apply to specific resources only.
+		 * Defines where to store loaded files if <code>storingBehaviour</code> allows to do so.
+		 *  If value can't be interpreted as storable directory - <code>null</code> will be assigned. E.g.:<br>
+		 * 	 <code>
+		 * 	Ldr.load("/assets/image.png",null,null,null,"http://domain.com",File.applicationStorageDirectory,new RegExp(''));
+		 * 	</code>
+		 * <br>would load: http://domain.com/assets/image.png
+		 * <br>would save: app-storage:/assets/image.png
 		 * <ul>
 		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultStoreDirectory</u></li>
-		 * 	<li><code>null</code> and/or incorrect values - disables storing</li>
-		 * 	<li>any other values (Strings, Files): tries to resolve path + file subpath and store it according
-		 * 	to storingBehaviours</li>
+		 * 	<li><code>String</code> tries to resolve path
+		 * 	<li><code>File</code> tries to resole path
+		 * 	<li><code>null</code> and/or other incorrect values - disables storing</li>
 		 * </ul>
 		 * 
 		 * @param storingBehaviour (AIR):
