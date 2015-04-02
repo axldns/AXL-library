@@ -14,7 +14,6 @@ import flash.system.ApplicationDomain;
 import flash.system.ImageDecodingPolicy;
 import flash.system.LoaderContext;
 import flash.utils.ByteArray;
-import flash.utils.describeType;
 import flash.utils.getDefinitionByName;
 
 import axl.utils.Ldr;
@@ -70,7 +69,9 @@ internal class Req extends EventDispatcher {
 	private var filename:String;
 	private var extension:String;
 	
-	public var storingBehaviour:Object
+	private var storingBehaviorRegexp:RegExp;
+	private var storingBehaviorNumber:Number;
+	private var storeFilter:Function;
 	private var storePrefix:String;
 	
 	private var listeners:Array;
@@ -92,7 +93,7 @@ internal class Req extends EventDispatcher {
 	{
 		
 	}
-	
+	// public api
 	public function addPaths(v:Object):int
 	{
 		var flatList:Vector.<String> = new Vector.<String>();
@@ -128,14 +129,6 @@ internal class Req extends EventDispatcher {
 		return l;
 	}
 	
-	private function counters(v:int):void
-	{
-		numCurrentRemaining +=v;
-		numCurrentQueued += v;
-		_numAllRemaining += v;
-		_numAllQueued += v;
-	}
-	
 	public function addPrefixes(v:Object):int
 	{
 		var flatList:Vector.<String> = new Vector.<String>();
@@ -163,6 +156,52 @@ internal class Req extends EventDispatcher {
 		}
 		else if(v is FileClass && v.isDirectory) storePrefix = v.nativePath;
 		else storePrefix = null;
+	}
+	
+	public function set storingBehavior(v:Object):void
+	{
+		if((v is Function) && (v.length == 2))
+			storeFilter = v as Function;
+		else if(v is RegExp) 
+		{
+			storingBehaviorRegexp = v as RegExp;
+			storeFilter = filter_regexp;
+		}
+		else if(v is Number)
+			storeFilter = filter_date;
+		else if(v is Date)
+		{
+			storingBehaviorNumber = v.time;
+			storeFilter = filter_date;
+		}
+		else
+			storeFilter = null;
+	}
+	
+	public function stop():void { pathList = null }
+	
+	public function load():void
+	{
+		log("[Ldr][Queue] start");
+		isLoading = true;
+		nextElement();
+	}
+	
+	//helpers
+	private function filter_date(file:Object, url:String):Object { 
+		if(!file.exists) return file;
+		return (file.modificationDate.time < storingBehaviorNumber) ? file : null
+	}
+	private function filter_regexp(file:Object, url:String):Object {
+		return url.match(storingBehaviorRegexp) ? file : null;
+	}
+	
+	private function counters(v:int):void
+	{
+		numCurrentRemaining +=v;
+		numCurrentQueued += v;
+		_numAllRemaining += v;
+		_numAllQueued += v;
 	}
 	
 	private function getFlatList(v:Object, ar:Vector.<String>,filesLookUp:Boolean=true):Vector.<String>
@@ -258,14 +297,6 @@ internal class Req extends EventDispatcher {
 		return String(prefix + originalUrl).replace(/\\/gi, "/");
 	}
 	
-	public function stop():void { pathList = null }
-	
-	public function load():void
-	{
-		log("[Ldr][Queue] start");
-		isLoading = true;
-		nextElement();
-	}
 	
 	private function finalize():void
 	{
@@ -399,17 +430,18 @@ internal class Req extends EventDispatcher {
 	
 	private function saveIfRequested(data:ByteArray):void
 	{
-		if((storePrefix != null) && fileInterfaceAvailable)
+		if((storePrefix != null) && fileInterfaceAvailable && storeFilter)
 		{
 			var f:Object;
 			var path:String = getConcatenatedPath(storePrefix, originalPath);
 			log("[Ldr][Queue]["+filename+"][Save] saving:", path);
 			//resolving file locating
 			try{ f= new FileClass(path) } 
-			catch (e:ArgumentError) { log("[Ldr][Queue]["+filename+"][Save] FAIL:",path,e) }
+			catch (e:ArgumentError) { log("[Ldr][Queue]["+filename+"][Save] incorrect path. null file:",path,e) }
 			
 			//validation and filters
-			f = storingFilter(f, urlRequest.url);
+			try { f = baseValidation(storeFilter(f, urlRequest.url), urlRequest.url) }
+			catch(e:*) { f = null, log("[Ldr][Queue]["+filename+"][Save][filter] error:", e) }
 			if(f == null)
 				return log("[Ldr][Queue]["+filename+"][Save] Storing criteria doesn't match, abort");
 			
@@ -437,34 +469,7 @@ internal class Req extends EventDispatcher {
 		}
 		return file;
 	}
-	private function storingFilter(file:Object, url:String):Object
-	{
-		Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria]", describeType(storingBehaviour).name(), file, url);
-		
-		if(baseValidation(file, url) == null) return null
-		if((storingBehaviour is Function) && (storingBehaviour.length == 2))
-		{
-			return baseValidation(storingBehaviour.apply(null,[file, url]),url);
-		}
-		else if(storingBehaviour is RegExp) 
-		{
-			return url.match(storingBehaviour) ? file : null;
-		}
-		else if(storingBehaviour is Date)
-		{
-			if(!file.exists) return file;
-			return (file.modificationDate.time < storingBehaviour.time) ? file : null
-		}
-		else if(storingBehaviour is Number)
-		{
-			if(!file.exists) return file;
-			return (file.modificationDate.time < storingBehaviour)
-		}
-		else {
-			Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] unrecognized criteria\n", flash.utils.describeType(storingBehaviour));
-			return null;
-		}
-	}
+
 	
 	// event handlers
 	private function onHttpResponseStatus(e:HTTPStatusEvent):void
@@ -519,7 +524,7 @@ internal class Req extends EventDispatcher {
 		return sound;
 	}
 	
-	private  function getHttpHeader(headers:Array, headerName:String):String
+	private function getHttpHeader(headers:Array, headerName:String):String
 	{
 		if (headers)
 			for each (var header:Object in headers)
@@ -627,14 +632,14 @@ package  axl.utils
 		 *  @default  File.applicationStorageDirectory
 		 * 
 		 *  @see Ldr#load
-		 *  @see Ldr#defaultOverwriteBehaviour
+		 *  @see Ldr#defaultOverwriteBehavior
 		 */
 		public static var defaultStoreDirectory:Object = Req.fileInterfaceAvailable ? Req.FileClass.applicationStorageDirectory : null;
 		
 		/**
 		 * (AIR only)
 		 * Defines what files to overwrite if path where the file was loaded from is different to store directory.
-		 * <br>This behaviour can be overriden by specifing appropriate load argument (see <i>load</i> 
+		 * <br>This Behavior can be overriden by specifing appropriate load argument (see <i>load</i> 
 		 * and <i>load</i> desc). 
 		 * <ul>
 		 * <li><u>all</u> - all conflict files will be overwritten</li>
@@ -651,13 +656,13 @@ package  axl.utils
 		 * 
 		 * @see Ldr#load
 		 */
-		public static var defaultStoringBehaviour:Object = '';
+		public static var defaultStoringBehavior:Object = '';
 		
 		
 		/**
 		 * defaultPathPrefixes allow you to look up for files to load in any number of directories in a single call.
 		 * <b>Every</b> load call is prefixed but prefix can also be an empty string.
-		 * <br>This behaviour can be overriden by specifing appropriate load argument (see load and load desc). 
+		 * <br>This Behavior can be overriden by specifing appropriate load argument (see load and load desc). 
 		 *<br><br>
 		 * Mixing <i>File</i> class constatns and domain addresses can set a nice flow with easily updateable set of assets and fallbacks.
 		 * <br>
@@ -681,7 +686,7 @@ package  axl.utils
 		
 		/** <code>true</code>: If element's subpath matches <code>/^(http:|https:|ftp:|ftps:)/i</code>
 		 * Ldr will try to load subpath only.
-		 * <br><code>false</code>: regular behaviour where url = prefix[i] + subpath[j]
+		 * <br><code>false</code>: regular Behavior where url = prefix[i] + subpath[j]
 		 * <br>default: <code>true</code> * */
 		public static function set networkOverPrefixes(v:Boolean):void { Req.networkOverPrefixes }
 		public static function get networkOverPrefixes():Boolean { return Req.networkOverPrefixes }
@@ -847,64 +852,68 @@ package  axl.utils
 		 * To get detailed info of queue(s) status, whenever you need it query <code>Ldr.num^</code> getters
 		 * Don't worry - there are no calculations on query time - values are being updated only when queue(s) status changes.
 		 * 
-		 * @param pathPrefixes: resource or resource list pointing to directories. 
-		 * These values will be prefixed to <code>resources</code> defined elemements.
-		 * Simplyfing, final patch will be formed as 
-		 * <code> pathPrefixes[i] + resources[j] </code> 
-		 * If loading fails, pathPrefixes index will keep increassing until 
-		 * a) resource will get loaded or b) pathPrefixes index will reach maximum value.
-		 * In both cases pathPrefix index will roll back to 0 for the next element. 
+		 * @param pathPrefixes: These values will be prefixes for <code>resources</code> defined elemements.
+		 * <br>Consieder it as a left side of simplified equasion where
+		 * <br><code>singleElementUrl = pathPrefixes[i] + resources[j]</code>
+		 * <br><i>Double joints</i> like "//" or "\\" or even missing separators should get fixed automatically.
+		 * 	<br>If loading fails, pathPrefixes index will keep increassing until a) element will get loaded <b>or</b> 
+		 * b) pathPrefixes index will reach maximum value.
+		 * <br>In both cases pathPrefix index will roll back to 0 for the next element. 
 		 * Process applies to every queued item, therefore use your pathPrefixes wisely.
-		 * Object is parsed simmilar way as <code>resources</code> argument but: 
-		 * <br><b>1</b> pathPrefixes must not point to files (directories only)
-		 * <br><b>2</b> pathPrefixes can also be set following way:
 		 * <ul>
+		 * 	<li><code>resource</code> -  Object is parsed simmilar way as <code>resources</code> argument but: 
+		 * 		<br><b>1</b> pathPrefixes must not point to files (directories only)
+		 * 		<br><b>2</b> directories are not scanned recursively (simple hook)
 		 * 	<li><code>null</code> will match pathList only (empty prefix adds itself)</li>
 		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultPathPrefixes</u></li>
 		 * </ul>
 		 * 
 		 * @param storeDirectory (AIR): 
-		 * Defines where to store loaded files if <code>storingBehaviour</code> allows to do so.
+		 * Defines where to store loaded files if <code>storingBehavior</code> allows to do so.
 		 *  If value can't be interpreted as storable directory - <code>null</code> will be assigned. E.g.:<br>
 		 * 	 <code>
-		 * 	Ldr.load("/assets/image.png",null,null,null,"http://domain.com",File.applicationStorageDirectory,/""/);
+		 * 	Ldr.load("/assets/image.png",null,null,null,"http://domain.com",File.applicationStorageDirectory,/./);
 		 * 	</code>
 		 * <br>would load: http://domain.com/assets/image.png
 		 * <br>would save: app-storage:/assets/image.png
 		 * <ul>
 		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultStoreDirectory</u></li>
 		 * 	<li><code>String</code> tries to resolve path
-		 * 	<li><code>File</code> tries to resole path
+		 * 	<li><code>File</code> tries to resolve path
 		 * 	<li><code>null</code> and/or other incorrect values - disables storing</li>
 		 * </ul>
 		 * 
-		 * @param storingBehaviour (AIR):
+		 * @param storingBehavior (AIR):
 		 * 	<ul>
-		 * <li><code>Ldr.behaviours.default</code> will perform using <u>Ldr.defaultStoringBehaviour</u> values.
-		 * 	<li><code>RegExp</code> particular resource will be stored in storeDirectory
+		 * <li><code>Ldr.Behaviors.default</code> will perform using <u>Ldr.defaultStoringBehavior</u> values.
+		 * 	<li><code>RegExp</code> particular resource will be stored in <code>storeDirectory</code>
 		 *  	if its URL matches your your RegExp. Good scenario to store network updated files only by 
 		 * 		passing <code>/^(http:|https:|ftp:|ftps:)/i</code> or to filter storing by extensions. 
-		 * 		<br>Pass RegExp('') to store/overwrite all files from this queue.
+		 * 		<br>Pass /./ to store/overwrite all files from this queue.
 		 * 		<br>Define storeDirectory as <code>null</code> to disable storing files from this queue.
 		 *  <li><code>Date</code> or <code>Number</code> where number is unix timestamp. This stores files if 
 		 *		<br> a) file does not exist in storeDirectory yet
 		 *		<br> b) your date is greater than existing file modification date.</li>
 		 * 	<li><code>function(existing:File, loadedFrom:String):File</code> - 
-		 * 		<br>This function will be called for every element loaded from address different to storeDirectory. 
-		 * 		This allows you to decide if file should get saved/overwritten and on what path too. 
-		 * 		If you pass null, directory or any incorrect value - file won't be stored. If you pass any valid file, data will be stored.
-		 * 		Performance is on you in this case.
+		 * 		<br>This function would be called for every element loaded from address different to storeDirectory. 
+		 * 		This allows <u>you</u> to decide if (and where) file should get saved/overwritten. 
+		 * 		By dispatch time you're receiving an empty pointer to directory resolved according to 
+		 * 		<code>storeDirectory + resource[i]</code> (sub path) 
+		 * 		File existance, contents and address are not being verified and may be result of any activty 
+		 * 		but you may want to use them as your criteria. 
+		 * 		<br>Closure excepts a pointer to file in any storable directory as an output. 
+		 * 		<br><code>null</code> or incorrect values will withold this file from storing. Performance is on you in this case.
 		 * </ul>
 		 * @return index of the queue this request has been placed on. -1 if resources is null
 		 *  and and tere are no queues to process
 		 * 
 		 * @see Ldr#defaultPathPrefixes
 		 * @see Ldr#defaultStoreDirectory
-		 * @see Ldr#defaultOverwriteBehaviour
+		 * @see Ldr#defaultOverwriteBehavior
 		 */
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
 												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
-												 storeDirectory:Object=Ldr.defaultValue, storingBehaviour:Object=Ldr.defaultValue):int
+												 storeDirectory:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue):int
 		{
 			log("[Ldr] request load.");
 			var req:Req, id:int = 0, startTime:int = getTimer();
@@ -923,7 +932,7 @@ package  axl.utils
 			if(Req.fileInterfaceAvailable)
 			{
 				req.storeDirectory = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
-				req.storingBehaviour = (storingBehaviour == Ldr.defaultValue ? Ldr.defaultStoringBehaviour : storingBehaviour);
+				req.storingBehavior = (storingBehavior == Ldr.defaultValue ? Ldr.defaultStoringBehavior : storingBehavior);
 			}
 				req.onComplete = onComplete;
 				req.individualComplete = individualComplete;
@@ -940,6 +949,7 @@ package  axl.utils
 			return id;
 			function completeHandler(e:Event):void
 			{
+				trace('complete', e.target);
 				var st:String = state;
 				var rComplete:Function = req.onComplete;
 				requests.splice(id,1);
