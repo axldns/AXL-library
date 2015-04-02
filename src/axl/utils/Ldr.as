@@ -803,7 +803,7 @@ package  axl.utils
 		}
 			
 		/**
-		 * Loads all assets <strong>synchroniously</strong> from array of paths or subpaths,
+		 * Loads all assets one by one from array of paths or subpaths,
 		 * checks for alternative directories, stores loaded files to directories (AIR only).
 		 * It does not allow to load same asset twice. Use <code>Ldr.unload</code> to remove previously loaded files.
 		 *
@@ -947,36 +947,41 @@ package  axl.utils
 			}
 			IS_LOADING = true;
 			return id;
-			function completeHandler(e:Event):void
-			{
-				trace('complete', e.target);
-				var st:String = state;
-				var rComplete:Function = req.onComplete;
-				requests.splice(id,1);
-				req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
-				req.destroy();
-				req.currentQueueDone();
-				
-				IS_LOADING = (numQueues > 0);
-				if(IS_LOADING)
-				{
-					log("[Ldr] current queue finished with state:", st, '\ntimer:', getTimer()-startTime, 'ms');
-					req = requests[0];
-					id = 0;
-					req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
-					req.load();
-				}
-				else
-				{
-					Req.allQueuesDone();
-					req = null;
-					log("[Ldr] all queues finished. state:", st, '\ntimer:', getTimer()-startTime, 'ms');
-				}
-				if(rComplete is Function)
-					rComplete();
-				rComplete=null;
-			}		
 		}
+		
+		private static function completeHandler(e:Event):void
+		{
+			trace('complete', e.target);
+			var req:Req = e.target as Req;
+			var st:String = state;
+			var rComplete:Function = req.onComplete;
+			var index:int = requests.indexOf(req);
+			trace('index !', index);
+			if(index > -1)
+				requests.splice(index,1);
+			req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
+			req.destroy();
+			req.currentQueueDone();
+			
+			IS_LOADING = (numQueues > 0);
+			if(IS_LOADING)
+			{
+				log("[Ldr] current queue finished with state:");//, st, '\ntimer:', getTimer()-startTime, 'ms');
+				req = requests[0];
+				//id = 0;
+				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
+				req.load();
+			}
+			else
+			{
+				Req.allQueuesDone();
+				req = null;
+				log("[Ldr] all queues finished. state:", st);//, '\ntimer:', getTimer()-startTime, 'ms');
+			}
+			if(rComplete is Function)
+				rComplete();
+			rComplete=null;
+		}	
 		
 		public static function get state():String
 		{
