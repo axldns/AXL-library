@@ -15,6 +15,7 @@ import flash.system.ImageDecodingPolicy;
 import flash.system.LoaderContext;
 import flash.utils.ByteArray;
 import flash.utils.getDefinitionByName;
+import flash.utils.getTimer;
 
 import axl.utils.Ldr;
 
@@ -91,7 +92,11 @@ internal class Req extends EventDispatcher {
 	
 	public function Req()
 	{
-		
+		urlLoader = new URLLoader();
+		urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
+		listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
+		addListeners.apply(null, listeners);
+		urlRequest = new URLRequest();
 	}
 	// public api
 	public function addPaths(v:Object):int
@@ -214,7 +219,7 @@ internal class Req extends EventDispatcher {
 			else if(v.isDirectory) ar[i] = v.nativePath; // prefixes 
 		}
 		else if (v is XML || v is XMLList) processXml(XML(v), ar);
-		else if(v is Array || v is Vector.<FileClass> || v is Vector.<String> || v is Vector.<XML> || v is Vector.<XMLList>)
+		else if(v is Array || v is Vector.<String> || v is Vector.<FileClass> || v is Vector.<XML> || v is Vector.<XMLList>)
 			for(var j:int = 0, k:int = v.length;  j < k; j++)
 				ar = ar.concat(getFlatList(v[j], new Vector.<String>(),filesLookUp));
 		return ar;
@@ -242,7 +247,6 @@ internal class Req extends EventDispatcher {
 		for(i = 0, j = nodefiles.length(); i<j; i++)
 			flat.push(addition + nodefiles[i].toString());
 	}
-	
 	
 	private function get validatedPrefix():String
 	{
@@ -278,9 +282,6 @@ internal class Req extends EventDispatcher {
 		{ 
 			// workaround for inconsistency in traversing up directories. 
 			// FP takes working dir, AIR doesn't. There are also isssues with
-			// FileClass.applicationDirectory.resolvePath(..).nativePath - still points to the same dir
-			// FileClass.applicationDirectory.nativePath + '/' + prefix; - Sandbox violation
-			// workaround for inconsistency of traversing up directories. FP takes working dir, AIR doesn't
 			var cp:String = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix; 
 			try {
 				var f:Object = new FileClass(cp) ;
@@ -297,35 +298,35 @@ internal class Req extends EventDispatcher {
 		return String(prefix + originalUrl).replace(/\\/gi, "/");
 	}
 	
-	
 	private function finalize():void
 	{
 		isLoading = false;
 		isDone = true;
+		removeListeners.apply(null, listeners);
+		urlLoader = null;
+		urlRequest = null;
+		listeners.length = 0;
 		this.dispatchEvent(eventComplete);
 	}
 	
-	private function nextElement():Boolean
+	private function nextElement():void
 	{
 		// validate end of queue
 		numCurrentRemaining = pathList.length;
 		if(numCurrentRemaining < 1)
 			return finalize();
 		if(!isLoading) // can be paused
-			return false
-		
+			return
+		timer = flash.utils.getTimer();
 		prefix = validatedPrefix;
 		subpath = pathList.pop();
 		
-		//subpath should throw an error or log message at least though
 		if(!(prefix is String) || !(subpath is String))
 			return nextElement();
 		
-		// get initial details. originalPath is nulled out in onBothloadersComplete
 		if(!originalPath)
 			getSubpathDetails();		
 		
-		//validate already existing elements - this should be up to user if he wants to unload current contents !
 		if(objects[filename] || urlLoaders[filename] || loaders[filename])
 		{
 			log("[Ldr][Queue]["+filename+"] OBJECT ALREADY EXISTS!");//,'/',objects[filename],'/', urlLoaders[filename],'/', loaders[filename]);
@@ -336,46 +337,45 @@ internal class Req extends EventDispatcher {
 			return nextElement();
 		}
 		
-		//merge prefix & subpath
 		concatenatedPath = getConcatenatedPath(prefix, originalPath);
 		
 		//setup loaders and load
-		urlLoader = new URLLoader();
-		urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
+	
 		urlLoaders[filename] = urlLoader;
-		
-		listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
-		addListeners.apply(null, listeners);
-		urlRequest = new URLRequest(concatenatedPath);
-		log("[Ldr][Queue]["+filename+"] loading:", urlRequest.url);
+		urlRequest.url = concatenatedPath;
+		log("[Ldr][Queue]["+filename+"] loading:("+ String(getTimer()- timer)+'ms):', urlRequest.url);
 		urlLoader.load(urlRequest);
-		// end of nextElement flow - waiting for eventDispatchers
-		return true
 	}
 	
 	private function onUrlLoaderComplete(e:Object):void
 	{
-		log("[Ldr][Queue]["+filename+"] instantiation..");
-		var bytes:ByteArray = urlLoader.data as ByteArray;
-		if(bytes)
-			saveIfRequested(bytes);
+		log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- timer)+"ms)");
+		var bytes:ByteArray = urlLoader.data;
+		
+		if(bytes) saveIfRequested(bytes);
+		else return bothLoadersComplete(null);
 		switch (extension.toLowerCase())
 		{
 			case "mpeg":
 			case "mp3":
 				bothLoadersComplete(instantiateSound(bytes));
+				bytes.clear();
 				break;
 			case "jpg":
 			case "jpeg":
 			case "png":
 			case "gif":
-				loaderInfo = instantiateImage(bytes, onError, onLoaderComplete);
+				loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete);
 				break;
 			case 'xml':
 				bothLoadersComplete(XML(bytes));
+				bytes.clear();
 				break
 			case 'json':
-				bothLoadersComplete(JSON.parse(bytes.readUTFBytes(bytes.length)))
+				var obj:Object;
+				try { obj = JSON.parse(bytes.readUTFBytes(bytes.length)), bytes.clear();}
+				catch(e:Error) { log(e), obj = bytes }
+				bothLoadersComplete(obj);
 				break;
 			default: // any other remains untouched, atf is here too
 				bothLoadersComplete(bytes);
@@ -383,14 +383,36 @@ internal class Req extends EventDispatcher {
 		}
 	}
 	
-	private function bothLoadersComplete(asset:Object):Boolean
+	private function onLoaderComplete(event:Object):void
+	{
+		urlLoader.data.clear();
+		loaders[filename] = loaderInfo.loader;
+		bothLoadersComplete(event.target.content);
+	}
+	
+	private static function instantiateImage(bytes:ByteArray, onIoError:Function, onLoaderComplete:Function):LoaderInfo
+	{
+		var loader:Loader = new Loader();
+		var loaderInfo:LoaderInfo = loader.contentLoaderInfo;
+		loaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
+		loaderInfo.addEventListener(Event.COMPLETE, onLoaderComplete);
+		loader.loadBytes(bytes, context);
+		return loaderInfo;
+	}
+	
+	private static function instantiateSound(bytes:ByteArray):Sound
+	{
+		var sound:Sound = new Sound();
+		sound.loadCompressedDataFromByteArray(bytes, bytes.length);
+		bytes.clear();
+		return sound;
+	}
+	
+	private function bothLoadersComplete(asset:Object):void
 	{
 		objects[filename] = asset;
 		delete urlLoaders[filename];
 		var url:String = urlRequest.url;
-		if(urlLoader)
-			removeListeners.apply(null, listeners);
-		
 		if(loaderInfo)
 		{
 			loaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
@@ -401,13 +423,13 @@ internal class Req extends EventDispatcher {
 		{
 			pathList.push(originalPath);
 			log("[Ldr][Queue]["+filename+"] soft fail:", url, 
-				'\n[Ldr][Queue]['+filename+'] Trying alternative dir:', validatedPrefix);
+				'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- timer)+"ms):", validatedPrefix);
 		}
 		else
 		{
 			if(asset != null)
 			{
-				log("[Ldr][Queue]["+filename+"] LOADED!:", url);
+				log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- timer)+"ms):", url);
 				numCurrentLoaded++;
 				_numAllLoaded++;
 			}
@@ -415,7 +437,7 @@ internal class Req extends EventDispatcher {
 			{
 				numCurrentSkipped++;
 				_numAllSkipped++;
-				log("[Ldr][Queue]["+filename+"] HARD FAIL:", url, "NO MORE ALTERNATIVES");
+				log("[Ldr][Queue]["+filename+"] HARD FAIL:("+ String(getTimer()- timer)+"ms):", url, "NO MORE ALTERNATIVES");
 			}
 			prefixIndex=0;
 			originalPath = null;
@@ -424,7 +446,7 @@ internal class Req extends EventDispatcher {
 			if(individualComplete is Function)
 				individualComplete(filename);
 		}
-		return nextElement();
+		nextElement();
 	}
 	
 	
@@ -490,39 +512,14 @@ internal class Req extends EventDispatcher {
 			onProgress(e.bytesLoaded / e.bytesTotal, filename);
 	}
 	
-	private function onLoaderComplete(event:Object):void
-	{
-		urlLoader.data.clear();
-		loaders[filename] = loaderInfo.loader;
-		bothLoadersComplete(event.target.content);
-	}
 	
 	private function onError(e:Event):void
 	{
+		log("[Ldr][Queue]["+filename+"] url error:("+ String(getTimer()- timer)+"ms):");
 		bothLoadersComplete(null);
 	}
 	
 	// helpers
-	
-	private static function instantiateImage(bytes:ByteArray, onIoError:Function, onLoaderComplete:Function):LoaderInfo
-	{
-		var loader:Loader = new Loader();
-		
-		var loaderInfo:LoaderInfo = loader.contentLoaderInfo;
-		loaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
-		loaderInfo.addEventListener(Event.COMPLETE, onLoaderComplete);
-		
-		loader.loadBytes(bytes, context);
-		return loaderInfo;
-	}
-	
-	private static function instantiateSound(bytes:ByteArray):Sound
-	{
-		var sound:Sound = new Sound();
-		sound.loadCompressedDataFromByteArray(bytes, bytes.length);
-		bytes.clear();
-		return sound;
-	}
 	
 	private function getHttpHeader(headers:Array, headerName:String):String
 	{
@@ -554,6 +551,7 @@ internal class Req extends EventDispatcher {
 	}
 	
 	private static var _context:LoaderContext;
+	private var timer:int;
 	private static function get context():LoaderContext
 	{
 		if(!_context)
@@ -601,7 +599,24 @@ package  axl.utils
 	 * <br>Properly set up, even three lines of code can make a robust solution for assets update managed fully server side (mobile apps).
 	 * <br>Full controll on loading process (pause, stop, resume, queues re-index) error handling, verbose mode
 	 * 
-	 *
+	 * <br> XML may contain two types of nodes: files and file. file nodes should hold only filename or sub-path. files nodes should be a list of file nodes. files also can have 
+	 * an attribute <code>dir</code> Such an attribute will be a prefix to all its sub-nodes.
+	 * <pre>
+	 * < files dir="/assets">
+	 * 	< file>/sounds/one.mp3< /file>
+	 *  	< files dir="images">
+	 * 		< file>two.png< /file>
+	 * 		< file>two.jpg< /file>
+	 * 	< /files>
+	 * < /files>
+	 * < file>/config/workflow/init.xml< /file>
+	 * </pre>
+	 * This would queue:
+	 * <br>/assets/sounds/one.mp3
+	 * <br>/asset/images/two.png
+	 * <br>/assets/images/two.jpg
+	 * <br>/config/workflow/init.xml
+	 * 
 	 */
 	public class Ldr
 	{
@@ -778,7 +793,7 @@ package  axl.utils
 		public static function getXML(v:String):XML { return getAny(v) as XML }
 		public static function getJSON(v:String):Object { return getAny(v) }
 		public static function getSound(v:String):Sound { return getAny(v) as Sound }
-		public static function getMatching(regexp:String,target:Array=null, onlyTypes:Array=null):Array
+		public static function getMatching(regexp:RegExp,target:Array=null, onlyTypes:Array=null):Array
 		{
 			target = target || [];
 			var ti:int = target.length;
@@ -809,27 +824,12 @@ package  axl.utils
 		 *
 		 * @param resources : Basic types: <code>String, File, XML, XMLList</code> 
 		 * or collections: <code>Array, Vector</code> of basic types. 
-		 * <br>Basic elements must always point to file with an extension. 
+		 * <br>Basic elements must always point to file with an extension exposed. 
 		 * eg.: <code> ["/assets/images/a.jpg", "http://abc.de/fg.hi"]</code> 
-		 * <br>or: (AIR) <code> File.applicationStorgeDirectory.getDirectoryListing()</code>
-		 * Exception is File. If it points to directory, whole directory will be scanned recursively. 
-		 * <br> Resources can be mixed together and embed to the reasonable level of depth - lists are parsed recursively too!
-		 * <br> XML nodes may be of two names: files and file. files attribute <i>dir</i> will be prefixed to every value of file node inside it.
-		 * <pre>
-		 * < files dir="/assets">
-		 * 	< file>/sounds/one.mp3< /file>
-		 *  	< files dir="images">
-		 * 		< file>two.png< /file>
-		 * 		< file>two.jpg< /file>
-		 * 	< /files>
-		 * < /files>
-		 * < file>/config/workflow/init.xml< /file>
-		 * </pre>
-		 * This would queue:
-		 * <br>/assets/sounds/one.mp3
-		 * <br>/asset/images/two.png
-		 * <br>/assets/images/two.jpg
-		 * <br>/config/workflow/init.xml
+		 * Exception is File. If it points to directory, whole directory will be scanned recursively and every
+		 * file found will be added to queue. 
+		 * <br> Resources can be mixed together and nest to the reasonable level of depth - lists are parsed recursively too!
+		 * Check class description to see examples including XML nodes
 		 * 
 		 * @param onComplete : function to execute once queue is done. this suppose to execute always, 
 		 * regardles of issues with particular asssets. Exception is calling <code>Ldr.load(null, ..anyArgs)</code>
@@ -916,17 +916,17 @@ package  axl.utils
 												 storeDirectory:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue):int
 		{
 			log("[Ldr] request load.");
-			var req:Req, id:int = 0, startTime:int = getTimer();
+			var req:Req;
 			if(resources == null)
 			{
-				if(requests.length < 1) return (onComplete is Function) ? onComplete() : -1;
-				else if(requests[0].isLoading) return 0;
+				if(requests.length < 1) return (onComplete is Function) ? onComplete() : -2;
+				else if(requests[0].isLoading) return -1;
 				else req = requests[0];
 			}
 			else
 			{
 				req = new Req();
-				id = requests.push(req)-1;
+				requests.push(req)-1;
 			}
 			
 			if(Req.fileInterfaceAvailable)
@@ -946,17 +946,15 @@ package  axl.utils
 				req.load();
 			}
 			IS_LOADING = true;
-			return id;
+			return 0;
 		}
 		
 		private static function completeHandler(e:Event):void
 		{
-			trace('complete', e.target);
 			var req:Req = e.target as Req;
 			var st:String = state;
 			var rComplete:Function = req.onComplete;
 			var index:int = requests.indexOf(req);
-			trace('index !', index);
 			if(index > -1)
 				requests.splice(index,1);
 			req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
