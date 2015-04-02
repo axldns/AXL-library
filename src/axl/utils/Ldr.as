@@ -6,7 +6,6 @@ import flash.events.HTTPStatusEvent;
 import flash.events.IOErrorEvent;
 import flash.events.ProgressEvent;
 import flash.events.SecurityErrorEvent;
-import flash.filesystem.File;
 import flash.media.Sound;
 import flash.net.URLLoader;
 import flash.net.URLLoaderDataFormat;
@@ -106,7 +105,7 @@ internal class Req extends EventDispatcher {
 		flatList.length = 0;
 		flatList = null;
 		counters(l);
-		log("[Ldr][Queue] added to queue. state:", Ldr.state);
+		log("[Ldr][Queue] added to queue.");
 		return l;
 	}
 	
@@ -125,7 +124,7 @@ internal class Req extends EventDispatcher {
 		flatList = null;
 		l = pathList.length;
 		counters(l);
-		log("[Ldr][Queue] removed from queue. state: ' ", Ldr.state);
+		log("[Ldr][Queue] removed from queue.");
 		return l;
 	}
 	
@@ -178,7 +177,7 @@ internal class Req extends EventDispatcher {
 		else if (v is XML || v is XMLList) processXml(XML(v), ar);
 		else if(v is Array || v is Vector.<FileClass> || v is Vector.<String> || v is Vector.<XML> || v is Vector.<XMLList>)
 			for(var j:int = 0, k:int = v.length;  j < k; j++)
-				ar = ar.concat(getFlatList(v[j], new Vector.<String>()));
+				ar = ar.concat(getFlatList(v[j], new Vector.<String>(),filesLookUp));
 		return ar;
 	}
 	
@@ -237,7 +236,7 @@ internal class Req extends EventDispatcher {
 			return originalUrl;
 		}
 		if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
-		{ trace('--');
+		{ 
 			// workaround for inconsistency in traversing up directories. 
 			// FP takes working dir, AIR doesn't. There are also isssues with
 			// FileClass.applicationDirectory.resolvePath(..).nativePath - still points to the same dir
@@ -247,7 +246,7 @@ internal class Req extends EventDispatcher {
 			try {
 				var f:Object = new FileClass(cp) ;
 				return  f.resolvePath(f.nativePath + originalUrl).nativePath;
-			} catch (e:*) { log('[Ldr][Queue] can not resolve path:',prefix + originalUrl, e, 'trying as URLloader')
+			} catch (e:*) { log("[Ldr][Queue]["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
 			} finally { f = null }
 		}
 		//fixes concat two styles an doubles. all go to "/" since this is default url style, ios supports that, windows can resolve
@@ -270,9 +269,9 @@ internal class Req extends EventDispatcher {
 	
 	private function finalize():void
 	{
-		this.dispatchEvent(eventComplete);
 		isLoading = false;
 		isDone = true;
+		this.dispatchEvent(eventComplete);
 	}
 	
 	private function nextElement():Boolean
@@ -377,7 +376,7 @@ internal class Req extends EventDispatcher {
 		{
 			if(asset != null)
 			{
-				log("[Ldr][Queue]["+filename+"] LOADED:", url);
+				log("[Ldr][Queue]["+filename+"] LOADED!:", url);
 				numCurrentLoaded++;
 				_numAllLoaded++;
 			}
@@ -393,7 +392,6 @@ internal class Req extends EventDispatcher {
 			numCurrentRemaining--;
 			if(individualComplete is Function)
 				individualComplete(filename);
-			log("[Ldr][Queue]["+filename+"] element completed. state:", Ldr.state);
 		}
 		return nextElement();
 	}
@@ -403,7 +401,6 @@ internal class Req extends EventDispatcher {
 	{
 		if((storePrefix != null) && fileInterfaceAvailable)
 		{
-			trace("STORE PREFIX IS", storePrefix, '[', storePrefix.length,']');
 			var f:Object;
 			var path:String = getConcatenatedPath(storePrefix, originalPath);
 			log("[Ldr][Queue]["+filename+"][Save] saving:", path);
@@ -423,7 +420,7 @@ internal class Req extends EventDispatcher {
 				fr.writeBytes(data);
 				fr.close();
 				fr = null;
-				log("[Ldr][Queue]["+filename+"][Save] SAVED:", f.nativePath, '[', data.length / 1024, 'kb]');
+				log("[Ldr][Queue]["+filename+"][Save] SAVED:", f.nativePath, '['+ String(data.length / 1024) + 'kb]');
 			} catch (e:Error) { log("[Ldr][Queue]["+filename+"][Save] FAIL: cant save as:",f.nativePath,'\n',e) }
 			f = null;
 		}
@@ -442,28 +439,24 @@ internal class Req extends EventDispatcher {
 	}
 	private function storingFilter(file:Object, url:String):Object
 	{
-		Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria]", storingBehaviour, file, url);
+		Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria]", describeType(storingBehaviour).name(), file, url);
 		
 		if(baseValidation(file, url) == null) return null
 		if((storingBehaviour is Function) && (storingBehaviour.length == 2))
 		{
-			log("[Ldr][Queue]["+filename+"][Save][criteria] user function");
 			return baseValidation(storingBehaviour.apply(null,[file, url]),url);
 		}
 		else if(storingBehaviour is RegExp) 
 		{
-			log("[Ldr][Queue]["+filename+"][Save][criteria] regexp match");
 			return url.match(storingBehaviour) ? file : null;
 		}
 		else if(storingBehaviour is Date)
 		{
-			log("[Ldr][Queue]["+filename+"][Save][criteria] date comparison");
 			if(!file.exists) return file;
 			return (file.modificationDate.time < storingBehaviour.time) ? file : null
 		}
 		else if(storingBehaviour is Number)
 		{
-			log("[Ldr][Queue]["+filename+"][Save][criteria] number comparison");
 			if(!file.exists) return file;
 			return (file.modificationDate.time < storingBehaviour)
 		}
@@ -913,7 +906,7 @@ package  axl.utils
 												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
 												 storeDirectory:Object=Ldr.defaultValue, storingBehaviour:Object=Ldr.defaultValue):int
 		{
-			log("[Ldr] request load. State:", state);
+			log("[Ldr] request load.");
 			var req:Req, id:int = 0, startTime:int = getTimer();
 			if(resources == null)
 			{
