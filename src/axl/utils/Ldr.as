@@ -10,7 +10,9 @@ import flash.media.Sound;
 import flash.net.URLLoader;
 import flash.net.URLLoaderDataFormat;
 import flash.net.URLRequest;
+import flash.net.URLVariables;
 import flash.system.ApplicationDomain;
+import flash.system.Capabilities;
 import flash.system.ImageDecodingPolicy;
 import flash.system.LoaderContext;
 import flash.utils.ByteArray;
@@ -27,6 +29,7 @@ internal class Req extends EventDispatcher {
 	public static const fileInterfaceAvailable:Boolean =  ApplicationDomain.currentDomain.hasDefinition('flash.filesystem::File');
 	public static const FileClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::File') as Class : null;
 	public static const FileStreamClass:Class = fileInterfaceAvailable ? getDefinitionByName('flash.filesystem::FileStream') as Class : null;
+	public static const codeLoadAllowed:Boolean = !Capabilities.os.match(/(android|ios)/i);
 	private static const networkRegexp:RegExp = /^(http:|https:|ftp:|ftps:)/i;
 	
 	private static function log(...args):void { if(verbose is Function) verbose.apply(null,args) }
@@ -87,6 +90,7 @@ internal class Req extends EventDispatcher {
 	
 	public var isLoading:Boolean;
 	public var isDone:Boolean;
+	private var timer:int;
 	
 	private var eventComplete:Event = new Event(Event.COMPLETE);
 	
@@ -97,6 +101,13 @@ internal class Req extends EventDispatcher {
 		listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
 		addListeners.apply(null, listeners);
 		urlRequest = new URLRequest();
+		
+		//this does work!
+		/*urlRequest.method = 'POST';
+		var urlVars:URLVariables;
+		urlVars = new URLVariables();
+		urlVars.data = JSON.stringify({ test : 200 });
+		urlRequest.data = urlVars;*/
 	}
 	// public api
 	public function addPaths(v:Object):int
@@ -165,22 +176,19 @@ internal class Req extends EventDispatcher {
 	
 	public function set storingBehavior(v:Object):void
 	{
-		if((v is Function) && (v.length == 2))
-			storeFilter = v as Function;
+		if(v is Date) v = v.time;
+		if(v is Number) 
+		{
+			storingBehaviorNumber = v.time;
+			storeFilter = filter_date;
+		}
+		else if((v is Function) && (v.length == 2))	storeFilter = v as Function;
 		else if(v is RegExp) 
 		{
 			storingBehaviorRegexp = v as RegExp;
 			storeFilter = filter_regexp;
 		}
-		else if(v is Number)
-			storeFilter = filter_date;
-		else if(v is Date)
-		{
-			storingBehaviorNumber = v.time;
-			storeFilter = filter_date;
-		}
-		else
-			storeFilter = null;
+		else storeFilter = null;
 	}
 	
 	public function stop():void { pathList = null }
@@ -351,7 +359,6 @@ internal class Req extends EventDispatcher {
 	{
 		log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- timer)+"ms)");
 		var bytes:ByteArray = urlLoader.data;
-		
 		if(bytes) saveIfRequested(bytes);
 		else return bothLoadersComplete(null);
 		switch (extension.toLowerCase())
@@ -367,18 +374,20 @@ internal class Req extends EventDispatcher {
 			case "gif":
 				loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete);
 				break;
+			case "swf":
+				try { loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete) }
+				catch(e:Error) { log(e), bothLoadersComplete(bytes) }
+				break;
 			case 'xml':
 				bothLoadersComplete(XML(bytes));
 				bytes.clear();
 				break
-			case 'json':
-				var obj:Object;
-				try { obj = JSON.parse(bytes.readUTFBytes(bytes.length)), bytes.clear();}
-				catch(e:Error) { log(e), obj = bytes }
+			default: 
+				try { var obj:Object = tryAutodetect(bytes)}
+				catch(e:Error) { log(e)}
+				if(obj != null) bytes.clear();
+				else obj = bytes;
 				bothLoadersComplete(obj);
-				break;
-			default: // any other remains untouched, atf is here too
-				bothLoadersComplete(bytes);
 				break;
 		}
 	}
@@ -388,6 +397,19 @@ internal class Req extends EventDispatcher {
 		urlLoader.data.clear();
 		loaders[filename] = loaderInfo.loader;
 		bothLoadersComplete(event.target.content);
+	}
+	
+	private function tryAutodetect(ba:ByteArray):Object
+	{
+		var len:int = ba.length;
+		if(len < 3) return null;
+		var f3:String="";
+		for(var i:int= 0;i < 3; i++)
+			f3 += String.fromCharCode(ba[i]);
+		if(f3 == 'ID3')	return instantiateSound(ba);
+		else if(f3.charAt(0).match(/(\{|\[)/)) return JSON.parse(ba.readUTFBytes(len));
+		else if(f3.charAt(0) == '<') return new XML(ba.readUTFBytes(len));
+		else return null;
 	}
 	
 	private static function instantiateImage(bytes:ByteArray, onIoError:Function, onLoaderComplete:Function):LoaderInfo
@@ -491,7 +513,6 @@ internal class Req extends EventDispatcher {
 		}
 		return file;
 	}
-
 	
 	// event handlers
 	private function onHttpResponseStatus(e:HTTPStatusEvent):void
@@ -551,12 +572,12 @@ internal class Req extends EventDispatcher {
 	}
 	
 	private static var _context:LoaderContext;
-	private var timer:int;
 	private static function get context():LoaderContext
 	{
 		if(!_context)
 			_context = new LoaderContext(Ldr.policyFileCheck);
 		_context.imageDecodingPolicy = ImageDecodingPolicy.ON_LOAD;
+		_context.allowCodeImport = true;// codeLoadAllowed;
 		return _context;
 	}
 	
@@ -576,7 +597,7 @@ package  axl.utils
 	import flash.media.Sound;
 	import flash.net.URLLoader;
 	import flash.system.System;
-	import flash.utils.getTimer;
+	import flash.utils.ByteArray;
 	
 	/**
 	 * <h1>Singletone files loader </h1>
@@ -868,22 +889,24 @@ package  axl.utils
 		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultPathPrefixes</u></li>
 		 * </ul>
 		 * 
-		 * @param storeDirectory (AIR): 
-		 * Defines where to store loaded files if <code>storingBehavior</code> allows to do so.
-		 *  If value can't be interpreted as storable directory - <code>null</code> will be assigned. E.g.:<br>
-		 * 	 <code>
-		 * 	Ldr.load("/assets/image.png",null,null,null,"http://domain.com",File.applicationStorageDirectory,/./);
-		 * 	</code>
-		 * <br>would load: http://domain.com/assets/image.png
-		 * <br>would save: app-storage:/assets/image.png
+		 * @param loadBehaviour:
 		 * <ul>
-		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultStoreDirectory</u></li>
-		 * 	<li><code>String</code> tries to resolve path
-		 * 	<li><code>File</code> tries to resolve path
-		 * 	<li><code>null</code> and/or other incorrect values - disables storing</li>
+		 * <li><code>Ldr.behaviors.loadOverwrite</code> - any previously loaded elements of the same name as particular element
+		 * (requested to load) will be unloaded and removed from memory. All loaded elements will be instantiated.
+		 * <li><code>Ldr.behaviors.loadSkip</code> - any previously loaded elements of the same name 
+		 * will cause to <b>skip</b> loading queue element. onIndividualComplete will get executed, counters updated,
+		 * queue will continue as usual.</li>
+		 * <li><code>Ldr.downloadOnly</code> (AIR) - none of loaded elements will be instantiated. 
+		 * Saving files on disc will proceed according to storingBehavior</li>
+		 * <li><code>function(colidingFilename:String):String</code></li> - custom filter allows <u>you</u> to define what to do
+		 * 		<u>if</u> name of element requested to load colides with already loaded resources.
+		 * 		<br>return <code>null</code> to <b>skip</b> loading the file.
+		 * 		<br>return <code>String</code> to assign either new or the same name. Any name colision  after this point will cause 
+		 * to unload existing resource and new will take its place.</li>
+		 * <li><code>Ldr.defaultValue</code> will use <u>Ldr.defaultLoadBehavior</u></li>
 		 * </ul>
 		 * 
-		 * @param storingBehavior (AIR):
+		 *  @param storingBehavior (AIR):
 		 * 	<ul>
 		 * <li><code>Ldr.Behaviors.default</code> will perform using <u>Ldr.defaultStoringBehavior</u> values.
 		 * 	<li><code>RegExp</code> particular resource will be stored in <code>storeDirectory</code>
@@ -904,6 +927,21 @@ package  axl.utils
 		 * 		<br>Closure excepts a pointer to file in any storable directory as an output. 
 		 * 		<br><code>null</code> or incorrect values will withold this file from storing. Performance is on you in this case.
 		 * </ul>
+		 * @param storeDirectory (AIR): 
+		 * Defines where to store loaded files if <code>storingBehavior</code> allows to do so.
+		 *  If value can't be interpreted as storable directory - no storring will happen, regardless of storingBehavior assigned. E.g.:<br>
+		 * 	 <code>
+		 * 	Ldr.load("/assets/image.png",null,null,null,"http://domain.com",File.applicationStorageDirectory,/./);
+		 * 	</code>
+		 * <br>would load: http://domain.com/assets/image.png
+		 * <br>would save: app-storage:/assets/image.png
+		 * <ul>
+		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultStoreDirectory</u></li>
+		 * 	<li><code>String</code> tries to resolve path
+		 * 	<li><code>File</code> tries to resolve path
+		 * 	<li><code>null</code> and/or other incorrect values - disables storing</li>
+		 * </ul>
+		 * 
 		 * @return index of the queue this request has been placed on. -1 if resources is null
 		 *  and and tere are no queues to process
 		 * 
@@ -979,6 +1017,7 @@ package  axl.utils
 			if(rComplete is Function)
 				rComplete();
 			rComplete=null;
+			st = null;
 		}	
 		
 		public static function get state():String
@@ -1017,7 +1056,9 @@ package  axl.utils
 				{
 					o.bitmapData.dispose();
 					o.bitmapData = null;
-				}
+				} 
+				else if (o is ByteArray)
+					ByteArray(o).clear();
 				else if (o is XML)
 					flash.system.System.disposeXML(o as XML)
 				try { o.close() } catch (e:*) {}
