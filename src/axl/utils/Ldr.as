@@ -175,7 +175,7 @@ internal class Req extends EventDispatcher {
 			downloadOnly = true;
 			loadFilter = loadDownload;
 		}
-		else if(v is Function && v.length == 1);
+		else if(v is Function && v.length == 1)
 		{
 			loadBehaviorCustom = v as Function;
 			loadFilter = loadCustom;
@@ -279,6 +279,7 @@ internal class Req extends EventDispatcher {
 	{
 		numCurrentSkipped++;
 		_numAllSkipped++;
+		log("[Ldr][Queue]["+filename+"] SKIPPED:("+ String(getTimer()- timer)+"ms):");
 		element_complete();
 	}
 	
@@ -286,6 +287,7 @@ internal class Req extends EventDispatcher {
 	{
 		numCurrentLoaded++;
 		_numAllLoaded++;
+		log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- timer)+"ms):", urlRequest.url);
 		element_complete();
 	}
 	
@@ -455,7 +457,6 @@ internal class Req extends EventDispatcher {
 			loaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
 			loaderInfo.removeEventListener(Event.COMPLETE, onLoaderComplete);
 		}
-		
 		if((asset == null) && (++prefixIndex < numPrefixes))
 		{
 			pathList.push(originalPath);
@@ -463,19 +464,8 @@ internal class Req extends EventDispatcher {
 				'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- timer)+"ms):", validatedPrefix);
 			nextElement();
 		}
-		else
-		{
-			if(asset != null)
-			{
-				log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- timer)+"ms):", url);
-				element_loaded();
-			}
-			else
-			{
-				log("[Ldr][Queue]["+filename+"] HARD FAIL:("+ String(getTimer()- timer)+"ms):", url, "NO MORE ALTERNATIVES");
-				element_skipped();
-			}
-		}
+		else if(asset != null) element_loaded();
+		else element_skipped();
 	}
 	
 // -------helpers----------------------------- QUEUE PROCESSES
@@ -533,7 +523,7 @@ internal class Req extends EventDispatcher {
 	private function get conflictsResolved():Boolean
 	{
 		if(objects[filename] || loaders[filename])
-			return  loadFilter();
+			return loadFilter();
 		else return true;
 	}
 	
@@ -544,7 +534,6 @@ internal class Req extends EventDispatcher {
 	private function filter_regexp(file:Object, url:String):Object {
 		return url.match(storingBehaviorRegexp) ? file : null;
 	}
-	
 		
 	private function loadDownload():Boolean { return true }
 	private function loadSkip():Boolean { return false }
@@ -1082,10 +1071,10 @@ package  axl.utils
 		public static function unload(filename:String):void
 		{
 			var o:Object= objects[filename];
-			var l:Loader = loaders[filename];
-			if(o)
+			var l:Loader = null;//loaders[filename];
+			if(o is Object)
 			{
-				if(o.hasOwnProperty('parent') && o.parent)
+				if(o.hasOwnProperty('parent') && o.parent != null && !(o.parent is Loader))
 					o.parent.removeChild(o);
 				if(o is Bitmap && o.bitmapData)
 				{
@@ -1098,8 +1087,9 @@ package  axl.utils
 					flash.system.System.disposeXML(o as XML)
 				try { o.close() } catch (e:*) {}
 			}
-			if(l)
+			if(l is Loader)
 			{
+				log('loader destroy');
 				if(l.hasOwnProperty('parent') && l.parent)
 					l.parent.removeChild(l);
 				if(l.loaderInfo)
@@ -1107,12 +1097,12 @@ package  axl.utils
 				l.unload();
 				l.unloadAndStop();
 			}
-			
 			o =null, l = null;
 			objects[filename] = null;
 			loaders[filename] = null;
 			delete loaders[filename];
 			delete objects[filename];
+			log('[Ldr][Unload]['+filename+'] UNLOADED!');
 		}
 	}
 }
