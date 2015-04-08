@@ -10,7 +10,6 @@ import flash.media.Sound;
 import flash.net.URLLoader;
 import flash.net.URLLoaderDataFormat;
 import flash.net.URLRequest;
-import flash.net.URLVariables;
 import flash.system.ApplicationDomain;
 import flash.system.Capabilities;
 import flash.system.ImageDecodingPolicy;
@@ -36,7 +35,6 @@ internal class Req extends EventDispatcher {
 	public static var verbose:Function;
 	
 	public static var loaders:Object;
-	public static var urlLoaders:Object;
 	public static var objects:Object;
 	
 	public static var networkOverPrefixes:Boolean = true;
@@ -73,6 +71,9 @@ internal class Req extends EventDispatcher {
 	private var filename:String;
 	private var extension:String;
 	
+	private var loadBehaviorCustom:Function;
+	private var downloadOnly:Boolean;
+	
 	private var storingBehaviorRegexp:RegExp;
 	private var storingBehaviorNumber:Number;
 	private var storeFilter:Function;
@@ -91,7 +92,10 @@ internal class Req extends EventDispatcher {
 	public var isLoading:Boolean;
 	public var isDone:Boolean;
 	private var timer:int;
+	private var loadFilter:Function;
 	
+	private var _context:LoaderContext;
+		
 	private var eventComplete:Event = new Event(Event.COMPLETE);
 	
 	public function Req()
@@ -109,7 +113,8 @@ internal class Req extends EventDispatcher {
 		urlVars.data = JSON.stringify({ test : 200 });
 		urlRequest.data = urlVars;*/
 	}
-	// public api
+	
+// ----------------------------------------------- START OF INIT SETUP -----------------------------------------------//
 	public function addPaths(v:Object):int
 	{
 		var flatList:Vector.<String> = new Vector.<String>();
@@ -159,6 +164,24 @@ internal class Req extends EventDispatcher {
 		return numPrefixes;
 	}
 	
+	public function set loadBehavior(v:Object):void
+	{
+		if(v == Ldr.behaviours.loadSkip)
+			loadFilter = loadSkip;
+		else if(v == Ldr.behaviours.loadOverwrite)
+			loadFilter = loadOverwrite;
+		else if(v == Ldr.behaviours.downloadOnly)
+		{
+			downloadOnly = true;
+			loadFilter = loadDownload;
+		}
+		else if(v is Function && v.length == 1);
+		{
+			loadBehaviorCustom = v as Function;
+			loadFilter = loadCustom;
+		}
+	}
+	
 	public function set storeDirectory(v:Object):void
 	{
 		if(!fileInterfaceAvailable) storePrefix = null;
@@ -191,24 +214,7 @@ internal class Req extends EventDispatcher {
 		else storeFilter = null;
 	}
 	
-	public function stop():void { pathList = null }
-	
-	public function load():void
-	{
-		log("[Ldr][Queue] start");
-		isLoading = true;
-		nextElement();
-	}
-	
-	//helpers
-	private function filter_date(file:Object, url:String):Object { 
-		if(!file.exists) return file;
-		return (file.modificationDate.time < storingBehaviorNumber) ? file : null
-	}
-	private function filter_regexp(file:Object, url:String):Object {
-		return url.match(storingBehaviorRegexp) ? file : null;
-	}
-	
+// -------------helpers---------------------------------- INIT SETUP
 	private function counters(v:int):void
 	{
 		numCurrentRemaining +=v;
@@ -256,65 +262,42 @@ internal class Req extends EventDispatcher {
 			flat.push(addition + nodefiles[i].toString());
 	}
 	
-	private function get validatedPrefix():String
+// ----------------------------------------------- END OF INIT SETUP -----------------------------------------------//
+
+// ----------------------------------------------- QUEUE PROCESSES -----------------------------------------------//
+	
+	public function stop():void { pathList = null }
+	
+	public function load():void
 	{
-		if(prefixList.length < 1)
-		{
-			prefixList[0] = '';
-			numPrefixes = prefixList.length;
-		}
-		if(prefixIndex < numPrefixes) return prefixList[prefixIndex];
-		else return null;
+		log("[Ldr][Queue] start");
+		isLoading = true;
+		nextElement();
 	}
 	
-	private function getSubpathDetails():void
+	private function element_skipped():void
 	{
-		originalPath = subpath.substr();
-		var i:int = originalPath.lastIndexOf("/") +1;
-		var j:int = originalPath.lastIndexOf("\\")+1;
-		var k:int = originalPath.lastIndexOf(".") +1;
-		
-		extension	= originalPath.substr(k);
-		filename 	= originalPath.substr(i>j?i:j);
+		numCurrentSkipped++;
+		_numAllSkipped++;
+		element_complete();
 	}
 	
-	private function getConcatenatedPath(prefix:String, originalUrl:String):String
+	private function element_loaded():void
 	{
-		if(prefix.length < 1) return originalUrl;
-		if(networkOverPrefixes && originalUrl.match(networkRegexp))
-		{
-			prefixIndex =numPrefixes;
-			return originalUrl;
-		}
-		if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
-		{ 
-			// workaround for inconsistency in traversing up directories. 
-			// FP takes working dir, AIR doesn't. There are also isssues with
-			var cp:String = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix; 
-			try {
-				var f:Object = new FileClass(cp) ;
-				return  f.resolvePath(f.nativePath + originalUrl).nativePath;
-			} catch (e:*) { log("[Ldr][Queue]["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
-			} finally { f = null }
-		}
-		//fixes concat two styles an doubles. all go to "/" since this is default url style, ios supports that, windows can resolve
-		var joint:String = prefix.substr(-1) + originalUrl.charAt(0);
-		if(joint == '//' || joint == '\\')
-			prefix = prefix.substr(0,-1);
-		else if (!joint.match(/(\\|\/)/))
-			prefix += '/';
-		return String(prefix + originalUrl).replace(/\\/gi, "/");
+		numCurrentLoaded++;
+		_numAllLoaded++;
+		element_complete();
 	}
 	
-	private function finalize():void
+	private function element_complete():void
 	{
-		isLoading = false;
-		isDone = true;
-		removeListeners.apply(null, listeners);
-		urlLoader = null;
-		urlRequest = null;
-		listeners.length = 0;
-		this.dispatchEvent(eventComplete);
+		prefixIndex=0;
+		originalPath = null;
+		_numAllRemaining--;
+		numCurrentRemaining--;
+		if(individualComplete is Function)
+			individualComplete(filename);
+		nextElement();
 	}
 	
 	private function nextElement():void
@@ -335,142 +318,16 @@ internal class Req extends EventDispatcher {
 		if(!originalPath)
 			getSubpathDetails();		
 		
-		if(objects[filename] || urlLoaders[filename] || loaders[filename])
-		{
-			log("[Ldr][Queue]["+filename+"] OBJECT ALREADY EXISTS!");//,'/',objects[filename],'/', urlLoaders[filename],'/', loaders[filename]);
-			_numAllRemaining--;
-			numCurrentRemaining--;
-			if(individualComplete is Function)
-				individualComplete(filename);
-			return nextElement();
-		}
+		if(!conflictsResolved)
+			return element_skipped();
 		
 		concatenatedPath = getConcatenatedPath(prefix, originalPath);
 		
 		//setup loaders and load
-	
-		urlLoaders[filename] = urlLoader;
 		urlRequest.url = concatenatedPath;
 		log("[Ldr][Queue]["+filename+"] loading:("+ String(getTimer()- timer)+'ms):', urlRequest.url);
 		urlLoader.load(urlRequest);
 	}
-	
-	private function onUrlLoaderComplete(e:Object):void
-	{
-		log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- timer)+"ms)");
-		var bytes:ByteArray = urlLoader.data;
-		if(bytes) saveIfRequested(bytes);
-		else return bothLoadersComplete(null);
-		switch (extension.toLowerCase())
-		{
-			case "mpeg":
-			case "mp3":
-				bothLoadersComplete(instantiateSound(bytes));
-				bytes.clear();
-				break;
-			case "jpg":
-			case "jpeg":
-			case "png":
-			case "gif":
-				loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete);
-				break;
-			case "swf":
-				try { loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete) }
-				catch(e:Error) { log(e), bothLoadersComplete(bytes) }
-				break;
-			case 'xml':
-				bothLoadersComplete(XML(bytes));
-				bytes.clear();
-				break
-			default: 
-				try { var obj:Object = tryAutodetect(bytes)}
-				catch(e:Error) { log(e)}
-				if(obj != null) bytes.clear();
-				else obj = bytes;
-				bothLoadersComplete(obj);
-				break;
-		}
-	}
-	
-	private function onLoaderComplete(event:Object):void
-	{
-		urlLoader.data.clear();
-		loaders[filename] = loaderInfo.loader;
-		bothLoadersComplete(event.target.content);
-	}
-	
-	private function tryAutodetect(ba:ByteArray):Object
-	{
-		var len:int = ba.length;
-		if(len < 3) return null;
-		var f3:String="";
-		for(var i:int= 0;i < 3; i++)
-			f3 += String.fromCharCode(ba[i]);
-		if(f3 == 'ID3')	return instantiateSound(ba);
-		else if(f3.charAt(0).match(/(\{|\[)/)) return JSON.parse(ba.readUTFBytes(len));
-		else if(f3.charAt(0) == '<') return new XML(ba.readUTFBytes(len));
-		else return null;
-	}
-	
-	private static function instantiateImage(bytes:ByteArray, onIoError:Function, onLoaderComplete:Function):LoaderInfo
-	{
-		var loader:Loader = new Loader();
-		var loaderInfo:LoaderInfo = loader.contentLoaderInfo;
-		loaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
-		loaderInfo.addEventListener(Event.COMPLETE, onLoaderComplete);
-		loader.loadBytes(bytes, context);
-		return loaderInfo;
-	}
-	
-	private static function instantiateSound(bytes:ByteArray):Sound
-	{
-		var sound:Sound = new Sound();
-		sound.loadCompressedDataFromByteArray(bytes, bytes.length);
-		bytes.clear();
-		return sound;
-	}
-	
-	private function bothLoadersComplete(asset:Object):void
-	{
-		objects[filename] = asset;
-		delete urlLoaders[filename];
-		var url:String = urlRequest.url;
-		if(loaderInfo)
-		{
-			loaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
-			loaderInfo.removeEventListener(Event.COMPLETE, onLoaderComplete);
-		}
-		
-		if((asset == null) && (++prefixIndex < numPrefixes))
-		{
-			pathList.push(originalPath);
-			log("[Ldr][Queue]["+filename+"] soft fail:", url, 
-				'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- timer)+"ms):", validatedPrefix);
-		}
-		else
-		{
-			if(asset != null)
-			{
-				log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- timer)+"ms):", url);
-				numCurrentLoaded++;
-				_numAllLoaded++;
-			}
-			else
-			{
-				numCurrentSkipped++;
-				_numAllSkipped++;
-				log("[Ldr][Queue]["+filename+"] HARD FAIL:("+ String(getTimer()- timer)+"ms):", url, "NO MORE ALTERNATIVES");
-			}
-			prefixIndex=0;
-			originalPath = null;
-			_numAllRemaining--;
-			numCurrentRemaining--;
-			if(individualComplete is Function)
-				individualComplete(filename);
-		}
-		nextElement();
-	}
-	
 	
 	private function saveIfRequested(data:ByteArray):void
 	{
@@ -501,6 +358,245 @@ internal class Req extends EventDispatcher {
 			f = null;
 		}
 	}
+	
+	private function finalize():void
+	{
+		isLoading = false;
+		isDone = true;
+		removeListeners.apply(null, listeners);
+		urlLoader = null;
+		urlRequest = null;
+		listeners.length = 0;
+		this.dispatchEvent(eventComplete);
+	}
+	
+// -------events----------------------------- QUEUE PROCESSES
+	
+	private function onError(e:Event):void
+	{
+		log("[Ldr][Queue]["+filename+"] url error:("+ String(getTimer()- timer)+"ms):");
+		bothLoadersComplete(null);
+	}
+	private function onLoadProgress(e:ProgressEvent):void
+	{
+		if(e.bytesTotal > 0)
+			onProgress(e.bytesLoaded / e.bytesTotal, filename);
+	}
+	
+	private function onHttpResponseStatus(e:HTTPStatusEvent):void
+	{
+		if(extension == null)
+		{
+			var headers:Array = e["responseHeaders"];
+			var contentType:String = getHttpHeader(headers, "Content-Type");
+			if(contentType && /(audio|image)\//.exec(contentType))
+				extension = contentType.split("/").pop();
+		}
+	}
+	
+	private function onUrlLoaderComplete(e:Object):void
+	{
+		log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- timer)+"ms)");
+		var bytes:ByteArray = urlLoader.data;
+		if(bytes) saveIfRequested(bytes);
+		else return bothLoadersComplete(null);
+		if(downloadOnly)
+		{
+			bytes.clear();
+			return element_loaded();
+		}
+		switch (extension.toLowerCase())
+		{
+			case "mpeg":
+			case "mp3":
+				bothLoadersComplete(instantiateSound(bytes));
+				bytes.clear();
+				break;
+			case "jpg":
+			case "jpeg":
+			case "png":
+			case "gif":
+				loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete);
+				break;
+			case "swf":
+				try { loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete) }
+				catch(e:Error) { log(e), bothLoadersComplete(bytes) }
+				break;
+			case 'xml':
+				try { obj = XML(bytes) } 
+				catch(e:Error) { log(e) }
+				if(obj != null) bytes.clear();
+				else obj = bytes;
+				bothLoadersComplete(obj)
+				break
+			default: 
+				try { var obj:Object = tryAutodetect(bytes)}
+				catch(e:Error) { log(e)}
+				if(obj != null) bytes.clear();
+				else obj = bytes;
+				bothLoadersComplete(obj);
+				break;
+		}
+	}
+	
+	private function onLoaderComplete(event:Object):void
+	{
+		urlLoader.data.clear();
+		loaders[filename] = loaderInfo.loader;
+		bothLoadersComplete(event.target.content);
+	}
+	
+	private function bothLoadersComplete(asset:Object):void
+	{
+		objects[filename] = asset;
+		var url:String = urlRequest.url;
+		if(loaderInfo)
+		{
+			loaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
+			loaderInfo.removeEventListener(Event.COMPLETE, onLoaderComplete);
+		}
+		
+		if((asset == null) && (++prefixIndex < numPrefixes))
+		{
+			pathList.push(originalPath);
+			log("[Ldr][Queue]["+filename+"] soft fail:", url, 
+				'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- timer)+"ms):", validatedPrefix);
+			nextElement();
+		}
+		else
+		{
+			if(asset != null)
+			{
+				log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- timer)+"ms):", url);
+				element_loaded();
+			}
+			else
+			{
+				log("[Ldr][Queue]["+filename+"] HARD FAIL:("+ String(getTimer()- timer)+"ms):", url, "NO MORE ALTERNATIVES");
+				element_skipped();
+			}
+		}
+	}
+	
+// -------helpers----------------------------- QUEUE PROCESSES
+	
+	private function getSubpathDetails():void
+	{
+		originalPath = subpath.substr();
+		var i:int = originalPath.lastIndexOf("/") +1;
+		var j:int = originalPath.lastIndexOf("\\")+1;
+		var k:int = originalPath.lastIndexOf(".") +1;
+		
+		extension	= originalPath.substr(k);
+		filename 	= originalPath.substr(i>j?i:j);
+	}
+	
+	private function get validatedPrefix():String
+	{
+		if(prefixList.length < 1)
+		{
+			prefixList[0] = '';
+			numPrefixes = prefixList.length;
+		}
+		if(prefixIndex < numPrefixes) return prefixList[prefixIndex];
+		else return null;
+	}
+
+	private function getConcatenatedPath(prefix:String, originalUrl:String):String
+	{
+		if(prefix.length < 1) return originalUrl;
+		if(networkOverPrefixes && originalUrl.match(networkRegexp))
+		{
+			prefixIndex =numPrefixes;
+			return originalUrl;
+		}
+		if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
+		{ 
+			// workaround for inconsistency in traversing up directories. 
+			// FP takes working dir, AIR doesn't. There are also isssues with
+			var cp:String = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix; 
+			try {
+				var f:Object = new FileClass(cp) ;
+				return  f.resolvePath(f.nativePath +FileClass.separator+ originalUrl).nativePath;
+			} catch (e:*) { log("[Ldr][Queue]["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
+			} finally { f = null }
+		}
+		//fixes concat two styles an doubles. all go to "/" since this is default url style, ios supports that, windows can resolve
+		var joint:String = prefix.substr(-1) + originalUrl.charAt(0);
+		if(joint == '//' || joint == '\\')
+			prefix = prefix.substr(0,-1);
+		else if (!joint.match(/(\\|\/)/))
+			prefix += '/';
+		return String(prefix + originalUrl).replace(/\\/gi, "/");
+	}
+	
+	private function get conflictsResolved():Boolean
+	{
+		if(objects[filename] || loaders[filename])
+			return  loadFilter();
+		else return true;
+	}
+	
+	private function filter_date(file:Object, url:String):Object { 
+		if(!file.exists) return file;
+		return (file.modificationDate.time < storingBehaviorNumber) ? file : null
+	}
+	private function filter_regexp(file:Object, url:String):Object {
+		return url.match(storingBehaviorRegexp) ? file : null;
+	}
+	
+		
+	private function loadDownload():Boolean { return true }
+	private function loadSkip():Boolean { return false }
+	private function loadOverwrite():Boolean
+	{
+		Ldr.unload(filename);
+		return true;
+	}
+	private function loadCustom():Boolean {
+		try { filename = loadBehaviorCustom(filename) }
+		catch(e:*) { filename = null}
+		if(filename == null)
+			return false;
+		else if(objects[filename] || loaders[filename])
+		{
+			Ldr.unload(filename);
+			return true;
+		}
+		else return true;
+	}
+	
+	private function tryAutodetect(ba:ByteArray):Object
+	{
+		var len:int = ba.length;
+		if(len < 3) return null;
+		var f3:String="";
+		for(var i:int= 0;i < 3; i++)
+			f3 += String.fromCharCode(ba[i]);
+		if(f3 == 'ID3')	return instantiateSound(ba);
+		else if(f3.charAt(0).match(/(\{|\[)/)) return JSON.parse(ba.readUTFBytes(len));
+		else if(f3.charAt(0) == '<') return new XML(ba.readUTFBytes(len));
+		else return null;
+	}
+	
+	private function instantiateImage(bytes:ByteArray, onIoError:Function, onLoaderComplete:Function):LoaderInfo
+	{
+		var loader:Loader = new Loader();
+		var loaderInfo:LoaderInfo = loader.contentLoaderInfo;
+		loaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
+		loaderInfo.addEventListener(Event.COMPLETE, onLoaderComplete);
+		loader.loadBytes(bytes, context);
+		return loaderInfo;
+	}
+	
+	private function instantiateSound(bytes:ByteArray):Sound
+	{
+		var sound:Sound = new Sound();
+		sound.loadCompressedDataFromByteArray(bytes, bytes.length);
+		bytes.clear();
+		return sound;
+	}
+	
 	private function baseValidation(file:Object, url:String):Object
 	{
 		if(!(file is FileClass) || file.isDirectory){
@@ -513,34 +609,6 @@ internal class Req extends EventDispatcher {
 		}
 		return file;
 	}
-	
-	// event handlers
-	private function onHttpResponseStatus(e:HTTPStatusEvent):void
-	{
-		if (extension == null)
-		{
-			var headers:Array = e["responseHeaders"];
-			var contentType:String = getHttpHeader(headers, "Content-Type");
-			
-			if (contentType && /(audio|image)\//.exec(contentType))
-				extension = contentType.split("/").pop();
-		}
-	}
-	
-	private function onLoadProgress(e:ProgressEvent):void
-	{
-		if(e.bytesTotal > 0)
-			onProgress(e.bytesLoaded / e.bytesTotal, filename);
-	}
-	
-	
-	private function onError(e:Event):void
-	{
-		log("[Ldr][Queue]["+filename+"] url error:("+ String(getTimer()- timer)+"ms):");
-		bothLoadersComplete(null);
-	}
-	
-	// helpers
 	
 	private function getHttpHeader(headers:Array, headerName:String):String
 	{
@@ -571,8 +639,8 @@ internal class Req extends EventDispatcher {
 			urlLoader.removeEventListener(ProgressEvent.PROGRESS, onLoadProgress);
 	}
 	
-	private static var _context:LoaderContext;
-	private static function get context():LoaderContext
+	
+	private function get context():LoaderContext
 	{
 		if(!_context)
 			_context = new LoaderContext(Ldr.policyFileCheck);
@@ -585,6 +653,13 @@ internal class Req extends EventDispatcher {
 	{
 		
 	}
+}
+class Behaviours 
+{
+	public const loadOverwrite:int=0;
+	public const loadSkip:int=1;
+	public const downloadOnly:int=2;
+	public function Behaviours(){}
 }
 package  axl.utils
 {
@@ -645,80 +720,46 @@ package  axl.utils
 		public static function log(...args):void { if(_verbose is Function) _verbose.apply(null,args) }
 		public static function set verbose(func:Function):void { _verbose = func = Req.verbose = func }
 		private static var _verbose:Function;
-		private static const defaultValue:String = ":default";
+		public static const defaultValue:String = ":default";
 		
 		//verbose = trace;
 		
 		private static var objects:Object = {};
-		private static var urlLoaders:Object = {};
 		private static var loaders:Object = {};
 		private static var requests:Vector.<Req> = new Vector.<Req>();
+		public static var behaviours:Behaviours = new Behaviours();
 		
 		Req.loaders = loaders;
 		Req.objects = objects;
-		Req.urlLoaders = urlLoaders;
 		
 		private static var IS_LOADING:Boolean;
 		public static var policyFileCheck:Boolean;
 		
 		
 		/**
-		 * (AIR only)
-		 * 
-		 *  @default  File.applicationStorageDirectory
-		 * 
-		 *  @see Ldr#load
-		 *  @see Ldr#defaultOverwriteBehavior
-		 */
+		 * (AIR only)<br>
+		 Defines default value if <code>storeDirectory</code> argument of method <code>Ldr.load</code> is ommited.
+		 * @default File.applicationStorageDirectory;
+		 * @see Ldr#load */
 		public static var defaultStoreDirectory:Object = Req.fileInterfaceAvailable ? Req.FileClass.applicationStorageDirectory : null;
 		
 		/**
-		 * (AIR only)
-		 * Defines what files to overwrite if path where the file was loaded from is different to store directory.
-		 * <br>This Behavior can be overriden by specifing appropriate load argument (see <i>load</i> 
-		 * and <i>load</i> desc). 
-		 * <ul>
-		 * <li><u>all</u> - all conflict files will be overwritten</li>
-		 * <li><u>none</u>, <u>null</u> or incorrect values - no overwriting at all</li> 
-		 * <li><u>networkOnly</u> - only files loaded from paths starting like <i>http*</i> or <i>ftp*</i> will be overwritten</li>
-		 * <li><u>olderThan_<i>unixTimestamp</i></u></li> -e.g. to overwrite only files older than midday 1 APR 2015 use <code>olderThan_1427889600</code>
-		 * <li><u><code>Array/Vector/Directory</code></u></li> - only contents present in specified list of paths, list of files, specified directory
-		 * will get owerwritten</li>
-		 * <li><u>customFilter</u> - <code>function(existingFile:File):Boolean</code> let you decide for every particular file
-		 * true - overrwrite, false - dont. Performance is on you in this case
-		 * </ul>
-		 * 
-		 * @default networkOnly
-		 * 
-		 * @see Ldr#load
-		 */
+		 * (AIR only)<br>
+		 Defines default value if <code>storingBehavior</code> argument of method <code>Ldr.load</code> is ommited.
+		 * @default ''
+		 * @see Ldr#load */
 		public static var defaultStoringBehavior:Object = '';
 		
 		
-		/**
-		 * defaultPathPrefixes allow you to look up for files to load in any number of directories in a single call.
-		 * <b>Every</b> load call is prefixed but prefix can also be an empty string.
-		 * <br>This Behavior can be overriden by specifing appropriate load argument (see load and load desc). 
-		 *<br><br>
-		 * Mixing <i>File</i> class constatns and domain addresses can set a nice flow with easily updateable set of assets and fallbacks.
-		 * <br>
-		 * <code>
-		 * defaultPathPrefixes[0] = File.applicationStorageDirectory;<br>
-		 * defaultPathPrefixes[1] = "http://domain.com/app";<br>
-		 * defaultPathPrefixes[2] = File.applicationDirectory.nativePath;<br>
-		 * <br>
-		 * Ldr.load("/assets/example.file",onComplete);
-		 * </code>
-		 * <br>to check 
-		 * <br><strong>app-storage:/assets/example.file</strong> onError:
-		 * <br><strong>http://domain.com/app/assets/example.file</strong> onError
-		 * <br><strong>app:/assets/example.fle</strong> onError : onComplete(null);
-		 * <br><br>Highly recommended to push
-		 * <br><code><i>root</i>.loaderInfo.url.substr(0,<i>root</i>.loaderInfo.url.lastIndexOf('/')</code>
-		 * <br>for web apps.
-		 * <br>relative paths are allowed with standard ActionsScirpt rules.
+		/** Defines default value if <code>pathPrefixes</code> argument of method <code>Ldr.load</code> is ommited.
+		 * @default ['']
 		 * @see Ldr#load */
 		public static var defaultPathPrefixes:Object = [];
+		
+		 /***Defines default value if <code>loadBehavior</code> argument of method <code>Ldr.load</code> is ommited.
+		 *	@default Ldr.behaviours.loadSkip
+		 *  @see Ldr#load*/
+		public static var defaultLoadBehavior:Object = Ldr.behaviours.loadSkip;
 		
 		/** <code>true</code>: If element's subpath matches <code>/^(http:|https:|ftp:|ftps:)/i</code>
 		 * Ldr will try to load subpath only.
@@ -786,10 +827,8 @@ package  axl.utils
 			return isLoading ? requests[0].removePaths(resourceOrList) : 0;
 		}
 		
-		
 		/**
 		 * Main function to get resource reference.<br>
-		 * 
 		 * <ul>
 		 * <li>flash.disply.DisplayObject / Bitmap for jpg, jpeg, png, gif</li>
 		 * <li>flash.media.Sound for mp3</li>
@@ -828,7 +867,7 @@ package  axl.utils
 							target.splice(ti++,1);
 			return target;
 		}
-		public static function getNames(regexp:String='',target:Vector.<String>=null):Vector.<String>
+		public static function getNames(regexp:RegExp=null,target:Vector.<String>=null):Vector.<String>
 		{
 			target = target || new Vector.<String>();
 			var ti:int = target.length;
@@ -839,18 +878,18 @@ package  axl.utils
 		}
 			
 		/**
-		 * Loads all assets one by one from array of paths or subpaths,
-		 * checks for alternative directories, stores loaded files to directories (AIR only).
+		 * Loads all elements/files one by one from array of paths, subpaths or single url.
+		 * Checks for alternative directories, stores loaded files to directories (AIR only).
 		 * It does not allow to load same asset twice. Use <code>Ldr.unload</code> to remove previously loaded files.
 		 *
 		 * @param resources : Basic types: <code>String, File, XML, XMLList</code> 
 		 * or collections: <code>Array, Vector</code> of basic types. 
 		 * <br>Basic elements must always point to file with an extension exposed. 
 		 * eg.: <code> ["/assets/images/a.jpg", "http://abc.de/fg.hi"]</code> 
-		 * Exception is File. If it points to directory, whole directory will be scanned recursively and every
+		 * Exception is the File class instance; If it points to directory, whole directory will be scanned recursively and every
 		 * file found will be added to queue. 
 		 * <br> Resources can be mixed together and nest to the reasonable level of depth - lists are parsed recursively too!
-		 * Check class description to see examples including XML nodes
+		 * Check class description to see examples including XML patterns.
 		 * 
 		 * @param onComplete : function to execute once queue is done. this suppose to execute always, 
 		 * regardles of issues with particular asssets. Exception is calling <code>Ldr.load(null, ..anyArgs)</code>
@@ -874,7 +913,7 @@ package  axl.utils
 		 * Don't worry - there are no calculations on query time - values are being updated only when queue(s) status changes.
 		 * 
 		 * @param pathPrefixes: These values will be prefixes for <code>resources</code> defined elemements.
-		 * <br>Consieder it as a left side of simplified equasion where
+		 * <br>Consieder it as a member of simplified equasion where
 		 * <br><code>singleElementUrl = pathPrefixes[i] + resources[j]</code>
 		 * <br><i>Double joints</i> like "//" or "\\" or even missing separators should get fixed automatically.
 		 * 	<br>If loading fails, pathPrefixes index will keep increassing until a) element will get loaded <b>or</b> 
@@ -882,7 +921,7 @@ package  axl.utils
 		 * <br>In both cases pathPrefix index will roll back to 0 for the next element. 
 		 * Process applies to every queued item, therefore use your pathPrefixes wisely.
 		 * <ul>
-		 * 	<li><code>resource</code> -  Object is parsed simmilar way as <code>resources</code> argument but: 
+		 * 	<li><code>resource</code> -  Object is parsed simmilar way as <code>resources</code> argument is but: 
 		 * 		<br><b>1</b> pathPrefixes must not point to files (directories only)
 		 * 		<br><b>2</b> directories are not scanned recursively (simple hook)
 		 * 	<li><code>null</code> will match pathList only (empty prefix adds itself)</li>
@@ -944,14 +983,11 @@ package  axl.utils
 		 * 
 		 * @return index of the queue this request has been placed on. -1 if resources is null
 		 *  and and tere are no queues to process
-		 * 
-		 * @see Ldr#defaultPathPrefixes
-		 * @see Ldr#defaultStoreDirectory
-		 * @see Ldr#defaultOverwriteBehavior
 		 */
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
 												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
-												 storeDirectory:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue):int
+												 loadBehavior:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue,
+												 storeDirectory:Object=Ldr.defaultValue):int
 		{
 			log("[Ldr] request load.");
 			var req:Req;
@@ -959,7 +995,7 @@ package  axl.utils
 			{
 				if(requests.length < 1) return (onComplete is Function) ? onComplete() : -2;
 				else if(requests[0].isLoading) return -1;
-				else req = requests[0];
+				else req = requests[0]; // created with addToQueue
 			}
 			else
 			{
@@ -967,6 +1003,7 @@ package  axl.utils
 				requests.push(req)-1;
 			}
 			
+				req.loadBehavior = (loadBehavior == Ldr.defaultValue ? Ldr.defaultLoadBehavior :  loadBehavior)
 			if(Req.fileInterfaceAvailable)
 			{
 				req.storeDirectory = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
@@ -987,7 +1024,7 @@ package  axl.utils
 			return 0;
 		}
 		
-		private static function completeHandler(e:Event):void
+		protected static function completeHandler(e:Event):void
 		{
 			var req:Req = e.target as Req;
 			var st:String = state;
@@ -1004,7 +1041,6 @@ package  axl.utils
 			{
 				log("[Ldr] current queue finished with state:");//, st, '\ntimer:', getTimer()-startTime, 'ms');
 				req = requests[0];
-				//id = 0;
 				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
 				req.load();
 			}
@@ -1047,7 +1083,6 @@ package  axl.utils
 		{
 			var o:Object= objects[filename];
 			var l:Loader = loaders[filename];
-			var u:URLLoader = urlLoaders[filename];
 			if(o)
 			{
 				if(o.hasOwnProperty('parent') && o.parent)
@@ -1072,14 +1107,10 @@ package  axl.utils
 				l.unload();
 				l.unloadAndStop();
 			}
-			if(u && u.data)
-				u.data.clear();
 			
-			o =null, l = null,u = null;
+			o =null, l = null;
 			objects[filename] = null;
 			loaders[filename] = null;
-			urlLoaders[filename] = null;
-			delete urlLoaders[filename];
 			delete loaders[filename];
 			delete objects[filename];
 		}

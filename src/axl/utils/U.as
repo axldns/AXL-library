@@ -3,6 +3,7 @@ package axl.utils
 	/**
 	 * [axldns free coding 2015]
 	 */
+	import flash.display.Bitmap;
 	import flash.display.BitmapData;
 	import flash.display.DisplayObject;
 	import flash.display.DisplayObjectContainer;
@@ -12,6 +13,7 @@ package axl.utils
 	import flash.display.StageDisplayState;
 	import flash.display.StageScaleMode;
 	import flash.events.Event;
+	import flash.geom.Matrix;
 	import flash.geom.Rectangle;
 	import flash.media.SoundMixer;
 	import flash.system.Capabilities;
@@ -245,7 +247,6 @@ package axl.utils
 			ob = null;
 			cont = null;
 			return totalSize - gap;
-			Ldr.defaultOverwriteBehaviour
 		}
 		
 		public static function distributePattern(cont:Object, gap:Object=0, horizontal:Boolean=true, offset:Number=0, scaleGapAndOffset:Boolean=false):Number
@@ -369,6 +370,24 @@ package axl.utils
 				for(s in right)
 					if(left.hasOwnProperty(s))
 						left[s] = right[s];
+		}
+		
+		public static function getBitmaDatapSlice(source:Bitmap, clip:Rectangle):BitmapData
+		{
+			if(source == null || clip == null) return null;
+			else
+			{
+				var m:Matrix = new Matrix(1,0,0,1,-clip.x, -clip.y)
+				var s:BitmapData = new BitmapData(clip.width, clip.height, true, 0x000000);
+					s.draw(source,m,null,null,clip,true);
+					m = null;
+				return s;
+			}
+		}
+		
+		public static function getBitmapSlice(source:Bitmap, clip:Rectangle):Bitmap
+		{
+			return new Bitmap(getBitmaDatapSlice(source, clip));
 		}
 		
 		/**
