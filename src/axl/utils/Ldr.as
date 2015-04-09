@@ -107,13 +107,6 @@ internal class Req extends EventDispatcher {
 		listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
 		addListeners.apply(null, listeners);
 		urlRequest = new URLRequest();
-		
-		//this does work!
-		/*urlRequest.method = 'POST';
-		var urlVars:URLVariables;
-		urlVars = new URLVariables();
-		urlVars.data = JSON.stringify({ test : 200 });
-		urlRequest.data = urlVars;*/
 	}
 	
 // ----------------------------------------------- START OF INIT SETUP -----------------------------------------------//
@@ -267,7 +260,6 @@ internal class Req extends EventDispatcher {
 // ----------------------------------------------- END OF INIT SETUP -----------------------------------------------//
 
 // ----------------------------------------------- QUEUE PROCESSES -----------------------------------------------//
-	
 	
 	public function load():void
 	{
@@ -670,7 +662,7 @@ package  axl.utils
 	
 	/**
 	 * <h1>Singletone files loader </h1>
-	 * It 
+	 * It easily allows you to load/unload/save files, instantiate AS3 Objects out of file contents, keep your server and app files in sync.
 	 * <ul>
 	 * <li>loads files from local and remote directories - supports relative paths on both (general rules apply)</li>
 	 * <li>looks up for user defined alternative directories (if file not found) in user defined order</li>
@@ -687,9 +679,9 @@ package  axl.utils
 	 * This Ldr assumes you know what you're doing, and if you're dealing with files, you want to call 'file.txt' rather than 'file'.
 	 * <br> You can load and get file.png, file.jpg, file.atf, file.xml, file.txt and call them all whenever you like without worrying of anything else. 
 	 * <br>Properly set up, even three lines of code can make a robust solution for assets update managed fully server side (mobile apps).
-	 * <br>Full controll on loading process (pause, stop, resume, queues re-index) error handling, verbose mode
+	 * <br>Full controll on loading process (pause, resume, queues re-index) error handling, verbose mode
 	 * 
-	 * <br> XML may contain two types of nodes: files and file. file nodes should hold only filename or sub-path. files nodes should be a list of file nodes. files also can have 
+	 * <br><br> XML may contain two types of nodes: files and file. file nodes should hold only filename or sub-path. files nodes should be a list of file nodes. files also can have 
 	 * an attribute <code>dir</code> Such an attribute will be a prefix to all its sub-nodes.
 	 * <pre>
 	 * < files dir="/assets">
@@ -716,8 +708,6 @@ package  axl.utils
 		private static var _verbose:Function;
 		public static const defaultValue:String = ":default";
 		
-		//verbose = trace;
-		
 		private static var objects:Object = {};
 		private static var loaders:Object = {};
 		private static var requests:Vector.<Req> = new Vector.<Req>();
@@ -728,7 +718,6 @@ package  axl.utils
 		
 		private static var IS_LOADING:Boolean;
 		public static var policyFileCheck:Boolean;
-		
 		
 		/**
 		 * (AIR only)<br>
@@ -800,10 +789,8 @@ package  axl.utils
 		 * If current queue does not exist, this method creates one, and waits for <code>Ldr.load(null,..your args)</code> once you're done with adding,
 		 * but <b>BEWARE</b>: Every later call to Ldr.load with specified pathList will be hold (queued) and won't start until you finalize this one 
 		 * with <code>Ldr.load(null,..your args)</code>
-		 * @return number of elements addded
-		 * 
-		 * @see Ldr#load
-		 */
+		 * @return new queue length
+		 * @see Ldr#load */
 		public static function addToCurrentQueue(resourceOrList:Object):int
 		{
 			if(numQueues > 0) return requests[0].addPaths(resourceOrList);
@@ -815,38 +802,41 @@ package  axl.utils
 		}
 		
 		/**  removes path, file or list to remove from current queue. 
-		 @return number of elements removed*/
+		 @return new queue length*/
 		public static function removeFromCurrentQueue(resourceOrList:Object):int
 		{
 			return isLoading ? requests[0].removePaths(resourceOrList) : 0;
 		}
-		
-		/**
-		 * Main function to get resource reference.<br>
-		 * <ul>
-		 * <li>flash.disply.DisplayObject / Bitmap for jpg, jpeg, png, gif</li>
-		 * <li>flash.media.Sound for mp3</li>
-		 * <li> String / ByteArray / UTF for any binary (xml, json, txt, atf, etc..)
-		 * <ul>
-		 * @param v : filename with extension but without subpath. 
-		 * <br> Resource names are formed based on path you <code>addToQueue</code> 
-		 * or passed directly to <code>load</code> array
-		 * @return null / undefined if asset is not loaded or data as above if loaded:<br>
-		 * 
-		 * @see Ldr#load
-		 * @see Ldr#defaultPathPrefixes
-		 */
+				
+		/** @param v - Object name e.g. 'image.txt' @return <code>Object</code> 
+		 * or <code>null</code> if name doesn't match any loaded object */
 		public static function getAny(v:String):Object { return objects[v] || getmeFromPath(v) }
-		private static function getmeFromPath(v:String):Object
-		{
+		private static function getmeFromPath(v:String):Object {
 			var i:int = v.lastIndexOf('/')+1, j:int = v.lastIndexOf('\\')+1;
 			return objects[v.substr(i>j?i:j)];
 		}
 		
+		/** @param v - ByteArray name e.g. 'image.atf' @return <code>ByteArray</code> 
+		 * or <code>null</code> if name doesn't match any loaded object */
+		public static function getByteArray(v:String):ByteArray { return getAny(v) as ByteArray }
+		
+		/** @param v - name of Bitmap e.g. 'image.jpg' @return <code>Bitmap</code> 
+		 * or <code>null</code> if name doesn't match any loaded object */
 		public static function getBitmap(v:String):Bitmap { return getAny(v) as Bitmap }
+		
+		/** @param v - name of XML e.g. 'image.xml' @return <code>XML</code> 
+		 * or <code>null</code> if name doesn't match any loaded object */
 		public static function getXML(v:String):XML { return getAny(v) as XML }
-		public static function getJSON(v:String):Object { return getAny(v) }
+		
+		/** @param v - name of sound e.g. 'image.mp3' @return <code>Sound</code> 
+		 * or <code>null</code> if name doesn't match any loaded object */
 		public static function getSound(v:String):Sound { return getAny(v) as Sound }
+		
+		/** @param regexp - all objects matching regexp will be returned. e.g. /./ would return all objects
+		 * @param target - array to put matching objects into, one will be created if omitted 
+		 * @param onlyTypes - Array of class names to filter your results [Bitmap, XML] would return
+		 * only Bitmaps and XML objects that are matching your regexp 
+		 * @return array of objects that are matching your <code>regexp</code> and <code>onlyTypes</code> filter*/
 		public static function getMatching(regexp:RegExp,target:Array=null, onlyTypes:Array=null):Array
 		{
 			target = target || [];
@@ -861,6 +851,11 @@ package  axl.utils
 							target.splice(ti++,1);
 			return target;
 		}
+		
+		/** @param regexp - all objects names matching regexp will be returned. 
+		 * e.g. /./ would return all loaded content names
+		 * @param target - vector to put names into. one will ve created if omitted
+		 * @return <code>Vector.String</code> of object's names matching your <code>regexp</code>*/
 		public static function getNames(regexp:RegExp=null,target:Vector.<String>=null):Vector.<String>
 		{
 			target = target || new Vector.<String>();
@@ -1171,7 +1166,7 @@ package  axl.utils
 		
 		private static function unloadSingle(filename:String):void
 		{
-			var o:Object= objects[filename];
+			var o:Object = objects[filename];
 			var l:Loader =loaders[filename];
 			var found:Boolean;
 			if(o is Object)
