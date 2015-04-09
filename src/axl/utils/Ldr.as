@@ -225,7 +225,7 @@ internal class Req extends EventDispatcher {
 		_numAllQueued += v;
 	}
 	
-	private function getFlatList(v:Object, ar:Vector.<String>,filesLookUp:Boolean=true):Vector.<String>
+	public static function getFlatList(v:Object, ar:Vector.<String>,filesLookUp:Boolean=true):Vector.<String>
 	{
 		var i:int = ar.length;
 		if(v is String) ar[i] = v;
@@ -241,7 +241,7 @@ internal class Req extends EventDispatcher {
 		return ar;
 	}
 	
-	private function processFilesRecurse(f:Object, flat:Vector.<String>):void
+	private static function processFilesRecurse(f:Object, flat:Vector.<String>):void
 	{
 		if(f.isDirectory)
 		{
@@ -253,7 +253,7 @@ internal class Req extends EventDispatcher {
 		f = null;
 	}
 	
-	private function processXml(node:XML, flat:Vector.<String>, addition:String=''):void
+	private static function processXml(node:XML, flat:Vector.<String>, addition:String=''):void
 	{
 		var nodefiles:XMLList = node.files;
 		var subAddition:String = addition +  String(nodefiles.@dir)
@@ -1157,14 +1157,23 @@ package  axl.utils
 			return s;
 		}
 		
-		
-		 /** Unloads / clears / disposes loaded data, removes display objects from display list
+		/** Unloads / clears / disposes loaded data, removes display objects from display list
 		 * <br> It won't affect sub-instantiated elements (XMLs, Textures, JSON parsed objects) but will make them 
 		 * unavailable to restore (e.g. Starling.handleLostContext)*/
-		public static function unload(filename:String):void
+		public static function unload(resource:Object):void
+		{
+			var flatList:Vector.<String>= new Vector.<String>();
+			Req.getFlatList(resource, flatList);
+			while(flatList.length)
+				unloadSingle(flatList.pop().replace(/(^.*)(\\|\/)(.+)/, "$3"));
+			flatList = null;
+		}
+		
+		private static function unloadSingle(filename:String):void
 		{
 			var o:Object= objects[filename];
-			var l:Loader = null;//loaders[filename];
+			var l:Loader =loaders[filename];
+			var found:Boolean;
 			if(o is Object)
 			{
 				if(o.hasOwnProperty('parent') && o.parent != null && !(o.parent is Loader))
@@ -1179,23 +1188,24 @@ package  axl.utils
 				else if (o is XML)
 					flash.system.System.disposeXML(o as XML)
 				try { o.close() } catch (e:*) {}
+				found = true;
 			}
 			if(l is Loader)
 			{
-				log('loader destroy');
 				if(l.hasOwnProperty('parent') && l.parent)
 					l.parent.removeChild(l);
 				if(l.loaderInfo)
 					l.loaderInfo.bytes.clear();
 				l.unload();
 				l.unloadAndStop();
+				found = true;
 			}
 			o =null, l = null;
 			objects[filename] = null;
 			loaders[filename] = null;
 			delete loaders[filename];
 			delete objects[filename];
-			log('[Ldr][Unload]['+filename+'] UNLOADED!');
+			log('[Ldr][Unload]['+filename+'] ' + (found ? 'UNLOADED!' : 'not found..'));
 		}
 	}
 }
