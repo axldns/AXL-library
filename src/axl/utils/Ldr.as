@@ -108,6 +108,40 @@ internal class Req extends EventDispatcher {
 		addListeners.apply(null, listeners);
 		urlRequest = new URLRequest();
 	}
+	public function destroy():void
+	{
+		currentQueueDone();
+		isLoading = false;
+		isPaused = false;
+		if(listeners.length > 0)
+		{
+			removeListeners.apply(null, listeners);
+			listeners.length = 0;
+		}
+		urlLoader = null;
+		urlRequest = null;
+		listeners = null;
+		eventComplete = null;
+		_context = null;
+		loadFilter = null;
+		onComplete = null;
+		individualComplete = null;
+		onProgress = null;
+		loaderInfo = null;
+		storePrefix = null;
+		storeFilter = null;
+		storingBehaviorRegexp = null;
+		loadBehaviorCustom = null;
+		extension = null;
+		filename = null;
+		originalPath = null;
+		concatenatedPath = null;
+		if(pathList != null) pathList.length = 0;
+		pathList = null;
+		if(prefixList != null) prefixList.length = 0;
+		prefixList = null;
+		
+	}
 	
 // ----------------------------------------------- START OF INIT SETUP -----------------------------------------------//
 	public function addPaths(v:Object):int
@@ -634,11 +668,6 @@ internal class Req extends EventDispatcher {
 		_context.allowCodeImport = true;// codeLoadAllowed;
 		return _context;
 	}
-	
-	public function destroy():void
-	{
-		
-	}
 }
 class Behaviours 
 {
@@ -974,8 +1003,7 @@ package  axl.utils
 		 * <ul>
 		 * <li><code>-2</code> if there are no resources specified and no queues to start</li>
 		 * <li><code>-1</code> if there are no resources specified and queue is already started</li>
-		 * <li><code><i>ID</i></code> of the queue started or queued along with other queues</li></ul>
-		 */
+		 * <li><code><i>ID</i></code> of the queue started or queued along with other queues</li></ul>*/
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
 												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
 												 loadBehavior:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue,
@@ -1032,7 +1060,6 @@ package  axl.utils
 				requests.splice(index,1);
 			req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
 			req.destroy();
-			req.currentQueueDone();
 			
 			IS_LOADING = (numQueues > 0);
 			if(IS_LOADING)
@@ -1079,8 +1106,7 @@ package  axl.utils
 				var id:Number = requests[0].pause();
 				reqComplete(requests[0], executeOnComplete);
 				return id;
-			}
-			return -1;
+			} else return -1;
 		}
 		
 		/** if queueID is valid: removes specific queue from queues queue. If it's current queue - starts next one in order.
