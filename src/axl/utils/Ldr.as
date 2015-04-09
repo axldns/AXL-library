@@ -90,13 +90,15 @@ internal class Req extends EventDispatcher {
 	public var onProgress:Function;
 	
 	public var isLoading:Boolean;
-	public var isDone:Boolean;
+	private var isPaused:Boolean;
+	
 	private var timer:int;
 	private var loadFilter:Function;
 	
 	private var _context:LoaderContext;
 		
 	private var eventComplete:Event = new Event(Event.COMPLETE);
+	public var id:Number;
 	
 	public function Req()
 	{
@@ -266,14 +268,17 @@ internal class Req extends EventDispatcher {
 
 // ----------------------------------------------- QUEUE PROCESSES -----------------------------------------------//
 	
-	public function stop():void { pathList = null }
 	
 	public function load():void
 	{
 		log("[Ldr][Queue] start");
 		isLoading = true;
+		isPaused = false;
 		nextElement();
 	}
+	
+	public function pause():Number { isPaused = true; return id }
+	public function resume():Number { if(isPaused){load()}; return id }
 	
 	private function element_skipped():void
 	{
@@ -308,7 +313,7 @@ internal class Req extends EventDispatcher {
 		numCurrentRemaining = pathList.length;
 		if(numCurrentRemaining < 1)
 			return finalize();
-		if(!isLoading) // can be paused
+		if(!isLoading || isPaused)
 			return
 		timer = flash.utils.getTimer();
 		prefix = validatedPrefix;
@@ -364,7 +369,7 @@ internal class Req extends EventDispatcher {
 	private function finalize():void
 	{
 		isLoading = false;
-		isDone = true;
+		isPaused = false;
 		removeListeners.apply(null, listeners);
 		urlLoader = null;
 		urlRequest = null;
@@ -970,8 +975,11 @@ package  axl.utils
 		 * 	<li><code>null</code> and/or other incorrect values - disables storing</li>
 		 * </ul>
 		 * 
-		 * @return index of the queue this request has been placed on. -1 if resources is null
-		 *  and and tere are no queues to process
+		 * @return 
+		 * <ul>
+		 * <li><code>-2</code> if there are no resources specified and no queues to start</li>
+		 * <li><code>-1</code> if there are no resources specified and queue is already started</li>
+		 * <li><code><i>ID</i></code> of the queue started or queued along with other queues</li></ul>
 		 */
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
 												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
@@ -980,16 +988,18 @@ package  axl.utils
 		{
 			log("[Ldr] request load.");
 			var req:Req;
+			var len:int = requests.length;
 			if(resources == null)
 			{
-				if(requests.length < 1) return (onComplete is Function) ? onComplete() : -2;
-				else if(requests[0].isLoading) return -1;
+				if(len < 1) return (onComplete is Function) ? onComplete() : -2;
+				else if(requests[0].isLoading) return -1; // do not overwrite current callbacks
 				else req = requests[0]; // created with addToQueue
 			}
 			else
 			{
 				req = new Req();
-				requests.push(req)-1;
+				req.id = new Date().time + len;
+				requests[len] = req;
 			}
 			
 				req.loadBehavior = (loadBehavior == Ldr.defaultValue ? Ldr.defaultLoadBehavior :  loadBehavior)
@@ -1010,12 +1020,16 @@ package  axl.utils
 				req.load();
 			}
 			IS_LOADING = true;
-			return 0;
+			return req.id;
 		}
 		
 		protected static function completeHandler(e:Event):void
 		{
-			var req:Req = e.target as Req;
+			reqComplete(e.target as Req);
+		}
+		
+		private static function reqComplete(req:Req, dispatchComplete:Boolean=true):void
+		{
 			var st:String = state;
 			var rComplete:Function = req.onComplete;
 			var index:int = requests.indexOf(req);
@@ -1039,12 +1053,92 @@ package  axl.utils
 				req = null;
 				log("[Ldr] all queues finished. state:", st);//, '\ntimer:', getTimer()-startTime, 'ms');
 			}
-			if(rComplete is Function)
+			if(dispatchComplete && (rComplete is Function))
 				rComplete();
 			rComplete=null;
 			st = null;
-		}	
+		}
 		
+		/** pauses current queue and returns its ID or -1 if there is nothing to pause */
+		public static function pauseCurrent():Number
+		{
+			log('[Ldr][PAUSE] state:', state);
+			if(numQueues > 0) { return requests[0].pause()}
+			else return -1;
+		}
+		
+		/** un-pauses current queue
+		 * @return <code>-1</code> there are no queues or queueID otherwise */
+		public static function resumeCurrent():Number
+		{
+			if(numQueues > 0) {	return requests[0].resume()}
+			else return -1;
+		}
+		
+		/** if queueID is valid: removes current queue from queues queue and starts next one in order (if available)
+		 * @return <code>-1</code> if queueID is not valid or <code>queueID</code> of removed queue otherwise */
+		public static function removeCurrent(executeOnComplete:Boolean=false):Number
+		{
+			if(numQueues > 0)
+			{
+				var id:Number = requests[0].pause();
+				reqComplete(requests[0], executeOnComplete);
+				return id;
+			}
+			return -1;
+		}
+		
+		/** if queueID is valid: removes specific queue from queues queue. If it's current queue - starts next one in order.
+		 * @return <code>-1</code> if queueID is not valid or <code>queueID</code> of removed queue otherwise */
+		public static function removeQueueById(queueID:Number):Number
+		{
+			if(numQueues > 0)
+			{
+				var req:Req;
+				var qi:int= requests.length;
+				for(;qi-->0;)
+					if(requests[qi].id == queueID)
+						break;
+				if(qi > 0)
+				{
+					req = requests[qi];
+					req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
+					req.destroy();
+					req.currentQueueDone();
+					requests.splice(qi,1);
+					return queueID;
+				} 
+				else if(qi == 0) { return removeCurrent(false) }
+				else return -1;
+			} else return -1;
+		}
+		
+		/** if queueID is valid: pauses current queue and starts the one of queueID. 
+		 * @return <code>false</code> if queueID is not valid, <code>true</code> otherwise */
+		public static function makeCurrent(queueID:Number):Boolean
+		{
+			if(numQueues > 0)
+			{
+				var qi:int= requests.length;
+				for(;qi-->0;)
+					if(requests[qi].id == queueID)
+						break;
+				if(qi > 0)
+				{
+					requests[0].pause();
+					requests.unshift(requests.splice(qi,1));
+					requests[0].load();
+					return true;
+				}
+				else if(qi == 0) return true;
+				else return false
+			} else return false;
+		}
+		
+		/** returns current queue id or -1 if there are no queues */
+		public static function get currentQueueID():Number { return (numQueues > 0) ? requests[0].id : -1 }
+		
+		/** returns info with counters of all queues and current queue */
 		public static function get state():String
 		{
 			var s:String = String('-' + 
@@ -1063,11 +1157,10 @@ package  axl.utils
 			return s;
 		}
 		
-		/**
-		 * Unloads / clears / disposes loaded data, removes display objects from display list
+		
+		 /** Unloads / clears / disposes loaded data, removes display objects from display list
 		 * <br> It won't affect sub-instantiated elements (XMLs, Textures, JSON parsed objects) but will make them 
-		 * unavailable to restore (e.g. Starling.handleLostContext)
-		 */
+		 * unavailable to restore (e.g. Starling.handleLostContext)*/
 		public static function unload(filename:String):void
 		{
 			var o:Object= objects[filename];
