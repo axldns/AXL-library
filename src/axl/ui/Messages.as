@@ -41,9 +41,9 @@ package axl.ui
 			tf.setTextFormat(tff_mini, v.length, tf.text.length);
 			tf.width = U.REC.width;
 			tf.height = tf.textHeight + 5;
-			U.STGf.addChild(tf);
+			U.STG.addChild(tf);
 			
-			U.STGf.addEventListener(MouseEvent.MOUSE_DOWN, MD);
+			U.STG.addEventListener(MouseEvent.MOUSE_DOWN, MD);
 		}
 		
 		private static function makeTf():TextField
@@ -63,9 +63,9 @@ package axl.ui
 		
 		protected static function MD(e:MouseEvent):void
 		{
-			U.STGf.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
-			if(U.STGf.contains(tf))
-				U.STGf.removeChild(tf);
+			U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
+			if(U.STG.contains(tf))
+				U.STG.removeChild(tf);
 			if(ON_TAP is Function)
 				ON_TAP();
 		}	

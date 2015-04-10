@@ -685,7 +685,9 @@
 		public function trrace(...args):int
 		{
 			if(LIVE)
-				return null;
+				return 0;
+			if(regularTrace)
+				trace.apply(null,args);
 			var v:Object;
 			var s:String='';
 			for(var i:int = 0; i < args.length; i++)
@@ -722,8 +724,6 @@
 		
 		private function externalTrace(v:String):void
 		{
-			if(regularTrace)
-				trace(v);
 			if(EXTERNAL_JS && ExternalInterface.available)
 				ExternalInterface.call(EXTERNAL_JS,v);
 		}

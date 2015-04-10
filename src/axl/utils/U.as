@@ -21,11 +21,6 @@ package axl.utils
 	import axl.ui.IprogBar;
 	import axl.ui.Messages;
 	
-	import starling.core.Starling;
-	import starling.display.Image;
-	import starling.display.Stage;
-	import starling.events.Event;
-	import starling.textures.Texture;
 
 	/**
 	 * Geometric utilty, handy tool, stage setter, quick refference. 
@@ -49,7 +44,7 @@ package axl.utils
 		 * <br>According to on playerType.match: <i> /^(StandAlone|ActiveX|PlugIn)/i </i>
 		 */
 		public static function get ISWEB():Boolean { return isWeb }
-		private static var isWeb:Boolean = flash.system.Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i);
+		private static var isWeb:Boolean = (Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i) != null);
 		/**
 		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY
 		 */
@@ -59,13 +54,9 @@ package axl.utils
 		 * Pass a path to well formated xml (pattern) to load your config. If you omite it, none of the assets will be loaded at launch,
 		 * and Config class wont be instantiated
 		 */
-		public static var configPath:String;
 		private static var rec:Rectangle;
 		private static var uSTG:flash.display.Stage;
-		private static var uRSTG:starling.display.Stage;
 		private static var flashRoot:DisplayObjectContainer;
-		private static var ustarlingInstance:Starling;
-
 
 		private static var udesignedForWidth:Number;
 		private static var udesignedForHeight:Number;
@@ -77,16 +68,14 @@ package axl.utils
 		private static var uscalarYreversed:Number;
 		private static var uscalarReversed:Number;
 		
-		private static var rootStarlingClass:Class;
 		private static var bsplash:DisplayObject;
 		private static var progressBar:IprogBar;
 		
 		private static var ubin:BinAgent;
+		private static var uconfig:XML;
+		public static var configArguments:Array
 		
-		
-		/** returns starling instance. Equivalent of starling.core.Starling.current */
-		public static function get starlingInstance():Starling { return ustarlingInstance }
-		
+		public static function get CONFIG():XML { return uconfig }
 		
 		/*** returns bin agent reference. Read BinAgent class description to see what it does */
 		public static function get bin():BinAgent{ return ubin	}
@@ -97,11 +86,8 @@ package axl.utils
 		/** reference to values passed in <code>U.init</code> method. does affects on scallars only */
 		public static function get designedForWidth():Number { return udesignedForWidth	}
 
-		/*** reference to starling display stage */
-		public static function get STGs():starling.display.Stage { return uRSTG }
-
 		/** reference to flash display stage */
-		public static function get STGf():flash.display.Stage { return uSTG	}
+		public static function get STG():flash.display.Stage { return uSTG	}
 		
 		
 		/** returns value of ... scalarX. See scalarX and Y defs*/
@@ -136,40 +122,38 @@ package axl.utils
 
 		/**
 		 * STAGE RECTANGLE utility.
-		 * <br>Reffer e.g. <br>Utils.U.rec.bottom</br> or pass this to align functions like <code>U.center</code>, <code>U.align</code> or matrix transformations
+		 * <br>Reffer e.g. <br>Utils.U.REC.bottom</br> or pass this to align functions like <code>U.center</code>, <code>U.align</code> or matrix transformations
 		 */
 		public static function get REC():Rectangle { return rec }
 				
-		/**
-		 * Displays or hides flash stage splash if both splash and stage are instantiated. Messages are not covered by splash
-		 */
+		
+		/** Displays or hides flash stage splash if both splash and stage are instantiated. Messages are not covered by splash*/
 		public static function set splash(v:Boolean):void
 		{
-			if(STGf && bsplash)
+			if(STG && bsplash)
 			{
-				if(v && !STGf.contains(bsplash))
+				if(v && !STG.contains(bsplash))
 				{
 					if(!Messages.areDisplayed)
-						STGf.addChild(bsplash);
+						STG.addChild(bsplash);
 					else
-						STGf.addChildAt(bsplash, STGf.numChildren-1);
+						STG.addChildAt(bsplash, STG.numChildren-1);
 				}
 				else if(!v && bsplash.parent)
 					bsplash.parent.removeChild(bsplash)
 			}
 		}
-		/**
-		 * sets or replaces current stage splash object
-		 */
+		
+		/**sets or replaces current stage splash object*/
 		public static function set splashObject(v:DisplayObject):void
 		{
-			resolveSize(v, U.rec,true);
-			center(v, U.rec);
+			resolveSize(v, U.REC,true);
+			center(v, U.REC);
 			if(bsplash.parent)
 			{
 				bsplash.parent.removeChild(bsplash);
 				bsplash = v;
-				STGf.addChild(bsplash);
+				STG.addChild(bsplash);
 			}
 			else
 				bsplash = v;
@@ -299,7 +283,6 @@ package axl.utils
 			cont = null;
 			getObject = null;
 			
-			
 			var getObject:Function;
 			function getChild(i:int):Object { return cont.getChildAt(i) }
 			function getElement(i:int):Object { return cont[i] }
@@ -401,30 +384,6 @@ package axl.utils
 			return bmd;
 		}
 		
-		/**
-		 * Draws any flash.display.DisplayObject(including containers) to bitmap data and creates Starling.textures.<b>Texture</b> out of it
-		 * @param disposeBitmapData: if true, bitmapdata of drawn object is released from memory and not available for restore function <code>Starling.handleLostContext</code>
-		 * @param source: any flash display object
-		 */
-		public static function flashToTexture(source:Object, disposeBitmapData:Boolean=true,scale:Number=1):Texture
-		{
-			var bmd:BitmapData =flashToBitmapData(source);
-			var txtr:Texture = Texture.fromBitmapData(bmd, false,false,scale);
-			disposeBitmapData ? bmd.dispose() : null;
-			bmd = null;
-			source = null;
-			return  txtr;
-		}
-		
-		/**
-		 * Draws any flash.display.DisplayObject (including containers) to bitmap data, creates Starling.textures.Texture out of it and returns Starling.display.<b>Image</b> with that texture
-		 * @param disposeBitmapData: if true, bitmapdata of drawn object is released from memory and not available for restore function <code>Starling.handleLostContext</code>
-		 * @param source: any flash display object
-		 */
-		public static function flashToImage(source:Object, disposeBitmapData:Boolean=true,scale:Number=1):Image
-		{
-			return new Image(flashToTexture(source, disposeBitmapData,scale));
-		}
 		
 		/**
 		 * Instantiates whole app flow and executes onInited function if defined. See class description to inspect the flow
@@ -435,19 +394,22 @@ package axl.utils
 		 * @param splashObj: Flash display object which will cover whole stage (circumscribed) ON app launch until starling.events.Event.rootCreated is dispatched AND whenever you set <code>U.splash = true</code>
 		 * @param progBar: flash display object it requires is <code>setProgress(0-1)</code> and <code>destroy()</code> which will be called once starling.events.Event.rootCreated is dispatched. <code>Use Utils.ProgressBar</code> for basic flash drawn progress bar 
 		 */
-		public static function init(rootInstance:DisplayObjectContainer, designedForWid:Number, designedForHei:Number, starlingRootClass:Class, splashObj:DisplayObject=null, progBar:IprogBar=null):void
+		public static function init(rootInstance:DisplayObjectContainer, designedForWid:Number, designedForHei:Number, splashObj:DisplayObject=null):void
 		{
 			flashRoot = rootInstance;
 			bsplash = splashObj;
 			if(bsplash)
 				flashRoot.addChild(bsplash);
 			
-			ubin = new BinAgent(flashRoot,DEBUG);
+			if(DEBUG)
+			{
+				ubin = new BinAgent(flashRoot,DEBUG);
+				Ldr.verbose = trace;
+			}
 			
-			progressBar = progBar;
 			udesignedForWidth = designedForWid;
 			udesignedForHeight = designedForHei;
-			rootStarlingClass = starlingRootClass;
+			
 			SoundMixer.audioPlaybackMode  = 'media';
 			
 			if(flashRoot.stage == null)
@@ -458,68 +420,56 @@ package axl.utils
 		
 		protected static function stageCreated(event:flash.events.Event=null):void
 		{
-			bin.trrace('--STAGE CREATED--');
+			log('--STAGE CREATED--');
 			if(flashRoot.hasEventListener(flash.events.Event.ADDED_TO_STAGE))
 				flashRoot.removeEventListener(flash.events.Event.ADDED_TO_STAGE, stageCreated);
 			
 			setStageProperties(flashRoot.stage);
 			setGeometry(udesignedForWidth, udesignedForHeight);
-			
-			Easing.init(STGf);
-			
-			if(configPath)
+			Easing.init(STG);
+			if(configArguments)
+			{
+				configArguments[1] = configLoaded;
 				loadConfig();
+			}
 			else
-				initStarling();
+				if(onInited is Function)
+					onInited();
 		}
-		private static function loadConfig():void { Ldr.load(configPath,configLoaded) }
-		protected static function configLoaded():void
+		protected static function loadConfig():void { Ldr.load.apply(null,configArguments) }
+		private static function configLoaded():void
 		{
-			if(Ldr.getAny(configPath) is XML)
+			uconfig = Ldr.getXML(configArguments[0]);
+			if(uconfig is XML)
 			{
-				bin.trrace('--CONFIG LOADED--');
+				log('--CONFIG LOADED--');
 				if(progressBar)
-					STGf.addChild(progressBar as DisplayObject);
-				initAssetsLoaded();//Ldr.load(Ldr.getme(configPath), initAssetsLoaded, progressBar ? assetQueuedProgress : null);
-			}
-			else
-				Messages.msg("Can't load config file. Tap to try again", loadConfig);
-			function assetQueuedProgress(n:String):void
-			{
-				progressBar.setProgress(Ldr.numCurrentRemaining / Ldr.numCurrentQueued);
-			}
+				{
+					U.STG.addChild(progressBar as DisplayObject);
+					Ldr.load(CONFIG.files, initAssetsLoaded, progress);
+				}
+				else
+					Ldr.load(CONFIG, initAssetsLoaded); // loads files
+			} 
+			else Messages.msg("Can't load config file :( Tap to try againg", loadConfig);
+		}
+		
+		private static function progress(an:String):void{
+			progressBar.setProgress(Ldr.numCurrentLoaded / Ldr.numCurrentQueued);
 		}
 		
 		private static function initAssetsLoaded():void
 		{
-			bin.trrace('--ASSETS LOADED--');
-			initStarling();
-		}
-		
-		private static function initStarling():void
-		{
-			ustarlingInstance = new Starling(rootStarlingClass, STGf, rec);
-			ustarlingInstance.addEventListener(starling.events.Event.ROOT_CREATED, starlingRootCreated);
-			ustarlingInstance.start();
-			DEBUG ? ustarlingInstance.showStatsAt('left','top') : null;
-		}
-		
-		private static function starlingRootCreated(e:starling.events.Event):void
-		{
-			bin.trrace('--ROOT CREATED--');
-			starlingInstance.removeEventListener(starling.events.Event.ROOT_CREATED, starlingRootCreated);
-			uRSTG = U.starlingInstance.stage;
-			TouchReader.init(U.STGs);
-			splash = false;
+			log('--ASSETS LOADED--');
 			if(progressBar)
 			{
 				if(DisplayObject(progressBar).parent)
 					DisplayObject(progressBar).parent.removeChild(DisplayObject(progressBar))
 				progressBar.destroy();
 			}
-			
 			progressBar = null;
-			onInited ? onInited() : null;
+			if(onInited is Function)
+				onInited();
 		}
 		
 		private static function setGeometry(designedForWid:Number, designedForHei:Number):void
@@ -527,9 +477,9 @@ package axl.utils
 			udesignedForWidth = designedForWid;
 			udesignedForHeight = designedForHei;
 			if(ISWEB)
-				rec = new Rectangle(0,0, STGf.stageWidth, STGf.stageHeight);
+				rec = new Rectangle(0,0, STG.stageWidth, STG.stageHeight);
 			else
-				rec = new Rectangle(0,0, STGf.fullScreenWidth, STGf.fullScreenHeight);
+				rec = new Rectangle(0,0, STG.fullScreenWidth, STG.fullScreenHeight);
 			
 			uscalarX = rec.width / designedForWidth;
 			uscalarY = rec.height / designedForHeight;
@@ -541,8 +491,8 @@ package axl.utils
 			
 			if(bsplash)
 			{
-				resolveSize(U.bsplash, U.rec,true);
-				center(U.bsplash, U.rec);
+				resolveSize(U.bsplash, U.REC,true);
+				center(U.bsplash, U.REC);
 				splash = true
 			}
 			bin.resize(rec.width);
@@ -557,5 +507,12 @@ package axl.utils
 			uSTG = stage;
 		}
 		
+		public static function log(...args):void
+		{
+			if(bin)
+				bin.trrace.apply(null,args);
+			else
+				trace.apply(args);
+		}
 	}
 }
