@@ -1,3 +1,6 @@
+/**
+ * [axldns free coding 2015]
+ */
 import flash.display.Loader;
 import flash.display.LoaderInfo;
 import flash.events.Event;
@@ -140,7 +143,6 @@ internal class Req extends EventDispatcher {
 		pathList = null;
 		if(prefixList != null) prefixList.length = 0;
 		prefixList = null;
-		
 	}
 	
 // ----------------------------------------------- START OF INIT SETUP -----------------------------------------------//
@@ -283,9 +285,8 @@ internal class Req extends EventDispatcher {
 	private static function processXml(node:XML, flat:Vector.<String>, addition:String=''):void
 	{
 		var nodefiles:XMLList = node.files;
-		var subAddition:String = addition +  String(nodefiles.@dir)
 		for( var i:int = 0, j:int = nodefiles.length(); i<j; i++)
-			processXml(XML(nodefiles[i]), flat, subAddition);
+			processXml(XML(nodefiles[i]), flat, addition + String(nodefiles[i].@dir));
 		nodefiles = node.file;
 		for(i = 0, j = nodefiles.length(); i<j; i++)
 			flat.push(addition + nodefiles[i].toString());
@@ -678,9 +679,6 @@ class Behaviours
 }
 package  axl.utils
 {
-	/**
-	 * [axldns free coding 2015]
-	 */
 	import flash.display.Bitmap;
 	import flash.display.Loader;
 	import flash.events.Event;
