@@ -219,12 +219,12 @@ internal class Req extends EventDispatcher {
 		if(v is String){
 			try { 
 				var f:Object = new FileClass(v);
-				storePrefix = f.isDirectory ? f.nativePath : null;
+				storePrefix = f.isDirectory ? f.url : null;
 			}
 			catch(e:ArgumentError) { storePrefix = null }
 			f = null;
 		}
-		else if(v is FileClass && v.isDirectory) storePrefix = v.nativePath;
+		else if(v is FileClass && v.isDirectory) storePrefix = v.url;
 		else storePrefix = null;
 	}
 	
@@ -258,10 +258,10 @@ internal class Req extends EventDispatcher {
 	{
 		var i:int = ar.length;
 		if(v is String) ar[i] = v;
-		else if (fileInterfaceAvailable && v is FileClass)//ar[i] = v.nativePath;
+		else if (fileInterfaceAvailable && v is FileClass)//ar[i] = v.url;
 		{
 			if(filesLookUp) processFilesRecurse(v, ar); // paths
-			else if(v.isDirectory) ar[i] = v.nativePath; // prefixes 
+			else if(v.isDirectory) ar[i] = v.url; // prefixes 
 		}
 		else if (v is XML || v is XMLList) processXml(XML(v), ar);
 		else if(v is Array || v is Vector.<String> || v is Vector.<FileClass> || v is Vector.<XML> || v is Vector.<XMLList>)
@@ -278,7 +278,7 @@ internal class Req extends EventDispatcher {
 			while(v.length)
 				processFilesRecurse(v.pop(),flat);
 			v = null;
-		} else { flat.push(f.nativePath) }
+		} else { flat.push(f.url) }
 		f = null;
 	}
 	
@@ -387,8 +387,8 @@ internal class Req extends EventDispatcher {
 				fr.writeBytes(data);
 				fr.close();
 				fr = null;
-				log("[Ldr][Queue]["+filename+"][Save] SAVED:", f.nativePath, '['+ String(data.length / 1024) + 'kb]');
-			} catch (e:Error) { log("[Ldr][Queue]["+filename+"][Save] FAIL: cant save as:",f.nativePath,'\n',e) }
+			log("[Ldr][Queue]["+filename+"][Save] SAVED:", f.exists,':', f.url, '['+ String(data.length / 1024) + 'kb]');
+			} catch (e:Error) { log("[Ldr][Queue]["+filename+"][Save] FAIL: cant save as:",f.url,'\n',e) }
 			f = null;
 		}
 	}
@@ -408,7 +408,7 @@ internal class Req extends EventDispatcher {
 	
 	private function onError(e:Event):void
 	{
-		log("[Ldr][Queue]["+filename+"] url error:("+ String(getTimer()- timer)+"ms):");
+		log("[Ldr][Queue]["+filename+"] url error:("+ String(getTimer()- timer)+"ms):", e);
 		bothLoadersComplete(null);
 	}
 	private function onLoadProgress(e:ProgressEvent):void
@@ -534,12 +534,12 @@ internal class Req extends EventDispatcher {
 		}
 		if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
 		{ 
-			// workaround for inconsistency in traversing up directories. 
+			// workaround for inconsistency in traversing up directories on windows. 
 			// FP takes working dir, AIR doesn't. There are also isssues with
 			var cp:String = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix; 
 			try {
 				var f:Object = new FileClass(cp) ;
-				return  f.resolvePath(f.nativePath +FileClass.separator+ originalUrl).nativePath;
+				return  f.resolvePath(f.url +FileClass.separator+ originalUrl).url;
 			} catch (e:*) { log("[Ldr][Queue]["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
 			} finally { f = null }
 		}
@@ -670,7 +670,7 @@ internal class Req extends EventDispatcher {
 		return _context;
 	}
 }
-class Behaviours 
+internal class Behaviours 
 {
 	public const loadOverwrite:int=0;
 	public const loadSkip:int=1;
@@ -683,7 +683,6 @@ package  axl.utils
 	import flash.display.Loader;
 	import flash.events.Event;
 	import flash.media.Sound;
-	import flash.net.URLLoader;
 	import flash.system.System;
 	import flash.utils.ByteArray;
 	
