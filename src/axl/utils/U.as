@@ -69,7 +69,7 @@ package axl.utils
 		private static var uscalarReversed:Number;
 		
 		private static var bsplash:DisplayObject;
-		private static var progressBar:IprogBar;
+		public static var progressBar:IprogBar;
 		
 		private static var ubin:BinAgent;
 		private static var uconfig:XML;
@@ -446,7 +446,7 @@ package axl.utils
 				if(progressBar)
 				{
 					U.STG.addChild(progressBar as DisplayObject);
-					Ldr.load(CONFIG.files, initAssetsLoaded, progress);
+					Ldr.load(CONFIG, initAssetsLoaded, progress);
 				}
 				else
 					Ldr.load(CONFIG, initAssetsLoaded); // loads files
@@ -512,7 +512,7 @@ package axl.utils
 			if(bin)
 				bin.trrace.apply(null,args);
 			else
-				trace.apply(args);
+				trace.apply(null,args);
 		}
 	}
 }
