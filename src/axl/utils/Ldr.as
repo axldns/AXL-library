@@ -101,6 +101,7 @@ internal class Req extends EventDispatcher {
 	private var _context:LoaderContext;
 		
 	private var eventComplete:Event = new Event(Event.COMPLETE);
+	private var eventProgress:Event = new Event(Event.CHANGE);
 	public var id:Number;
 	
 	public function Req()
@@ -125,6 +126,7 @@ internal class Req extends EventDispatcher {
 		urlRequest = null;
 		listeners = null;
 		eventComplete = null;
+		eventProgress = null;
 		_context = null;
 		loadFilter = null;
 		onComplete = null;
@@ -331,6 +333,7 @@ internal class Req extends EventDispatcher {
 		numCurrentRemaining--;
 		if(individualComplete is Function)
 			individualComplete(filename);
+		dispatchEvent(eventProgress);
 		nextElement();
 	}
 	
@@ -728,7 +731,7 @@ package  axl.utils
 	 */
 	public class Ldr
 	{
-		
+		private static var externalProgressListeners:Vector.<Function> = new Vector.<Function>();
 		public static function log(...args):void { if(_verbose is Function) _verbose.apply(null,args) }
 		public static function set verbose(func:Function):void { _verbose = func = Req.verbose = func }
 		private static var _verbose:Function;
@@ -807,7 +810,20 @@ package  axl.utils
 		/** returns number of all elements that failed to load within all queues. Rolls back to 0 once all queues are done. */
 		public static function get numAllSkipped():int { return Req.numAllSkipped } 
 		
-				
+		
+		public static function addExternalProgressListener(v:Function):Boolean
+		{
+			var unique:Boolean = externalProgressListeners.indexOf(v) < 0;
+			if(unique) externalProgressListeners.push(v);
+			return unique;
+		}
+		public static function removeExternalProgressListener(v:Function):Boolean
+		{
+			var exists:int = externalProgressListeners.indexOf(v);
+			if(exists > -1) externalProgressListeners.splice(exists,1);
+			return (exists > -1);
+		}
+		
 		/** 
 		 * adds path, file or list to load to current queue. 
 		 * This is not preffered method for adding elelments to queue since <code>Ldr.load</code> accepts arrays, vectors, xmls. 
@@ -1037,10 +1053,18 @@ package  axl.utils
 			if(!IS_LOADING)
 			{
 				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
+				req.addEventListener(flash.events.Event.CHANGE, progressHandler);
 				req.load();
 			}
 			IS_LOADING = true;
 			return req.id;
+		}
+		
+		protected static function progressHandler(e:Event):void
+		{
+			var i:int = externalProgressListeners.length;
+			while(i-->0)
+				externalProgressListeners[i]();
 		}
 		
 		protected static function completeHandler(e:Event):void
