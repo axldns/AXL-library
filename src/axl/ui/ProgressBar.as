@@ -19,6 +19,11 @@ package axl.ui
 		public function ProgressBar()
 		{
 			super();
+			build();
+		}
+		
+		public function build():void
+		{
 			bar = new Shape();
 			frame = new Shape();
 			
