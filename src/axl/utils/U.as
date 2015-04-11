@@ -36,6 +36,7 @@ package axl.utils
 	
 	public class U
 	{
+		Ldr.verbose = log;
 		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
 		/**
@@ -48,7 +49,9 @@ package axl.utils
 		/**
 		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY
 		 */
-		public static var onInited:Function;
+		public static var onStageAvailable:Function;
+		public static var onConfigLoaded:Function;
+		public static var onFilesLoaded:Function;
 		/**
 		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY.
 		 * Pass a path to well formated xml (pattern) to load your config. If you omite it, none of the assets will be loaded at launch,
@@ -69,11 +72,12 @@ package axl.utils
 		private static var uscalarReversed:Number;
 		
 		private static var bsplash:DisplayObject;
-		public static var progressBar:IprogBar;
+		private static var progressBar:IprogBar;
+		public static var progressBarFactory:Function;
 		
 		private static var ubin:BinAgent;
 		private static var uconfig:XML;
-		public static var configArguments:Array
+		public static var configPath:String;
 		
 		public static function get CONFIG():XML { return uconfig }
 		
@@ -404,7 +408,6 @@ package axl.utils
 			if(DEBUG)
 			{
 				ubin = new BinAgent(flashRoot,DEBUG);
-				Ldr.verbose = trace;
 			}
 			
 			udesignedForWidth = designedForWid;
@@ -427,29 +430,19 @@ package axl.utils
 			setStageProperties(flashRoot.stage);
 			setGeometry(udesignedForWidth, udesignedForHeight);
 			Easing.init(STG);
-			if(configArguments)
-			{
-				configArguments[1] = configLoaded;
-				loadConfig();
-			}
-			else
-				if(onInited is Function)
-					onInited();
+			if(onStageAvailable is Function) onStageAvailable();
 		}
-		protected static function loadConfig():void { Ldr.load.apply(null,configArguments) }
+		public static function loadConfig():void {
+			if(configPath != null)
+				Ldr.load(configPath, configLoaded);
+		}
 		private static function configLoaded():void
 		{
-			uconfig = Ldr.getXML(configArguments[0]);
+			uconfig = Ldr.getXML(configPath);
 			if(uconfig is XML)
 			{
 				log('--CONFIG LOADED--');
-				if(progressBar)
-				{
-					U.STG.addChild(progressBar as DisplayObject);
-					Ldr.load(CONFIG, initAssetsLoaded, progress);
-				}
-				else
-					Ldr.load(CONFIG, initAssetsLoaded); // loads files
+				if(onConfigLoaded is Function) onConfigLoaded();
 			} 
 			else Messages.msg("Can't load config file :( Tap to try againg", loadConfig);
 		}
@@ -458,18 +451,39 @@ package axl.utils
 			progressBar.setProgress(Ldr.numCurrentLoaded / Ldr.numCurrentQueued);
 		}
 		
-		private static function initAssetsLoaded():void
+		public static function loadFiles(loadCommand:Function):void
 		{
-			log('--ASSETS LOADED--');
+			if(progressBarFactory is Function)
+			{
+				progressBar = progressBarFactory();
+				U.STG.addChild(progressBar as DisplayObject);
+			}
+			Ldr.addExternalProgressListener(externalProgressListener);
+			loadCommand();
+		}
+		private static function externalProgressListener():void
+		{
+			if(progressBar)
+				progressBar.setProgress(Ldr.numCurrentLoaded/Ldr.numCurrentQueued);
+			if(Ldr.numCurrentRemaining == 0)
+			{
+				Ldr.removeExternalProgressListener(externalProgressListener);
+				filesLoaded();
+			}
+		}
+		private static function filesLoaded():void
+		{
+			log('--FILES LOADED--');
 			if(progressBar)
 			{
 				if(DisplayObject(progressBar).parent)
 					DisplayObject(progressBar).parent.removeChild(DisplayObject(progressBar))
 				progressBar.destroy();
+				progressBar = null;
 			}
-			progressBar = null;
-			if(onInited is Function)
-				onInited();
+			if(Ldr.numCurrentSkipped > 0)
+				Messages.msg("WARNING: " + Ldr.numCurrentSkipped + " file(s) not loaded!");
+			if(onFilesLoaded is Function) onFilesLoaded();
 		}
 		
 		private static function setGeometry(designedForWid:Number, designedForHei:Number):void
@@ -495,7 +509,8 @@ package axl.utils
 				center(U.bsplash, U.REC);
 				splash = true
 			}
-			bin.resize(rec.width);
+			if(bin != null)
+				bin.resize(rec.width);
 		}		
 		
 		private static function setStageProperties(stage:flash.display.Stage):void
