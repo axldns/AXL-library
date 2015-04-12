@@ -31,7 +31,6 @@ package axl.utils
 					{
 						if(arrayToReadTo[targetArrayIndex][1] == sourceSubArray[1]) // if IDs MATCH
 						{
-							trace(sourceSubArray[1], '=', sourceSubArray[0])
 							for(var i:int = sourceSubArray.length; i-->0;)
 								arrayToReadTo[targetArrayIndex][i] = sourceSubArray[i]; // apply value on CODE
 							break;
