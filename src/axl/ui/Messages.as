@@ -33,11 +33,13 @@ package axl.ui
 			tf.defaultTextFormat = tff_msg;
 			tf.setTextFormat(tff_msg);
 		}
-		public static function msg(v:String, onTap:Function=null):void
+		public static function msg(v:String=null, onTap:Function=null):void
 		{
+			if(v == null)
+				return MD();
 			ON_TAP = onTap;
 			tf.text = v;
-			tf.appendText(String(' ('+flash.utils.getTimer()/1000 + ')'));
+			tf.appendText(String(' ('+getTimer()/1000 + ')'));
 			tf.setTextFormat(tff_mini, v.length, tf.text.length);
 			tf.width = U.REC.width;
 			tf.height = tf.textHeight + 5;
@@ -61,10 +63,10 @@ package axl.ui
 			return tfm;
 		}
 		
-		protected static function MD(e:MouseEvent):void
+		protected static function MD(e:MouseEvent=null):void
 		{
 			U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
-			if(U.STG.contains(tf))
+			if(tf != null && U.STG.contains(tf))
 				U.STG.removeChild(tf);
 			if(ON_TAP is Function)
 				ON_TAP();
