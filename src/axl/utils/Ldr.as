@@ -300,7 +300,7 @@ internal class Req extends EventDispatcher {
 	
 	public function load():void
 	{
-		log("[Ldr][Queue] start");
+		log("[Ldr][Queue] start. state:\n", Ldr.state);
 		isLoading = true;
 		isPaused = false;
 		nextElement();
@@ -366,22 +366,25 @@ internal class Req extends EventDispatcher {
 		urlLoader.load(urlRequest);
 	}
 	
-	private function saveIfRequested(data:ByteArray):void
+	public function saveIfRequested(data:ByteArray, savingPath:String, validateSameDirs:Boolean=true):void
 	{
 		if((storePrefix != null) && fileInterfaceAvailable && storeFilter)
 		{
 			var f:Object;
-			var path:String = getConcatenatedPath(storePrefix, originalPath);
+			var path:String = getConcatenatedPath(storePrefix, savingPath);
 			log("[Ldr][Queue]["+filename+"][Save] saving:", path);
 			//resolving file locating
 			try{ f= new FileClass(path) } 
 			catch (e:ArgumentError) { log("[Ldr][Queue]["+filename+"][Save] incorrect path. null file:",path,e) }
 			
 			//validation and filters
-			try { f = baseValidation(storeFilter(f, urlRequest.url), urlRequest.url) }
-			catch(e:*) { f = null, log("[Ldr][Queue]["+filename+"][Save][filter] error:", e) }
-			if(f == null)
-				return log("[Ldr][Queue]["+filename+"][Save] Storing criteria doesn't match, abort");
+			if(validateSameDirs)
+			{
+				try { f = baseValidation(storeFilter(f, urlRequest.url), urlRequest.url) }
+				catch(e:*) { f = null, log("[Ldr][Queue]["+filename+"][Save][filter] error:", e) }
+				if(f == null)
+					return log("[Ldr][Queue]["+filename+"][Save] Storing criteria doesn't match, abort");
+			}
 			
 			//writing to disc
 			var fr:Object = new FileStreamClass();
@@ -435,7 +438,7 @@ internal class Req extends EventDispatcher {
 	{
 		log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- timer)+"ms)");
 		var bytes:ByteArray = urlLoader.data;
-		if(bytes) saveIfRequested(bytes);
+		if(bytes) saveIfRequested(bytes, originalPath);
 		else return bothLoadersComplete(null);
 		if(downloadOnly)
 		{
@@ -1052,6 +1055,7 @@ package  axl.utils
 				req.addPrefixes((pathPrefixes == Ldr.defaultValue ? Ldr.defaultPathPrefixes : pathPrefixes));
 			if(!IS_LOADING)
 			{
+				U.log("[Ldr][LISTENERS ADD]");
 				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
 				req.addEventListener(flash.events.Event.CHANGE, progressHandler);
 				req.load();
@@ -1080,6 +1084,7 @@ package  axl.utils
 			if(index > -1)
 				requests.splice(index,1);
 			req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
+			req.removeEventListener(flash.events.Event.CHANGE, progressHandler);
 			req.destroy();
 			
 			IS_LOADING = (numQueues > 0);
@@ -1088,6 +1093,7 @@ package  axl.utils
 				log("[Ldr] current queue finished with state:");//, st, '\ntimer:', getTimer()-startTime, 'ms');
 				req = requests[0];
 				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
+				req.addEventListener(flash.events.Event.CHANGE, progressHandler);
 				req.load();
 			}
 			else
@@ -1101,6 +1107,7 @@ package  axl.utils
 			rComplete=null;
 			st = null;
 		}
+		
 		
 		/** pauses current queue and returns its ID or -1 if there is nothing to pause */
 		public static function pauseCurrent():Number
@@ -1197,6 +1204,27 @@ package  axl.utils
 			'\n timestamp:' +  new Date().time + '\n-'
 			);
 			return s;
+		}
+		
+		/**(AIR) Saves single file to storeDirectory + / subpath
+		 * @param <code>subpath</code> e.g. "/assets/cfg.xml"
+		 * @param <code>data</code> contents of the file. Preferably <code>ByteArray</code>
+		 * however <code>String</code>and <code>XML</code> objects will be convertedto BA automatically. */
+		public static function save(subpath:String, data:Object, storeDirectory:Object=Ldr.defaultValue):void
+		{
+			var ba:ByteArray;
+			if(!(data is ByteArray))
+			{
+				ba = new ByteArray();
+				if(data is String) ba.writeUTFBytes(data as String);
+				else if(data is XML || data is XMLList) ba.writeUTFBytes(XML(data));
+			} else ba = data as ByteArray
+			var req:Req = new Req();
+				req.storeDirectory = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
+				req.storingBehavior = /./;
+				req.saveIfRequested(ba, subpath,false);
+				req.destroy();
+				req = null;
 		}
 		
 		/** Unloads / clears / disposes loaded data, removes display objects from display list
