@@ -78,6 +78,8 @@ package axl.utils
 		private static var ubin:BinAgent;
 		private static var uconfig:XML;
 		public static var configPath:String;
+		public static var APP_REMOTE:String;
+		public static var GATEWAY:String;
 		
 		public static function get CONFIG():XML { return uconfig }
 		
@@ -438,21 +440,28 @@ package axl.utils
 		}
 		private static function configLoaded():void
 		{
-			uconfig = Ldr.getXML(configPath);
-			if(uconfig is XML)
-			{
-				log('--CONFIG LOADED--');
+			if(readConfig())
 				if(onConfigLoaded is Function) onConfigLoaded();
-			} 
 			else Messages.msg("Can't load config file :( Tap to try againg", loadConfig);
 		}
 		
-		private static function progress(an:String):void{
-			progressBar.setProgress(Ldr.numCurrentLoaded / Ldr.numCurrentQueued);
+		public static function readConfig():Boolean
+		{
+			var cfg:XML = Ldr.getXML(configPath);
+			if(cfg is XML)
+			{
+				log('--CONFIG READED--');
+				uconfig = cfg;
+				APP_REMOTE = uconfig.remote;
+				GATEWAY = uconfig.gateway;
+				return true;
+			}
+			return false;
 		}
 		
 		public static function loadFiles(loadCommand:Function):void
 		{
+			U.log('-- FILES LOADING --');
 			if(progressBarFactory is Function)
 			{
 				progressBar = progressBarFactory();
@@ -463,10 +472,12 @@ package axl.utils
 		}
 		private static function externalProgressListener():void
 		{
+			U.log('progress:', (Ldr.numAllLoaded+ Ldr.numAllSkipped)/Ldr.numAllQueued * 100 + '%');
 			if(progressBar)
-				progressBar.setProgress(Ldr.numCurrentLoaded/Ldr.numCurrentQueued);
-			if(Ldr.numCurrentRemaining == 0)
+				progressBar.setProgress((Ldr.numAllLoaded+ Ldr.numAllSkipped)/Ldr.numAllQueued);
+			if(Ldr.numAllRemaining == 0)
 			{
+				U.log('progress: removing listener');
 				Ldr.removeExternalProgressListener(externalProgressListener);
 				filesLoaded();
 			}
