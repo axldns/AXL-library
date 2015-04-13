@@ -361,6 +361,17 @@ package axl.utils
 						left[s] = right[s];
 		}
 		
+		/** Reads structure of nested arrays vectors and objects and returns it as a string*/
+		public static function structureToString(input:Object, deep:String=''):String
+		{
+			var output:String='';
+			if(input == null) return 'null\n';
+			output +=  input.toString() + '\n';
+			for(var p:String in input)
+				output +=  deep + '\t' + p +' : ' + structureToString(input[p], deep + '\t');
+			return output;
+		}	
+		
 		public static function getBitmaDatapSlice(source:Bitmap, clip:Rectangle):BitmapData
 		{
 			if(source == null || clip == null) return null;
