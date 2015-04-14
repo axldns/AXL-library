@@ -107,8 +107,9 @@ package axl.utils
 		 * they will be processed even if app has been terminated and run again.
 		 * <br>Use it when it is more important to notify your server than to retrieve its response, as
 		 * stored (unsent) requests will execute its callbacks only within current app launch. 
-		 * <br> Also, remember to controll your callbacks as stored unsent can be executed multiple times: few with errors
-		 * (does not remove call from queue) and then (e.g: connection comes back) another one with right response (removes it).
+		 * <br> Also, pay high attention to your callbacks, as stored unsent can be executed multiple times: few with errors
+		 * (does not remove call from queue, unless you <code>destroy</code> object manually) 
+		 * and then (e.g: connection comes back) another one with right response (removes it automatically).
 		 * <br><b>Go</b>: statistics, feedback, send user settings. 
 		 * <br><b>No go</b>: login, receive server settings.
 		 * <br>Number of unsent requests available to store is limited to according to ActionScript
@@ -389,12 +390,12 @@ package axl.utils
 			dispatcher.removeEventListener(IOErrorEvent.IO_ERROR, ioErrorHandler);
 		}
 		
-		/** Attemps to stop proceeding request */
+		/** Attemps to stop proceeding request. you can still use <code>send^</code> methods after cancel. */
 		public function cancel():void
 		{
+			storeObject = null;		
 			if(loader != null)
 			{
-				U.log('[PHP][Cancel]');
 				try { loader.close() } 
 				catch(e:*) {};
 			}
@@ -406,7 +407,8 @@ package axl.utils
 		/** Removes internal and external listeners, removes it from queue and storage,
 		 * clears loaded/sent data. It uses <code>cancel</code> too.
 		 * Make sure you don't need loader data anymore.
-		 * @see #cancel */
+		 * <br>All <code>send^</code> calls on this instance will throw an error once destroyed. Use <code>cancel</code>
+		 * if you want to reuse this object.  @see #cancel */
 		public function destroy():void
 		{
 			cancel();
