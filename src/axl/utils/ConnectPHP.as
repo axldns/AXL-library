@@ -185,11 +185,11 @@ package axl.utils
 			loader.dataFormat = URLLoaderDataFormat.TEXT;
 	
 			var jsoned:String = JSON.stringify(urlVarObject);
-			
+			var encrypted:String = (encryption is Function) ? encryption(jsoned) : jsoned; 
 				storeObject = { 
 				v : requestVariable, 
 				a : address, 
-				c : jsoned, 
+				c : encrypted, 
 				t : timeout, 
 				oc : _onComplete, 
 				op : _onProgress,
@@ -340,7 +340,7 @@ package axl.utils
 		private function sendCurrent():void
 		{
 			urlvars = new URLVariables();
-			urlvars[currentObject.v] = 	(encryption is Function) ? encryption(currentObject.c) : currentObject.c; 
+			urlvars[currentObject.v] = currentObject.c;
 			urlreq.url = currentObject.a;
 			urlreq.data = urlvars;
 			addListeners(loader);
