@@ -6,6 +6,7 @@ package axl.utils
 	import flash.events.IOErrorEvent;
 	import flash.events.ProgressEvent;
 	import flash.events.SecurityErrorEvent;
+	import flash.net.SharedObject;
 	import flash.net.URLLoader;
 	import flash.net.URLLoaderDataFormat;
 	import flash.net.URLRequest;
@@ -14,9 +15,50 @@ package axl.utils
 	import flash.utils.clearTimeout;
 	import flash.utils.setTimeout;
 	
-	
+	/**
+	 * Quick and light class to communicate with your backend/server. 
+	 * For most of the cases all you need is to use <code>sendData</code> method and <code>destroy</code> once you're done.
+	 * <br><br>It also provides extra options like controlled order of requests (queue) and storing unsent requests on disc,
+	 * but make sure you're understand its behaviour first (especially callbacks executions), 
+	 * as improper use may cause lot of issues.
+	 * @see #sendData
+	 * @see #queueMember
+	 * @see #storeUnsent
+	 */
 	public class ConnectPHP
 	{
+		private static var stored:SharedObject;
+		private static var queue:Array = [];
+		private static var cookieReaded:Boolean;
+		private static var cookieAvailable:Boolean;
+		private static var IS_BUSY:Boolean;
+		private var urlreq:URLRequest = new URLRequest();
+		private var loader:URLLoader = new URLLoader();
+		private var urlvars:URLVariables;
+		private var _onComplete:Function;
+		private var _onProgress:Function;
+		private var currentObject:Object;
+		private var storeObject:Object;
+		
+		/** Clears currently queued elements @see #queueMember @see #storeUnsent */
+		public static function clearQueue():void { queue.length = 0 }
+		/** Clears unsent request stored on disc @see #queueMember @see #storeUnsent */
+		public static function clearStored():void 
+		{ 
+			if(cookieAvailable)
+			{
+				stored.data.r.length  =0;
+				try { stored.flush() } 
+				catch(e:*) { U.log('[PHP][Unsent] flush error', e) }
+			}
+		}
+		/** Clears both queued and stored requests @see #queueMember @see #storeUnsent */
+		public static function clearUnsent():void
+		{
+			clearQueue();
+			clearStored();
+		}
+		
 		/**Default function to process input/response with <b>if</b> particular instance's <code>decrypyion</code>
 		 * property is not set.*/
 		public static var defaultEncryption:Function;
@@ -28,35 +70,14 @@ package axl.utils
 		 * Particular request can have different address - just pass it as an argument in <code>send^</code> methods. */
 		public static var defaultAddress:String;
 		
-		/** Long responses can eat your log output. Limit it to *any* int to output only first *any* chars of it
-		 * @default 200*/
+		/** Long responses can eat your log output. Limit it to *any* int to output only first *any* chars of it @default 200*/
 		public static var limitLogResponeses:int = 200;
-		
 		
 		/** Defines default number of miliseconds after which request is being canceled if no server response is there. 
 		 * <br>This does not apply to <code>sendRaw</code> method.
 		 * <br>After timeout<code>onComplete</code> is executed with Error of <code>errorID=10</code> as an argument. @default 10000*/
 		public static var defaultTimeout:int = 10000;
 		
-		private var urlvars:URLVariables = new URLVariables();
-		private var urlreq:URLRequest = new URLRequest();
-		private var loader:URLLoader = new URLLoader();
-		
-		private var orig_data:Object;
-		
-		private var _storeUnsuccessful:Boolean =true;
-		private var _retryQueuedOnSuccess:Boolean=true;
-		
-		
-		/** Function to execute once request is complete (after calling <code>send^</code> method.
-		 * This is equivalent of <code>send^</code> methods <code>onComplete</code> arguments. */
-		private var _onComplete:Function;
-		
-		/** Function which should accept two parameters:
-		 * <ul><li><code>int - bytesLoaded</code></li>
-		 * <li><code>int - bytesTotal </code></li></ul>
-		 * Can be assigned anytime during loading/sending proccess. */
-		public var onProgress:Function;
 		
 		/** Function to process output (json parsed string) with. Must return <code>String</code>
 		 * If<code>null</code> then <code>defaultEncryption</code> will be used. If both are <code>null</code>
@@ -69,7 +90,7 @@ package axl.utils
 		public var decryption:Function;
 		
 		/** Defines request specific number of miliseconds after which request is being canceled if no server response is there.
-		 * * <br>This does not apply to <code>sendRaw</code> method.
+		 * <br>This does not apply to <code>sendRaw</code> method.
 		 * <br>After timeout <code>onComplete</code> is executed with Error of <code>errorID=10</code> as an argument. @default 10000 */
 		public var timeout:int;
 		private var requestTimeout:uint;
@@ -78,8 +99,35 @@ package axl.utils
 		 * <br>It would be your <code>$_POST['variable'] = yourJsonStringifiedData</code>
 		 * This is equivalent of constructor passed <code>variable</code>.*/
 		public var requestVariable:String;
-
+		private var storedChecked:Boolean;
+		
+		/** Allows you to store your <code>sendData</code> request(s) that sending has failed (error, timeout, no connection).
+		 * <br>All <code>sendData</code> method executions with <code>queueMember=true</code>
+		 * are followed by attempt of sending any unsent requests first. Requests are stored on users disc as a <code>SharedObject</code>, so
+		 * they will be processed even if app has been terminated and run again.
+		 * <br>Use it when it is more important to notify your server than to retrieve its response, as
+		 * stored (unsent) requests will execute its callbacks only within current app launch. 
+		 * <br> Also, remember to controll your callbacks as stored unsent can be executed multiple times: few with errors
+		 * (does not remove call from queue) and then (e.g: connection comes back) another one with right response (removes it).
+		 * <br><b>Go</b>: statistics, feedback, send user settings. 
+		 * <br><b>No go</b>: login, receive server settings.
+		 * <br>Number of unsent requests available to store is limited to according to ActionScript
+		 * <code>SharedObject</code> class rules.
+		 * <br>Use <code>ConnectPHP.clearUnsent()</CODE> to remove all unsent requests. @default <code>false</code> 
+		 * @see #queueMember @default false */
+		public var storeUnsent:Boolean=false;
+		/** Determines if call is queued and will be executed <b>after</b> currently proceeding/unsent calls (<code>true</code>
+		 * triggers the queue). 
+		 * <b>or</b> it's 'frivolous' mode (<code>false</code>) - attempt of POST request is made right after calling
+		 *  <code>sendData</code>  
+		 *  <br>Not a queueMember call can also be stored if <code>storeUnsent=true</code> <b>but</b> it will 
+		 * become queue member on next app launch this way (if this was unsuccessful). Be careful and:
+		 * @see #storeUnsent  @default false */
+		public var queueMember:Boolean=false;
+		
 		public function ConnectPHP(variable:String='data') { requestVariable = variable }
+		
+		// ------------------------------------------ REGULAR  REQUESTS ---------------------------------- //	
 		
 		/** Sends binary POST request to <code>defaultAddress</code> or <code>address</code>. Upload files this way to 
 		 * your prepared backend receiver.
@@ -108,13 +156,10 @@ package axl.utils
 			urlreq.data = content;
 			urlreq.url=address;
 			loader.dataFormat= URLLoaderDataFormat.BINARY;
-			
-			this.addListeners(loader, completeHandler);
+			addListeners(loader);
 			send();
 			U.log("PHP>SEND_RAW_DATA>", urlreq.url);
 		}
-		
-		private function send():void {	loader.load(urlreq) }
 		
 		/** Sends POST request to <code>defaultAddress</code> or <code>address</code>.
 		 * @param urlVarObject - object will be <code>JSON.stringify</code>, processed with <code>encryption</code> if specified
@@ -122,42 +167,65 @@ package axl.utils
 		 * @param onComplete - function to execute once request is complete. 
 		 * Should accept one argument: loaded data <code>Object</code> (JSON strings are parsed autumatically) or <code>Error</code> 
 		 * if request was unsuccessful.
-		 * @param address - address to send POST request to. <code>defaultAddress</code> will be used if ommited*/
-		public function sendData(urlVarObject:Object, onComplete:Function, address:String=null):void
-		{			
-			orig_data = urlVarObject;
-			
+		 * @param address - address to send POST request to. <code>defaultAddress</code> will be used if ommited
+		 * @param onProgress - Function which should accept two parameters:
+		 * <ul><li><code>int - bytesLoaded</code></li>
+		 * <li><code>int - bytesTotal </code></li></ul>*/
+		public function sendData(urlVarObject:Object, onComplete:Function, address:String=null, onProgress:Function=null):void
+		{	
 			_onComplete = onComplete || _onComplete;
+			_onProgress = onProgress || _onProgress;
 			encryption = encryption || defaultEncryption;
 			decryption = decryption || defaultDecryption;
 			address = address || defaultAddress;
 			timeout = timeout || defaultTimeout;
+			
+			urlreq.method = URLRequestMethod.POST;
+			loader.dataFormat = URLLoaderDataFormat.TEXT;
 	
 			var jsoned:String = JSON.stringify(urlVarObject);
 			
-			var encrypted:String = (encryption is Function) ? encryption(jsoned) : jsoned;
+				storeObject = { 
+				v : requestVariable, 
+				a : address, 
+				c : jsoned, 
+				t : timeout, 
+				oc : _onComplete, 
+				op : _onProgress,
+				s : storeUnsent 
+			};
+			if(!cookieReaded) readCooke();
+			addToCookie(storeObject); // it does check for store preferences
 			
-			urlvars[requestVariable] = encrypted; 
-			urlreq.url = address;
-			urlreq.method = URLRequestMethod.POST;
-			urlreq.data = urlvars;
-			loader.dataFormat = URLLoaderDataFormat.TEXT;
-			
-			this.addListeners(loader, completeHandler);
-			if(timeout>0)
-				requestTimeout = flash.utils.setTimeout(timeoutPassed, timeout);
-			send();	
-			U.log("[PHP] >>>>>>>>>>", urlreq.url, '\n', jsoned);
-			jsoned = null;
-			encrypted = null;
+			if(!queueMember) //frivolous call
+			{
+				currentObject = storeObject;	
+				sendCurrent();
+			}
+			else 
+			{
+				addQueueElement(storeObject);
+				runQueue();
+			}
 		}
 		
-		private function completeHandler(e:Event):void 
+		private function completeHandler(e:Object):void 
 		{
-			removeListeners(loader, completeHandler);
+			U.log("[PHP][Complete]<<<<<<<<< response",urlreq.url);
+			removeListeners(loader);
 			clearTimeout(requestTimeout);
+			if(e is Error)
+			{
+				U.log("[PHP][Complete]ERROR. next callback is null?\n", currentObject.c);
+				IS_BUSY =false;
+				if(currentObject.oc is Function)
+					currentObject.oc(e);
+				else 
+					if(_onComplete is Function) _onComplete(e) 
+				return;
+			}
 			
-			U.log("[PHP] response is ", String(URLLoader(e.target).data).length , 'long');
+			U.log("[PHP][Complete] response is ", String(URLLoader(e.target).data).length , 'long');
 			var decrypted:String = (decryption is Function) ? decryption(URLLoader(e.target).data) : URLLoader(e.target).data;
 			var unjsoned:* = null;
 			var jsonIndx:int = -1;
@@ -165,35 +233,160 @@ package axl.utils
 			if(i > -1) jsonIndx = i;
 			if((j > -1) && (j < jsonIndx)) jsonIndx = j;
 			
-			U.log("[PHP] <<<<<<<<<<", urlreq.url, '\n', decrypted.substr(0, limitLogResponeses) 
+			U.log("[PHP][Complete]decrypted:\n", decrypted.substr(0, limitLogResponeses) 
 				+ (decrypted.length > limitLogResponeses ? '[...]' : ''));
 			if(jsonIndx < 0)
 			{
-				if(_onComplete is Function)
-					_onComplete(decrypted); // not a json response
+				if(currentObject.oc is Function)
+					currentObject.oc(decrypted); // not a json response
 			}
 			else	
 			{
 				try { unjsoned = JSON.parse(decrypted.substr(jsonIndx)) }
 				catch(e:Object)
 				{
-					U.log('JSON PARSE ERROR, returning raw\n',decrypted);
-					_onComplete(decrypted);
+					U.log('[PHP][Complete] JSON PARSE ERROR, returning raw\n',decrypted);
+					currentObject.oc(decrypted);
 				}
-				if((unjsoned != null) && _onComplete is Function)
-					_onComplete(unjsoned);
+				if((unjsoned != null) && currentObject.oc is Function)
+					currentObject.oc(unjsoned);
 			}
-			unjsoned = null;
-			decrypted = null;
-			_onComplete = null;
-			e = null;
+			removeFromCookie(currentObject);
+			if(queueMember)
+			{
+				removeQueueElement(currentObject);
+				nextElement();
+			}
 		}
 		
+		// ------------------------------------------ QUEUE PROCESS ---------------------------------- //
+		private function readCooke():void
+		{
+			cookieReaded = true;
+			try { 
+				stored = SharedObject.getLocal('unsent');
+				if(stored.data.r != null && stored.data.r is Array)
+					queue = stored.data.r.concat();
+				else
+					stored.data.r = [];
+				stored.flush();
+				cookieAvailable = true;
+			}
+			catch(e:*) {cookieAvailable = false};
+		}
+		
+		private function addQueueElement(obj:Object):void
+		{
+			queue.push(obj);
+			U.log('[PHP][Queue][Add] queue:', queue.length);
+		}
+		
+		private function addToCookie(obj:Object):void
+		{
+			if(cookieAvailable && (obj.s == true))
+			{
+				if(!(stored.data.r is Array))
+					stored.data.r = [];
+				stored.data.r.push(obj);
+				try { stored.flush() } 
+				catch(e:*) { U.log('[PHP][Unsent] flush error', e) }
+			}
+		}
+		
+		private function removeQueueElement(obj:Object):void
+		{
+			var i:int = queue.indexOf(obj);
+			queue.splice(i,1);
+			obj.v = obj.a = obj.t = obj.oc = obj.op = null;
+			U.log('[PHP][Queue][Remove] queue:', queue.length);
+		}
+		
+		private function removeFromCookie(obj:Object):void
+		{
+			if(cookieAvailable)
+			{
+				var i:int = stored.data.r.indexOf(obj);
+				if(i>-1) stored.data.r.splice(i,1);
+				try { stored.flush() } 
+				catch(e:*) { U.log('[PHP][Unsent] flush error', e) }
+			}
+		}
+		
+		private function runQueue():void
+		{
+			if(IS_BUSY)
+				U.log("[PHP][Queue] busy:", queue.length-1, 'requests ahead!');
+			else
+			{
+				IS_BUSY = true;
+				nextElement();
+			}
+		}
+		
+		private function nextElement():void
+		{
+			U.log("[PHP][Queue] Next element. remaining: ", queue.length);
+			if(queue.length < 1)
+			{
+				IS_BUSY = false;
+				return;
+			}
+			currentObject = queue[0];
+			sendCurrent();
+		}
+		
+		// ------------------------------------------ REQUESTS COMMON ---------------------------------- //
+		private function sendCurrent():void
+		{
+			urlvars = new URLVariables();
+			urlvars[currentObject.v] = 	(encryption is Function) ? encryption(currentObject.c) : currentObject.c; 
+			urlreq.url = currentObject.a;
+			urlreq.data = urlvars;
+			addListeners(loader);
+			if(currentObject.t>0)
+				requestTimeout = setTimeout(timeoutPassed, currentObject.t);
+			U.log("[PHP][Send]>>>>>>>>>>",urlreq.url, '[timeout:', currentObject.t + 'ms]\n'+currentObject.c);
+			send();
+		}
+		
+		private function send():void {	loader.load(urlreq) }
 		private function timeoutPassed():void
 		{
 			U.log("[PHP][TIMEOUT]");
 			cancel();
-			_onComplete(new Error("TIMEOUT- no response in " + timeout + 'ms',10));
+			onError(new Error("TIMEOUT- no response in " + timeout + 'ms',10));
+		}
+		
+		private function onError(e:Error):void
+		{
+			U.log("[PHP][Error]",e);
+			completeHandler(e);
+		}
+		private function securityErrorHandler(e:SecurityErrorEvent):void { onError(new Error(e,11)) }
+		private function ioErrorHandler(e:IOErrorEvent):void { onError(new Error(e,11)) }
+		
+		private function progressHandler(e:ProgressEvent):void {
+			if(currentObject.op is Function) currentObject.op(e.bytesLoaded, e.bytesTotal)
+		}
+		private function httpStatusHandler(event:HTTPStatusEvent):void {
+			U.log("[PHP] httpStatusHandler: " + event);
+		}
+		
+		private function addListeners(dispatcher:IEventDispatcher):void 
+		{
+			dispatcher.addEventListener(Event.COMPLETE, completeHandler);
+			dispatcher.addEventListener(ProgressEvent.PROGRESS, progressHandler);
+			dispatcher.addEventListener(HTTPStatusEvent.HTTP_STATUS, httpStatusHandler);
+			dispatcher.addEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
+			dispatcher.addEventListener(IOErrorEvent.IO_ERROR, ioErrorHandler);
+		}
+		private function removeListeners(dispatcher:IEventDispatcher):void
+		{
+			dispatcher.removeEventListener(Event.COMPLETE, completeHandler);
+			dispatcher.removeEventListener(ProgressEvent.PROGRESS, progressHandler);
+			dispatcher.removeEventListener(HTTPStatusEvent.HTTP_STATUS, httpStatusHandler);
+			dispatcher.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
+			dispatcher.removeEventListener(IOErrorEvent.IO_ERROR, ioErrorHandler);
 		}
 		
 		/** Attemps to stop proceeding request */
@@ -205,45 +398,19 @@ package axl.utils
 				try { loader.close() } 
 				catch(e:*) {};
 			}
-		}
-		
-		private function onError(e:Error):void{
-			clearTimeout(requestTimeout);
-			if(_onComplete is Function) _onComplete(e)
-		}
-		private function securityErrorHandler(e:SecurityErrorEvent):void { onError(new Error(e,11)) }
-		private function ioErrorHandler(e:IOErrorEvent):void { onError(new Error(e,11)) }
-		
-		private function progressHandler(e:ProgressEvent):void {
-			if(onProgress is Function) onProgress(e.bytesLoaded, e.bytesTotal)
-		}
-		private function httpStatusHandler(event:HTTPStatusEvent):void {
-			U.log("[PHP] httpStatusHandler: " + event);
-		}
-		
-		public function addListeners(dispatcher:IEventDispatcher, complete:Function, progress:Function=null):void 
-		{
-			dispatcher.addEventListener(Event.COMPLETE, complete);
-			(progress is Function) ? dispatcher.addEventListener(ProgressEvent.PROGRESS, progress) : null;
-			dispatcher.addEventListener(HTTPStatusEvent.HTTP_STATUS, httpStatusHandler);
-			dispatcher.addEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
-			dispatcher.addEventListener(IOErrorEvent.IO_ERROR, ioErrorHandler);
-		}
-		public function removeListeners(dispatcher:IEventDispatcher, complete:Function, progress:Function=null):void
-		{
-			dispatcher.removeEventListener(Event.COMPLETE, complete);
-			(progress is Function) ? dispatcher.removeEventListener(ProgressEvent.PROGRESS, progress) :null;
-			dispatcher.removeEventListener(HTTPStatusEvent.HTTP_STATUS, httpStatusHandler);
-			dispatcher.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
-			dispatcher.removeEventListener(IOErrorEvent.IO_ERROR, ioErrorHandler);
+			removeFromCookie(storeObject);
+			removeQueueElement(storeObject);
+			storeObject = null;		
 		}
 
-		/** Removes internal and external listeners, clears loaded/sent data. It uses <code>cancel</code> too.
-		 * Make sure you don't need loader data anymore. */
+		/** Removes internal and external listeners, removes it from queue and storage,
+		 * clears loaded/sent data. It uses <code>cancel</code> too.
+		 * Make sure you don't need loader data anymore.
+		 * @see #cancel */
 		public function destroy():void
 		{
 			cancel();
-			removeListeners(loader, completeHandler);
+			removeListeners(loader);
 			urlvars = null;
 			urlreq = null;
 			if(loader && loader.data)
@@ -254,6 +421,7 @@ package axl.utils
 			}
 			loader = null;
 			_onComplete = null;
+			_onProgress = null;
 		}
 	}
 }
