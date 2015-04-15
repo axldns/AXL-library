@@ -1,23 +1,48 @@
+/** [axldns free coding 2015] */
 internal class Easings {
 	private const PI_M2:Number = Math.PI*2;
 	private const PI_D2:Number = Math.PI/2;
 	
 	public function Easings():void {}
+	
+	/** Lut Optimized sin/cos */
+	private function cos3(angle:Number):Number { return sin3(PI_D2 - angle) }
+	private function sin3(angle:Number):Number
+	{
+		var ax:Number = 0.15915494309189533576888376337251*angle; //angle*1/(2PI)
+		var x:Number = ax - (ax>>0);
+		var s:Number;
+		if(ax<0)
+			x += 1.0;
+		if(x >= .5)
+		{
+			x = 2.0*x - 1.5;
+			s = -3.6419789056581784278305460054775;//4.0/(1.048*1.048);
+		}
+		else
+		{
+			x = 2.0*x - 0.5;
+			s = 3.6419789056581784278305460054775;//4.0/(1.048*1.048);
+		}
+		x*=x;
+		return s*(x - .25)*(x - 1.098304);//1.048*1.048    
+	}
+	
 	public const easeLinear:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 	{
 		return c*t/d + b;
 	}
 	public const easeInSine:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 	{
-		return -c * Math.cos(t/d * PI_D2) + c + b;
+		return -c * cos3(t/d * PI_D2) + c + b;
 	}
 	public const easeOutSine:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 	{
-		return c * Math.sin(t/d * PI_D2) + b;
+		return c * sin3(t/d * PI_D2) + b;
 	}
 	public const easeInOutSine:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 	{
-		return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
+		return -c/2 * (cos3(Math.PI*t/d) - 1) + b;
 	}
 	public const easeInQuint:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 	{
@@ -40,7 +65,6 @@ internal class Easings {
 	{
 		return -c * ((t=t/d-1)*t*t*t - 1) + b;
 	}
-	
 	public const easeInOutQuart:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 	{
 		if ((t/=d/2) < 1) return c/2*t*t*t*t + b;
@@ -80,7 +104,7 @@ internal class Easings {
 		if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*.3;
 		if (!a || a < Math.abs(c)) { a=c; s=p/4; }
 		else s = p/PI_M2 * Math.asin (c/a);
-		return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*PI_M2/p )) + b;
+		return -(a*Math.pow(2,10*(t-=1)) * sin3( (t*d-s)*PI_M2/p )) + b;
 	}
 	public const easeOutElastic:Function = function (t:Number, b:Number, c:Number, d:Number, a:Number=undefined, p:Number=undefined):Number
 	{
@@ -88,7 +112,7 @@ internal class Easings {
 		if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*.3;
 		if (!a || a < Math.abs(c)) { a=c; s=p/4; }
 		else s = p/PI_M2 * Math.asin (c/a);
-		return (a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*PI_M2/p ) + c + b);
+		return (a*Math.pow(2,-10*t) * sin3( (t*d-s)*PI_M2/p ) + c + b);
 	}
 	public const easeInOutElastic:Function = function (t:Number, b:Number, c:Number, d:Number, a:Number=undefined, p:Number=undefined):Number
 	{
@@ -96,8 +120,8 @@ internal class Easings {
 		if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(.3*1.5);
 		if (!a || a < Math.abs(c)) { a=c; s=p/4; }
 		else s = p/PI_M2 * Math.asin (c/a);
-		if (t < 1) return -.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*PI_M2/p )) + b;
-		return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*PI_M2/p )*.5 + c + b;
+		if (t < 1) return -.5*(a*Math.pow(2,10*(t-=1)) * sin3( (t*d-s)*PI_M2/p )) + b;
+		return a*Math.pow(2,-10*(t-=1)) * sin3( (t*d-s)*PI_M2/p )*.5 + c + b;
 	}
 	public const easeInCircular:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 	{
@@ -163,8 +187,6 @@ internal class Easings {
 package axl.utils 
 {
 	/**
-	* [axldns free coding 2014]
-	* 
 	* Custom Animation Engine. Performance wise - basic tests show that it is super comparable to Starling juggler tween. 
 	*  Obcoiusly abstraction level allows to animate any sort of objects.
 	* One class engine makes it very handy as it gots most of everyday use features as well as easly trackable. 
