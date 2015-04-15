@@ -184,6 +184,149 @@ internal class Easings {
 		return c/2*((t-=2)*t*t + 2) + b;
 	}
 }
+internal class AO {
+	
+	private var numProperties:int;
+	private var propNames:Vector.<String>;
+	private var propStartValues:Vector.<Number>;
+	private var propEndValues:Vector.<Number>;
+	private var propDifferences:Vector.<Number>;
+	private var duration:int;
+	public var passedTotal:int=0;
+	private var direction:int = 1;
+	private var yoyoHalfs:int=0;
+	
+	public var subject:Object;
+	public var easing:Function;
+	
+	public var cycles:int=1;
+	public var yoyo:Boolean=true;
+	
+	public var onUpdate:Function;
+	public var onYoyoHalf:Function;
+	public var onCycle:Function;
+	public var onComplete:Function;
+	private var onInternalComplete:Function
+	private var updateFunction:Function = updateAbsolute;
+	
+	public var onUpdateArgs:Array;
+	public var onYoyoHalfArgs:Array;
+	public var onCycleArgs:Array;
+	public var onCompleteArgs:Function;
+	
+
+	private var help:Vector.<Number>;
+	private var prev:Number=0;
+	private var cur:Number=0;
+	
+	
+	public function AO(target:Object, seconds:int, props:Object, _onInternalComplete:Function, 
+					   updateIncr:Boolean) {
+		
+		onInternalComplete = _onInternalComplete;
+		updateFunction = updateIncr ? updateIncremental : updateAbsolute;
+		subject = target;
+		numProperties = 0;
+		propNames= new Vector.<String>();
+		propStartValues = new Vector.<Number>();
+		propEndValues = new Vector.<Number>();
+		propDifferences = new Vector.<Number>();
+		duration  = seconds * 1000;
+		
+		for(var s:String in props)
+		{
+			if(subject.hasOwnProperty(s) && !isNaN(subject[s]) && !isNaN(props[s]))
+			{
+				propNames[numProperties] = s;
+				propStartValues[numProperties] = subject[s];
+				propEndValues[numProperties] = props[s];
+				propDifferences[numProperties] = props[s] - subject[s];
+				numProperties++;
+			}
+		}
+	}
+	public function get tick():int { return passedTotal }
+	public function set tick(milsecs:int):void
+	{
+		passedTotal = milsecs;
+		if(passedTotal > duration) 
+			passedTotal = duration;
+		updateFunction();
+		tickCommon();
+	}
+	
+	private function updateAbsolute():void
+	{
+		for(var i:int=0;i<numProperties;i++)
+			subject[propNames[i]] = easing(passedTotal, propStartValues[i], direction * propDifferences[i], duration);
+		if(tick >= duration)
+		{
+			help = propStartValues;
+			propStartValues = propEndValues;
+			propEndValues = help;
+			passedDuration();
+		}
+	}
+	
+	private function updateIncremental():void
+	{
+		for(var i:int=0;i<numProperties;i++)
+		{
+			cur = easing(passedTotal,0, direction * propDifferences[i], duration);
+			subject[propNames[i]] += (cur - prev);
+			prev = cur;
+		}
+		
+		if(tick >= duration)
+		{
+			for(i=0;i<numProperties;i++)
+				propStartValues[i] = propEndValues[i] - propDifferences[i];
+			prev = cur = 0;
+			passedDuration();
+		}
+	}
+	
+	private function tickCommon():void
+	{
+		if(onUpdate is Function)
+			onUpdate.apply(null, onUpdateArgs);
+	}
+	
+	private function passedDuration():void
+	{
+		trace('------------------------------cycles------------------------', cycles);
+		
+		if(yoyo)
+		{
+			passedTotal = 0;
+			yoyoHalfs++;
+			help = propStartValues;
+			direction = (direction > 0) ? -1 : 1;
+			if(onYoyoHalf is Function)
+				onYoyoHalf.apply(null, onYoyoHalfArgs);
+			if(yoyoHalfs%2 == 0)
+				cycled();
+		}
+		else cycled()
+	}
+	
+	private function cycled():void
+	{
+		trace('cycled');
+		--cycles;
+		if(onCycle is Function) 
+			onCycle.apply(null, onCycleArgs);
+		if(cycles != 0)
+			passedTotal = 0;
+		else { onInternalComplete(); }
+	}
+	
+	public function destroy():void
+	{
+		// TODO Auto Generated method stub
+		
+	}
+}
 package axl.utils 
 {
 	/**
@@ -192,8 +335,10 @@ package axl.utils
 	* One class engine makes it very handy as it gots most of everyday use features as well as easly trackable. 
 	* Not every setting configurations are working as expexted though, requries some revision.
 	*/	
+	import flash.display.Shape;
 	import flash.display.Stage;
 	import flash.events.Event;
+	import flash.utils.getTimer;
 	
 	public class Easing
 	{
@@ -201,21 +346,27 @@ package axl.utils
 		private static var proceeding:Vector.<Object> = new Vector.<Object>();
 		private static var STG:Stage;
 		private static var easings:Easings = new Easings();
+		private static var prevFrame:uint;
+		private static var curFrame:uint;
+		private static var frameTime:int;
 		/** reference to common easing functions: linear, in^/out^/back^  ^sine/^qubic/^quart/^quint/^elastic/^circular/^expo*/
 		public static function get func():Easings { return easings }
 
 		private static var fi:int;
+		private static var ticker:Shape;
 		
 		public static  function init(stage:Stage):void
 		{
+			prevFrame = getTimer();
 			STG = stage;
-			STG.addEventListener(Event.ENTER_FRAME, ENTER_FRAME);
-		}
+			ticker = new Shape();
+			ticker.addEventListener(Event.FRAME_CONSTRUCTED, ENTER_FRAME);
+		}	
 			
 		public static function animate(o:Object, seconds:Number, props:Object, onComplete:Function=null, onCompleteArgs:Array=null, easingType:Function=null,loops:Boolean=false,includeTargetVal:Boolean=false,incremental:Boolean=false,onUpdate:Function=null,onUpdateArgs:Array=null):void
 		{
 			if(!STG)
-				throw new Error("EASING: Stage not found. Make sure you pass actual stage in Easing.init method before animating");
+				throw new Error("[Easing]: Stage not found. Make sure you pass actual stage in Easing.init method before animating");
 			var totalFrames:int = Math.ceil(STG.frameRate * seconds);
 			var easingFunction:Function = (easingType || easings.easeOutQuad);
 			
@@ -317,6 +468,31 @@ package axl.utils
 			}
 		}
 		
+		public static function animateNonFrame(o:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
+											  easingType:Function=null, incremental:Boolean=false,
+											  onUpdate:Function=null, onCycle:Function=null, onYoyoHalf:Function=null):void
+		{
+			var easingFunction:Function = (easingType || easings.easeOutQuad);
+			var ao:AO = new AO(o, seconds, props, remove,incremental);
+				ao.easing = easingFunction;
+				ao.cycles = cycles;
+				ao.yoyo = yoyo;
+				ao.onUpdate = onUpdate;
+				ao.onYoyoHalf = onYoyoHalf;
+				ao.onCycle = onCycle;
+				ao.onComplete = onComplete;
+				
+			
+				function sanimate():void { ao.tick += frameTime }
+				function remove():void	{ 
+					onFrameFunction(sanimate, false);
+					if(ao.onComplete is Function) ao.onComplete.apply(null, ao.onCompleteArgs)
+					ao.destroy();
+					ao=null
+				}
+				onFrameFunction(sanimate, true);
+		}
+		
 		public static function killOf(target:Object, completeImmediately:Boolean=false):Boolean
 		{
 			var i:int = proceeding.length;
@@ -359,9 +535,12 @@ package axl.utils
 		
 		protected static function ENTER_FRAME(event:Event):void
 		{
+			curFrame = getTimer();
+			frameTime = curFrame - prevFrame;
 			fi = -1;
 			while(++fi < onFrameFunctions.length)
 				onFrameFunctions[fi]();
+			prevFrame = curFrame;
 		}
 	}
 }
