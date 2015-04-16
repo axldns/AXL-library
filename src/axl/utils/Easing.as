@@ -186,52 +186,61 @@ internal class Easings {
 }
 internal class AO {
 	
-	private var numProperties:int;
 	private var propNames:Vector.<String>;
 	private var propStartValues:Vector.<Number>;
 	private var propEndValues:Vector.<Number>;
 	private var propDifferences:Vector.<Number>;
-	private var duration:int;
-	public var passedTotal:int=0;
-	private var direction:int = 1;
-	private var yoyoHalfs:int=0;
+	private var eased:Vector.<Vector.<Number>>;
+	private var help:Vector.<Number>;
 	
+	private var numProperties:int=0
+	private var duration:int=0;
+	private var passedTotal:int=0;
+	private var direction:int=1;
+	private var yoyoHalfs:int=0;
+	private var ticked:int=0;
+	private var prev:Number=0;
+	private var cur:Number=0;
+	public var cycles:int=1;
+	
+	public var yoyo:Boolean;
 	public var subject:Object;
 	public var easing:Function;
 	
-	public var cycles:int=1;
-	public var yoyo:Boolean=true;
+	public var onUpdateArgs:Array;
+	public var onYoyoHalfArgs:Array;
+	public var onCycleArgs:Array;
+	public var onCompleteArgs:Array;
 	
 	public var onUpdate:Function;
 	public var onYoyoHalf:Function;
 	public var onCycle:Function;
 	public var onComplete:Function;
+	
 	private var onInternalComplete:Function
-	private var updateFunction:Function = updateAbsolute;
-	
-	public var onUpdateArgs:Array;
-	public var onYoyoHalfArgs:Array;
-	public var onCycleArgs:Array;
-	public var onCompleteArgs:Function;
-	
+	private var updateFunction:Function;
 
-	private var help:Vector.<Number>;
-	private var prev:Number=0;
-	private var cur:Number=0;
+	private var FPS:int;
+	private var seconds:Number;
+	private var incremental:Boolean;
 	
 	
-	public function AO(target:Object, seconds:int, props:Object, _onInternalComplete:Function, 
-					   updateIncr:Boolean) {
+	public function AO(target:Object, seconds:Number, props:Object, easingFunction:Function, 
+					   onInternalComplete:Function, incremental:Boolean,FPS:int=0) {
+		this.subject = target;
+		this.seconds = seconds;
+		this.easing = easingFunction;
+		this.onInternalComplete = onInternalComplete;
+		this.incremental = incremental;
+		this.FPS = FPS;
 		
-		onInternalComplete = _onInternalComplete;
-		updateFunction = updateIncr ? updateIncremental : updateAbsolute;
-		subject = target;
-		numProperties = 0;
+		// this need to be decided on frame-time based
+		//updateFunction = incremental ? updateIncremental : updateAbsolute;
+		
 		propNames= new Vector.<String>();
 		propStartValues = new Vector.<Number>();
 		propEndValues = new Vector.<Number>();
 		propDifferences = new Vector.<Number>();
-		duration  = seconds * 1000;
 		
 		for(var s:String in props)
 		{
@@ -244,22 +253,76 @@ internal class AO {
 				numProperties++;
 			}
 		}
-	}
-	public function get tick():int { return passedTotal }
-	public function set tick(milsecs:int):void
-	{
-		passedTotal = milsecs;
-		if(passedTotal > duration) 
-			passedTotal = duration;
-		updateFunction();
-		tickCommon();
+		
+		if(FPS > 0)
+			prepareFrameBased();
+		else
+			prepareTimeBased();
 	}
 	
+	// ----------------------------------------- PREPARE ----------------------------------- //
+	//time
+	private function prepareTimeBased():void {
+		duration  = seconds * 1000 
+		updateFunction = incremental ? updateIncremental : updateAbsolute;
+	}
+	//frame	
+	private function prepareFrameBased():void
+	{
+		eased = new Vector.<Vector.<Number>>();
+		duration  = Math.ceil(FPS * seconds); // number of frames
+		var i:int, j:int;
+		if(incremental)
+		{
+			updateFunction = updateFrameIncremental;
+			for(i=0;i<numProperties;i++)
+			{
+				eased[i] = new Vector.<Number>();
+				prev = cur = 0;
+				for(j=0; j < duration;j++) 
+				{
+					cur = easing(j,0, direction * propDifferences[i], duration);
+					eased[i][j] = (cur - prev);
+					prev = cur;
+				}
+			}
+		} 
+		else
+		{
+			updateFunction = updateFrameAbsolute;
+			for(i=0;i<numProperties;i++)
+			{
+				eased[i] = new Vector.<Number>();
+				for(j=0; j < duration;j++) 
+					eased[i][j] = easing(j,propStartValues[i], propDifferences[i], duration)
+			}
+		}
+	}
+	// ----------------------------------------- UPDATE ------------------------- //
+	
+	//frame
+	private function updateFrameAbsolute():void
+	{
+		for(var i:int=0;i<numProperties;i++)
+			subject[propNames[i]] = direction * eased[i][ticked];
+		if((duration - ticked) == 1)
+			passedDuration();
+	}
+	
+	private function updateFrameIncremental():void
+	{
+		for(var i:int=0;i<numProperties;i++)
+			subject[propNames[i]] +=  direction * eased[i][ticked];
+		if((duration - ticked) == 1)
+			passedDuration();
+	}
+	
+	//time
 	private function updateAbsolute():void
 	{
 		for(var i:int=0;i<numProperties;i++)
 			subject[propNames[i]] = easing(passedTotal, propStartValues[i], direction * propDifferences[i], duration);
-		if(tick >= duration)
+		if(passedTotal >= duration)
 		{
 			help = propStartValues;
 			propStartValues = propEndValues;
@@ -276,8 +339,7 @@ internal class AO {
 			subject[propNames[i]] += (cur - prev);
 			prev = cur;
 		}
-		
-		if(tick >= duration)
+		if(passedTotal >= duration)
 		{
 			for(i=0;i<numProperties;i++)
 				propStartValues[i] = propEndValues[i] - propDifferences[i];
@@ -285,22 +347,14 @@ internal class AO {
 			passedDuration();
 		}
 	}
-	
-	private function tickCommon():void
-	{
-		if(onUpdate is Function)
-			onUpdate.apply(null, onUpdateArgs);
-	}
-	
+	//common
 	private function passedDuration():void
 	{
-		trace('------------------------------cycles------------------------', cycles);
-		
 		if(yoyo)
 		{
 			passedTotal = 0;
+			ticked = 0;
 			yoyoHalfs++;
-			help = propStartValues;
 			direction = (direction > 0) ? -1 : 1;
 			if(onYoyoHalf is Function)
 				onYoyoHalf.apply(null, onYoyoHalfArgs);
@@ -312,13 +366,25 @@ internal class AO {
 	
 	private function cycled():void
 	{
-		trace('cycled');
 		--cycles;
 		if(onCycle is Function) 
 			onCycle.apply(null, onCycleArgs);
 		if(cycles != 0)
 			passedTotal = 0;
 		else { onInternalComplete(); }
+	}
+	
+	//-------------------- controll ------------------//
+	
+	public function tick(milsecs:int):void
+	{
+		passedTotal += milsecs;
+		ticked++;
+		if(passedTotal > duration) 
+			passedTotal = duration;
+		updateFunction();
+		if(onUpdate is Function)
+			onUpdate.apply(null, onUpdateArgs);
 	}
 	
 	public function destroy():void
@@ -469,21 +535,19 @@ package axl.utils
 		}
 		
 		public static function animateNonFrame(o:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
-											  easingType:Function=null, incremental:Boolean=false,
+											  easingType:Function=null, incremental:Boolean=false,frameBased:Boolean=true,
 											  onUpdate:Function=null, onCycle:Function=null, onYoyoHalf:Function=null):void
 		{
 			var easingFunction:Function = (easingType || easings.easeOutQuad);
-			var ao:AO = new AO(o, seconds, props, remove,incremental);
-				ao.easing = easingFunction;
+			var ao:AO = new AO(o, seconds, props,easingFunction, remove,incremental,frameBased ? STG.frameRate : 0);
 				ao.cycles = cycles;
 				ao.yoyo = yoyo;
 				ao.onUpdate = onUpdate;
 				ao.onYoyoHalf = onYoyoHalf;
 				ao.onCycle = onCycle;
 				ao.onComplete = onComplete;
-				
 			
-				function sanimate():void { ao.tick += frameTime }
+				function sanimate():void { ao.tick(frameTime) }
 				function remove():void	{ 
 					onFrameFunction(sanimate, false);
 					if(ao.onComplete is Function) ao.onComplete.apply(null, ao.onCompleteArgs)
