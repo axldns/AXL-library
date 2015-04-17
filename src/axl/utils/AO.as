@@ -11,6 +11,7 @@ package axl.utils
 		private var propEndValues:Vector.<Number>;
 		private var propDifferences:Vector.<Number>;
 		private var eased:Vector.<Vector.<Number>>;
+		private var remains:Vector.<Number>;
 		private var prevs:Vector.<Number>;
 		
 		private var numProperties:int=0
@@ -70,11 +71,13 @@ package axl.utils
 			if(incremental)
 			{
 				prevs = new Vector.<Number>();
+				remains = new Vector.<Number>();
 				for(i=0; i<numProperties;i++)
 				{
 					propDifferences[i] =props[propNames[i]];
 					propStartValues[i] = subject[propNames[i]];
 					propEndValues[i] = propStartValues[i] + propDifferences[i];
+					remains[i] = propDifferences[i];
 				}
 				
 			}
@@ -92,9 +95,10 @@ package axl.utils
 				prepareFrameBased();
 			else
 				prepareTimeBased();
-			
+			trace("PREPARED:", eased[0]);
 			id = numObjects;
 			animObjects[numObjects++] = this;
+			passedTotal = 0;
 		}
 		
 		// ----------------------------------------- PREPARE ----------------------------------- //
@@ -129,7 +133,7 @@ package axl.utils
 			passedTotal += frameBased ? 1 : milsecs;
 			if(passedTotal >= duration) 
 			{
-				passedTotal = duration;
+				trace("FRAME", passedTotal);
 				passedDuration();
 			}
 			else
@@ -166,9 +170,15 @@ package axl.utils
 			for(var i:int=0;i<numProperties;i++)
 			{
 				cur = eased[i][passedTotal];
-				trace('cur', cur, 'prev', prevs[i]);
+				var add:Number = (cur - prevs[i]);
+				remains[i] -= add;
+				trace('('+id+')'+passedTotal, 
+					'|cur:', cur.toFixed(1), 
+					'|prev:', prevs[i].toFixed(12), 
+				'|dif:',(cur - prevs[i]).toFixed(12),
+				'|RES:', (subject[propNames[i]] +  (cur - prevs[i])).toFixed(12)
+				,'|remains:',remains[i].toFixed(2), '|check:', cur + remains[i] );
 				subject[propNames[i]] += (cur - prevs[i]);
-				trace('fi('+id+')', (cur - prevs[i]));
 				prevs[i] = cur;
 			}
 		}
@@ -178,8 +188,18 @@ package axl.utils
 			for(var i:int=0;i<numProperties;i++)
 			{
 				cur = eased[i][duration - passedTotal];
+				var add:Number = (cur - prevs[i]);
+				remains[i] += add;
+				
+				trace('('+id+')'+passedTotal, 
+					'|cur:', cur.toFixed(1), 
+					'|prev:', prevs[i].toFixed(12)
+					,'|dif:',(cur - prevs[i]).toFixed(12)
+					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(12)
+					,'|remains:',remains[i].toFixed(2), 
+					'|check:', cur - remains[i] );
+				
 				subject[propNames[i]] += (cur - prevs[i]);
-				trace('fir('+id+')', (cur - prevs[i]), '|', subject[propNames[i]], '|', direction);
 				prevs[i] = cur;
 			}
 		}
@@ -190,7 +210,7 @@ package axl.utils
 			{
 				cur = easing(passedTotal, 0, propDifferences[i], duration);
 				subject[propNames[i]] += (cur - prevs[i]);
-				trace('TI('+id+')', (cur - prevs[i]));
+				trace('('+id+')'+'TI('+id+')', (cur - prevs[i]));
 				prevs[i] = cur;
 			}
 		}
@@ -209,15 +229,19 @@ package axl.utils
 		//common
 		private function passedDuration():void
 		{
-			trace(state);
+			trace('('+id+')'+state);
+			
 			equalize();
-			resolveContinuation();
+			for(var i:int=0;i<numProperties;i++)
+				trace('('+id+')'+propNames[i], ':', subject[propNames[i]])
 			passedTotal = 0;
+			trace("PT NOW", passedTotal);
+			resolveContinuation();
 		}
 		
 		private function equalize():void
 		{
-			trace('---------equalize--------');
+			trace('('+id+')'+'---------equalize--------');
 			if(!incremental) 									// ABSOLUTES [192][195][200]
 				if(yoyo)
 					if(yoyoHalfs%2 == 0) // | > > > > > > [HERE]|
@@ -227,20 +251,35 @@ package axl.utils
 				else
 					applyValues(propEndValues);
 			else 											// INCREMENTALS [+2][+3][+5]
-				if(yoyo)
-					if(yoyoHalfs%2 == 0) // | > > > > > > [HERE]|
-						applyValues(propEndValues);
-					else				// |[HERE] < < < < < < |
-						applyValues(propStartValues);
-				else
-					applyValues(propEndValues);
+				applyRemainings();
 		}
+		
+		private function applyRemainings():void
+		{
+			trace('('+id+')'+"------applyRemainings----------", direction);
+			for(var i:int=0;i<numProperties;i++)
+			{
+				subject[propNames[i]] += remains[i] * direction;
+				trace('('+id+')'+'r:', remains[i] * direction);
+				remains[i] = propDifferences[i];
+				prevs[i] = (direction < 0) ? propStartValues[i] : propEndValues[i];
+			}
+		}
+		
+		private function applyValues(v:Vector.<Number>):void
+		{
+			trace("asignValues", v == propStartValues ? 'start' : 'end?');
+			for(var i:int=0;i<numProperties;i++)
+				subject[propNames[i]] = v[i];
+		}
+		
 		
 		private function resolveContinuation():void
 		{
 			trace("------resolveContinuation----------");
 			if(yoyo)
 			{
+				direction = (direction > 0) ? -1 : 1;
 				if(++yoyoHalfs%2 != 0) // FIRST HALF  | > > > > > > > [HERE]|
 					applyRevFunctions();
 				else
@@ -253,37 +292,13 @@ package axl.utils
 			else cycled();
 		}
 		
-		private function applyRevFunctions():void
-		{
-			if(incremental)
-				updateFunction = frameBased ? updateFrameIncrementalRev : updateTimeIncrementalRev;
-			else
-				updateFunction = frameBased ? updateFrameAbsoluteRev : updateTimeAbsoluteRev;
-		}
-		
-		private function applyForwardFunctions():void
-		{
-			if(incremental)
-				updateFunction = frameBased ? updateFrameIncremental : updateTimeIncremental;
-			else
-				updateFunction = frameBased ? updateFrameAbsolute : updateTimeAbsolute;
-		}		
-		
-		
 		private function completeYoyo():void
 		{
 			trace("completeYoyo");
-			direction = (direction > 0) ? -1 : 1;
 			if(onYoyoHalf is Function)
 				onYoyoHalf.apply(null, onYoyoHalfArgs);
 		}
 		
-		private function applyValues(v:Vector.<Number>):void
-		{
-			trace("asignValues", v == propStartValues ? 'start' : 'end?');
-			for(var i:int=0;i<numProperties;i++)
-				subject[propNames[i]] = v[i];
-		}
 		
 		private function cycled():void
 		{
@@ -315,6 +330,24 @@ package axl.utils
 			else finish(false);
 			return true
 		}
+		
+		private function applyRevFunctions():void
+		{
+			if(incremental)
+				updateFunction = frameBased ? updateFrameIncrementalRev : updateTimeIncrementalRev;
+			else
+				updateFunction = frameBased ? updateFrameAbsoluteRev : updateTimeAbsoluteRev;
+		}
+		
+		private function applyForwardFunctions():void
+		{
+			if(incremental)
+				updateFunction = frameBased ? updateFrameIncremental : updateTimeIncremental;
+			else
+				updateFunction = frameBased ? updateFrameAbsolute : updateTimeAbsolute;
+		}		
+		
+		
 		public function destroy(dispCompl:Boolean):void
 		{
 			var i:int = animObjects.indexOf(this);
@@ -373,6 +406,7 @@ package axl.utils
 			s += String('\nyoyo: ' + yoyo);
 			s += String('\npassedTotal: ' + passedTotal);
 			s += String('\nduration: ' + duration);
+			s += '\ndirection: ' + direction;
 			s += '\n---------------------';
 			return s;
 		}
