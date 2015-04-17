@@ -18,7 +18,6 @@ package axl.utils
 		private var duration:int=0;
 		private var passedTotal:int=0;
 		private var direction:int=1;
-		private var yoyoHalfs:int=0;
 		private var cur:Number=0;
 		public var cycles:int=1;
 		
@@ -244,7 +243,7 @@ package axl.utils
 			trace('('+id+')'+'---------equalize--------');
 			if(!incremental) 									// ABSOLUTES [192][195][200]
 				if(yoyo)
-					if(yoyoHalfs%2 == 0) // | > > > > > > [HERE]|
+					if(direction > 0) // | > > > > > > [HERE]|
 						applyValues(propEndValues);
 					else				// |[HERE] < < < < < < |
 						applyValues(propStartValues);
@@ -279,8 +278,7 @@ package axl.utils
 			trace("------resolveContinuation----------");
 			if(yoyo)
 			{
-				direction = (direction > 0) ? -1 : 1;
-				if(++yoyoHalfs%2 != 0) // FIRST HALF  | > > > > > > > [HERE]|
+				if(direction > 0) // FIRST HALF  | > > > > > > > [HERE]|
 					applyRevFunctions();
 				else
 				{
@@ -288,6 +286,7 @@ package axl.utils
 					completeYoyo();
 					cycled();
 				}
+				direction = (direction > 0) ? -1 : 1;
 			} 
 			else cycled();
 		}
@@ -320,11 +319,13 @@ package axl.utils
 			U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
 			{
-				trace("PASSED REMAINING", passedTotal);
-				passedTotal += (duration - passedTotal - (frameBased ? 1 : 0));
-				updateFunction();
-				//asignValues(propEndValues);
-				//equalize();
+				trace("PASSED REMAINING", passedTotal, 'direction', direction);
+				equalize();
+				if(yoyo && (direction > 0))
+				{
+					direction = -1;
+					equalize();
+				}
 				finish(true);
 			}
 			else finish(false);
@@ -367,12 +368,12 @@ package axl.utils
 			if(target is AO)
 				for(i= 0; i < numObjects;i++)
 					if(animObjects[i] == target)
-						animObjects[i].finishEarly(completeImmediately);
+						animObjects[i--].finishEarly(completeImmediately);
 			if(!(target is AO))
-			{	U.log('[Easing][killOff][nonAO]');
+			{	U.log('[Easing][killOff][nonAO]',numObjects);
 				for(i = 0; i < numObjects;i++)
 					if(animObjects[i].subject === target)
-						animObjects[i].finishEarly(completeImmediately);
+						animObjects[i--].finishEarly(completeImmediately);
 			}
 			return false;
 		}
