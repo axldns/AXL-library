@@ -105,7 +105,7 @@ package axl.utils
 			duration  = seconds * 1000; // ms
 			if(incremental)
 				for(var i:int = numProperties; i-->0;)
-					prevs[i] = 0;
+					prevs[i] = propStartValues[i];
 		}
 		//frame	- values are being pre-calculated before animation
 		private function prepareFrameBased():void
@@ -131,8 +131,8 @@ package axl.utils
 			passedTotal += frameBased ? 1 : milsecs;
 			if(passedTotal >= duration) 
 			{
-				passedTotal = duration;
 				trace("FRAME", passedTotal);
+				passedTotal = duration;
 				passedDuration();
 			}
 			else
@@ -170,15 +170,17 @@ package axl.utils
 			{
 				cur = eased[i][passedTotal];
 				var add:Number = (cur - prevs[i]);
-				remains[i] -= add;
-				/*trace('('+id+')'+passedTotal, 
-					'|cur:', cur.toFixed(1), 
-					'|prev:', prevs[i].toFixed(12)
-					,'|dif:',(cur - prevs[i]).toFixed(12)
-					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(12)
-					,'|remains:',remains[i].toFixed(2), 
-					'|check:', cur - remains[i] );*/
+				
+				trace('('+id+')'+passedTotal, 
+					'|cur:', cur.toFixed(20), 
+					'|prev:', prevs[i].toFixed(20),
+					'|dif:',add.toFixed(20),
+					'|RES:',(subject[propNames[i]] + (cur - prevs[i])).toFixed(20),
+					'|remains:',(remains[i]-add).toFixed(20), 
+					'|check:', cur + (remains[i] - add) 
+				);
 				subject[propNames[i]] += (cur - prevs[i]);
+				remains[i] -= add;
 				prevs[i] = cur;
 			}
 		}
@@ -190,7 +192,7 @@ package axl.utils
 				cur = eased[i][duration - passedTotal];
 				var add:Number = (cur - prevs[i]);
 				remains[i] += add;
-				/*
+				
 				trace('('+id+')'+passedTotal, 
 					'|cur:', cur.toFixed(1), 
 					'|prev:', prevs[i].toFixed(12)
@@ -198,7 +200,7 @@ package axl.utils
 					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(12)
 					,'|remains:',remains[i].toFixed(2), 
 					'|check:', cur - remains[i] );
-				*/
+				
 				subject[propNames[i]] += (cur - prevs[i]);
 				prevs[i] = cur;
 			}
@@ -208,51 +210,52 @@ package axl.utils
 		{
 			for(var i:int=0;i<numProperties;i++)
 			{
-				cur = easing(passedTotal, 0, propDifferences[i], duration);
+				cur = easing(passedTotal, propStartValues[i], propDifferences[i], duration);
 				var add:Number = (cur - prevs[i]);
-				remains[i] -= add;
-				
 				trace('('+id+')'+passedTotal, 
-					'|cur:', cur.toFixed(1), 
-					'|prev:', prevs[i].toFixed(12)
-					,'|dif:',(cur - prevs[i]).toFixed(12)
-					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(12)
-					,'|remains:',remains[i].toFixed(2), 
-					'|check:', cur - remains[i] );
+					'|cur:', cur.toFixed(20), 
+					'|prev:', prevs[i].toFixed(20),
+					'|dif:',add.toFixed(20),
+					'|RES:',(subject[propNames[i]] + (cur - prevs[i])).toFixed(20),
+					'|remains:',(remains[i]-add).toFixed(20), 
+					'|check:', cur + (remains[i] - add) 
+				);
 				subject[propNames[i]] += (cur - prevs[i]);
+				remains[i] -= add;
 				prevs[i] = cur;
 			}
 		}
-		
 		
 		private function updateTimeIncrementalRev():void
 		{
 			for(var i:int=0;i<numProperties;i++)
 			{
-				cur = easing(duration - passedTotal, 0,propDifferences[i], duration);
+				cur = easing(duration - passedTotal,  propStartValues[i],propDifferences[i], duration);
 				var add:Number = (cur - prevs[i]);
-				remains[i] += add;
+				
 				
 				trace('('+id+')'+passedTotal, 
 					'|cur:', cur.toFixed(1), 
 					'|prev:', prevs[i].toFixed(12)
 					,'|dif:',(cur - prevs[i]).toFixed(12)
-					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(12)
+					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(20)
 					,'|remains:',remains[i].toFixed(2), 
 					'|check:', cur - remains[i] );
 				subject[propNames[i]] += (cur - prevs[i]);
+				remains[i] += add;
 				prevs[i] = cur;
 			}
 		}
 		//common
 		private function passedDuration():void
 		{
-			/*trace('('+id+')'+state);
-			for(var i:int=0;i<numProperties;i++)
-				trace('('+id+')'+propNames[i], ':', subject[propNames[i]])*/
+			trace('('+id+')'+state);
+			var i:int
+			for(i=0;i<numProperties;i++)
+				trace('('+id+')'+propNames[i], ':', subject[propNames[i]].toFixed(20))
 			equalize();
-			/*for(var i:int=0;i<numProperties;i++)
-				trace('('+id+')'+propNames[i], ':', subject[propNames[i]])*/
+			for(i=0;i<numProperties;i++)
+				trace('('+id+')'+propNames[i], ':', subject[propNames[i]].toFixed(20))
 			passedTotal = 0;
 			trace("PT NOW", passedTotal);
 			resolveContinuation();
@@ -276,9 +279,10 @@ package axl.utils
 		private function applyRemainings():void
 		{
 			trace('('+id+')'+"------applyRemainings----------", direction);
+			
 			for(var i:int=0;i<numProperties;i++)
 			{
-				//trace('r:', remains[i] * direction);
+				trace('r:', remains[i] * direction);
 				subject[propNames[i]] += remains[i] * direction;
 				remains[i] = propDifferences[i];
 			}
