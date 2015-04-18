@@ -229,21 +229,20 @@ package axl.utils
 			U.log("[PHP][Complete] response is ", String(URLLoader(e.target).data).length , 'long');
 			var decrypted:String = (decryption is Function) ? decryption(URLLoader(e.target).data) : URLLoader(e.target).data;
 			var unjsoned:* = null;
-			var jsonIndx:int = -1;
 			var i:int =decrypted.indexOf('['), j:int = decrypted.indexOf('{');
-			if(i > -1) jsonIndx = i;
-			if((j > -1) && (j < jsonIndx)) jsonIndx = j;
-			
+			var jsonIndex:int = -1;
+			if(i>-1||j>-1)
+				jsonIndex = (i>-1&&i<j) ? i : j;
 			U.log("[PHP][Complete]decrypted:\n", decrypted.substr(0, limitLogResponeses) 
-				+ (decrypted.length > limitLogResponeses ? '[...]' : ''));
-			if(jsonIndx < 0)
+				+ (decrypted.length > limitLogResponeses ? '[...]' : ''),'jsonIndex:', jsonIndex, i,j );
+			if(jsonIndex < 0)
 			{
 				if(currentObject.oc is Function)
 					currentObject.oc(decrypted); // not a json response
 			}
 			else	
 			{
-				try { unjsoned = JSON.parse(decrypted.substr(jsonIndx)) }
+				try { unjsoned = JSON.parse(decrypted.substr(jsonIndex)) }
 				catch(e:Object)
 				{
 					U.log('[PHP][Complete] JSON PARSE ERROR, returning raw\n',decrypted);
@@ -296,8 +295,9 @@ package axl.utils
 		
 		private function removeQueueElement(obj:Object):void
 		{
+			if(obj == null) return;
 			var i:int = queue.indexOf(obj);
-			queue.splice(i,1);
+			if(i > -1) queue.splice(i,1);
 			obj.v = obj.a = obj.t = obj.oc = obj.op = null;
 			U.log('[PHP][Queue][Remove] queue:', queue.length);
 		}
@@ -393,12 +393,8 @@ package axl.utils
 		/** Attemps to stop proceeding request. you can still use <code>send^</code> methods after cancel. */
 		public function cancel():void
 		{
-			storeObject = null;		
 			if(loader != null)
-			{
-				try { loader.close() } 
-				catch(e:*) {};
-			}
+				try { loader.close() } catch(e:*) {};
 			removeFromCookie(storeObject);
 			removeQueueElement(storeObject);
 			storeObject = null;		
