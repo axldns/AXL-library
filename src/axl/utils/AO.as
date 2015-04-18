@@ -42,7 +42,13 @@ package axl.utils
 		private var incremental:Boolean;
 		private var frameBased:Boolean;
 		
+		private var passed:Function =passedForward;
+		private function passedForward():Number { return passedTotal }
+		private function passedBackward():Number { return duration - passedTotal }
+		
 		private var id:int;
+		private var passedRelative:Number;
+		private var getValue:Function;
 		
 		public function AO(target:Object, seconds:Number, props:Object, easingFunction:Function, incremental:Boolean,FPS:int=0) {
 			this.subject = target;
@@ -59,29 +65,27 @@ package axl.utils
 			//common
 			
 			for(var s:String in props)
-			{
 				if(subject.hasOwnProperty(s) && !isNaN(subject[s]) && !isNaN(props[s]))
-				{
-					propNames[numProperties] = s;
-					numProperties++;
-				}
-			}
+					propNames[numProperties++] = s;
+			
 			var i:int;
 			if(incremental)
 			{
 				prevs = new Vector.<Number>();
 				remains = new Vector.<Number>();
+				updateFunction = updateIncremental
 				for(i=0; i<numProperties;i++)
 				{
 					propDifferences[i] =props[propNames[i]];
 					propStartValues[i] = subject[propNames[i]];
-					propEndValues[i] = propStartValues[i] + propDifferences[i];
+					propEndValues[i] = propStartValues[i] + propDifferences[i]; // are they even needed?
 					remains[i] = propDifferences[i];
+					prevs[i] = propStartValues[i];
 				}
-				
 			}
 			else
 			{
+				updateFunction = updateAbsolute;
 				for(i=0; i<numProperties;i++)
 				{
 					propStartValues[i] = subject[propNames[i]];
@@ -89,29 +93,28 @@ package axl.utils
 					propDifferences[i] = props[propNames[i]] - subject[propNames[i]];
 				}
 			}
-			applyForwardFunctions();
+			
 			if(frameBased)
 				prepareFrameBased();
 			else
 				prepareTimeBased();
 			id = numObjects;
 			animObjects[numObjects++] = this;
-			passedTotal = 0;
 		}
 		
 		// ----------------------------------------- PREPARE ----------------------------------- //
 		//time - values are being calculated at runtime, every frame
 		private function prepareTimeBased():void {
 			duration  = seconds * 1000; // ms
-			if(incremental)
-				for(var i:int = numProperties; i-->0;)
-					prevs[i] = propStartValues[i];
+			getValue = getValueLive;
 		}
 		//frame	- values are being pre-calculated before animation
 		private function prepareFrameBased():void
 		{
-			eased = new Vector.<Vector.<Number>>();
+			
 			duration  = Math.ceil(FPS * seconds); // number of frames
+			getValue = getValueEased;
+			eased = new Vector.<Vector.<Number>>();
 			var i:int, j:int;
 			
 			for(i=0;i<numProperties;i++)
@@ -120,133 +123,58 @@ package axl.utils
 				for(j=0; j < duration;j++) 
 					eased[i][j] = easing(j,propStartValues[i], propDifferences[i], duration);
 			}
-			if(incremental)
-				for(i = numProperties; i-->0;)
-					prevs[i] = propStartValues[i];
 		}
 		// ----------------------------------------- UPDATE ------------------------- //
 		
 		public function tick(milsecs:int):void
 		{
 			passedTotal += frameBased ? 1 : milsecs;
+			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 			if(passedTotal >= duration) 
 			{
-				trace("FRAME", passedTotal);
 				passedTotal = duration;
 				passedDuration();
 			}
 			else
+			{
 				updateFunction();
-			if(onUpdate is Function)
-				onUpdate.apply(null, onUpdateArgs);
+				if(onUpdate is Function)
+					onUpdate.apply(null, onUpdateArgs);
+			}
 		}
-		
+				
 		//absolute
-		private function updateFrameAbsolute():void
+		private function updateAbsolute():void
 		{
+			var passd:Number = passed();
 			for(var i:int=0;i<numProperties;i++)
-				subject[propNames[i]] = eased[i][passedTotal];
-		}
-		private function updateFrameAbsoluteRev():void
-		{
-			for(var i:int=0;i<numProperties;i++)
-				subject[propNames[i]] = eased[i][duration - passedTotal];
-		}
-		private function updateTimeAbsolute():void
-		{
-			for(var i:int=0;i<numProperties;i++)
-				subject[propNames[i]] = easing(passedTotal, propStartValues[i],propDifferences[i], duration);
-		}
-		private function updateTimeAbsoluteRev():void
-		{
-			for(var i:int=0;i<numProperties;i++)
-				subject[propNames[i]] = easing(duration - passedTotal, propStartValues[i], propDifferences[i], duration);
+				subject[propNames[i]] = getValue(i);
 		}
 		
 		//inctemental
-		private function updateFrameIncremental():void
+		private function updateIncremental():void
 		{
 			for(var i:int=0;i<numProperties;i++)
 			{
-				cur = eased[i][passedTotal];
+				cur = getValue(i);
 				var add:Number = (cur - prevs[i]);
-				
-				trace('('+id+')'+passedTotal, 
-					'|cur:', cur.toFixed(20), 
-					'|prev:', prevs[i].toFixed(20),
-					'|dif:',add.toFixed(20),
-					'|RES:',(subject[propNames[i]] + (cur - prevs[i])).toFixed(20),
-					'|remains:',(remains[i]-add).toFixed(20), 
-					'|check:', cur + (remains[i] - add) 
-				);
 				subject[propNames[i]] += (cur - prevs[i]);
-				remains[i] -= add;
+				remains[i] += (-add * direction);
 				prevs[i] = cur;
 			}
 		}
 		
-		private function updateFrameIncrementalRev():void
-		{
-			for(var i:int=0;i<numProperties;i++)
-			{
-				cur = eased[i][duration - passedTotal];
-				var add:Number = (cur - prevs[i]);
-				remains[i] += add;
-				
-				trace('('+id+')'+passedTotal, 
-					'|cur:', cur.toFixed(1), 
-					'|prev:', prevs[i].toFixed(12)
-					,'|dif:',(cur - prevs[i]).toFixed(12)
-					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(12)
-					,'|remains:',remains[i].toFixed(2), 
-					'|check:', cur - remains[i] );
-				
-				subject[propNames[i]] += (cur - prevs[i]);
-				prevs[i] = cur;
-			}
-		}
-		
-		private function updateTimeIncremental():void
-		{
-			for(var i:int=0;i<numProperties;i++)
-			{
-				cur = easing(passedTotal, propStartValues[i], propDifferences[i], duration);
-				var add:Number = (cur - prevs[i]);
-				trace('('+id+')'+passedTotal, 
-					'|cur:', cur.toFixed(20), 
-					'|prev:', prevs[i].toFixed(20),
-					'|dif:',add.toFixed(20),
-					'|RES:',(subject[propNames[i]] + (cur - prevs[i])).toFixed(20),
-					'|remains:',(remains[i]-add).toFixed(20), 
-					'|check:', cur + (remains[i] - add) 
-				);
-				subject[propNames[i]] += (cur - prevs[i]);
-				remains[i] -= add;
-				prevs[i] = cur;
-			}
-		}
-		
-		private function updateTimeIncrementalRev():void
-		{
-			for(var i:int=0;i<numProperties;i++)
-			{
-				cur = easing(duration - passedTotal,  propStartValues[i],propDifferences[i], duration);
-				var add:Number = (cur - prevs[i]);
-				
-				
-				trace('('+id+')'+passedTotal, 
-					'|cur:', cur.toFixed(1), 
-					'|prev:', prevs[i].toFixed(12)
-					,'|dif:',(cur - prevs[i]).toFixed(12)
-					,'|RES:',(subject[propNames[i]] +  (cur - prevs[i])).toFixed(20)
-					,'|remains:',remains[i].toFixed(2), 
-					'|check:', cur - remains[i] );
-				subject[propNames[i]] += (cur - prevs[i]);
-				remains[i] += add;
-				prevs[i] = cur;
-			}
-		}
 		//common
+		private function getValueEased(i:int):Number
+		{
+			return eased[i][passedRelative];
+		}
+		private function getValueLive(i:int):Number
+		{
+			return  easing(passedRelative, propStartValues[i], propDifferences[i], duration);
+		}
+		
+		
 		private function passedDuration():void
 		{
 			trace('('+id+')'+state);
@@ -254,6 +182,8 @@ package axl.utils
 			for(i=0;i<numProperties;i++)
 				trace('('+id+')'+propNames[i], ':', subject[propNames[i]].toFixed(20))
 			equalize();
+			if(onUpdate is Function)
+				onUpdate.apply(null, onUpdateArgs);
 			for(i=0;i<numProperties;i++)
 				trace('('+id+')'+propNames[i], ':', subject[propNames[i]].toFixed(20))
 			passedTotal = 0;
@@ -275,14 +205,11 @@ package axl.utils
 			else 		
 				applyRemainings();
 		}
-		
+		/** this is for incrementals only **/
 		private function applyRemainings():void
 		{
-			trace('('+id+')'+"------applyRemainings----------", direction);
-			
 			for(var i:int=0;i<numProperties;i++)
 			{
-				trace('r:', remains[i] * direction);
 				subject[propNames[i]] += remains[i] * direction;
 				remains[i] = propDifferences[i];
 			}
@@ -292,16 +219,13 @@ package axl.utils
 			else
 				for(i=0; i < numProperties; i++)
 					prevs[i] = propEndValues[i];
-				
 		}
 		
 		private function applyValues(v:Vector.<Number>):void
 		{
-			trace("asignValues", v == propStartValues ? 'start' : 'end?');
 			for(var i:int=0;i<numProperties;i++)
 				subject[propNames[i]] = v[i];
 		}
-		
 		
 		private function resolveContinuation():void
 		{
@@ -309,29 +233,29 @@ package axl.utils
 			if(yoyo)
 			{
 				if(direction > 0) // FIRST HALF  | > > > > > > > [HERE]|
-					applyRevFunctions();
+				{
+					direction = -1;
+					passed = passedBackward;
+				}
 				else
 				{
-					applyForwardFunctions();
+					direction = 1;
+					passed = passedForward;
 					completeYoyo();
 					cycled();
 				}
-				direction = (direction > 0) ? -1 : 1;
 			} 
 			else cycled();
 		}
 		
 		private function completeYoyo():void
 		{
-			trace("completeYoyo");
 			if(onYoyoHalf is Function)
 				onYoyoHalf.apply(null, onYoyoHalfArgs);
 		}
 		
-		
 		private function cycled():void
 		{
-			trace("------------cycled--------(remaining:", cycles-1,")");
 			--cycles;
 			if(onCycle is Function) 
 				onCycle.apply(null, onCycleArgs);
@@ -349,7 +273,6 @@ package axl.utils
 			U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
 			{
-				trace("PASSED REMAINING", passedTotal, 'direction', direction);
 				equalize();
 				if(yoyo && (direction > 0))
 				{
@@ -361,23 +284,6 @@ package axl.utils
 			else finish(false);
 			return true
 		}
-		
-		private function applyRevFunctions():void
-		{
-			if(incremental)
-				updateFunction = frameBased ? updateFrameIncrementalRev : updateTimeIncrementalRev;
-			else
-				updateFunction = frameBased ? updateFrameAbsoluteRev : updateTimeAbsoluteRev;
-		}
-		
-		private function applyForwardFunctions():void
-		{
-			if(incremental)
-				updateFunction = frameBased ? updateFrameIncremental : updateTimeIncremental;
-			else
-				updateFunction = frameBased ? updateFrameAbsolute : updateTimeAbsolute;
-		}		
-		
 		
 		public function destroy(dispCompl:Boolean):void
 		{
