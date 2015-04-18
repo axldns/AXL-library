@@ -33,7 +33,6 @@ package axl.utils
 	 * <li> instantiate starling
 	 * <li> clean up and execute onInited </li>
 	 */
-	
 	public class U
 	{
 		Ldr.verbose = log;
@@ -95,43 +94,33 @@ package axl.utils
 		/** reference to flash display stage */
 		public static function get STG():flash.display.Stage { return uSTG	}
 		
-		
 		/** returns value of ... scalarX. See scalarX and Y defs*/
 		public static function get scalar():Number	{ return uscalar }
 		
-		/**
-		 * scalarY tells how much different current stage width is to values of designedFor.
-		 *<br> othher words : REC.height / designedForHeight;
-		 */
+		/**scalarY tells how much different current stage width is to values of designedFor.
+		 *<br> othher words : REC.height / designedForHeight;*/
 		public static function get scalarY():Number { return uscalarY }
 		
-		/**
-		 * scalarY tells how much different current stage height is to values of designedFor.
-		 *<br> othher words : REC.width / designedForWidth; 
-		 */
+		 /**scalarY tells how much different current stage height is to values of designedFor.
+		 *<br> othher words : REC.width / designedForWidth;  */
 		public static function get scalarX():Number { return uscalarX }
 		
 		/** returns value of ... scalarXreversed*/
 		public static function get scalarReversed():Number	{ return uscalarReversed }
 		
-		/**
-		 * scalarY tells how much different current stage width is to values of designedFor.
-		 *<br> othher words :  designedForHeight / REC.height;
-		 */
+		
+		/** scalarY tells how much different current stage width is to values of designedFor.
+		 *<br> othher words :  designedForHeight / REC.height;*/
 		public static function get scalarYreversed():Number { return uscalarYreversed }
 		
-		/**
-		 * scalarY tells how much different current stage height is to values of designedFor.
-		 *<br> othher words :  designedForWidth / REC.width; 
-		 */
+		/** scalarY tells how much different current stage height is to values of designedFor.
+		 *<br> othher words :  designedForWidth / REC.width; */
 		public static function get scalarXreversed():Number { return uscalarXreversed }
 
-		/**
-		 * STAGE RECTANGLE utility.
-		 * <br>Reffer e.g. <br>Utils.U.REC.bottom</br> or pass this to align functions like <code>U.center</code>, <code>U.align</code> or matrix transformations
-		 */
+		/** STAGE RECTANGLE utility.
+		 * <br>Reffer e.g. <br>Utils.U.REC.bottom</br> or pass this to align functions
+		 * like <code>U.center</code>, <code>U.align</code> or matrix transformations  */
 		public static function get REC():Rectangle { return rec }
-				
 		
 		/** Displays or hides flash stage splash if both splash and stage are instantiated. Messages are not covered by splash*/
 		public static function set splash(v:Boolean):void
@@ -165,11 +154,10 @@ package axl.utils
 				bsplash = v;
 		}
 		
-		/**
-		 * @param Inside: indicates whether to include coords of static (mov and static share the same coord space) or not (treat movable as a child of static)
-		 * @param movable: any object which contains x,y,width,height
-		 * @param static: any object which contains x,y,width,height
-		 */
+		
+		/** @param Inside: indicates whether to include coords of static (mov and static share the same coord space) or not (treat movable as a child of static)
+		 *  @param movable: any object which contains x,y,width,height
+		 *  @param static: any object which contains x,y,width,height */
 		public static function center(movable:Object, static:Object, inside:Boolean=true):void
 		{
 			movable.x = (static.width - movable.width) / 2 + (inside ? 0 : static.x );
@@ -401,7 +389,6 @@ package axl.utils
 			return bmd;
 		}
 		
-		
 		/**
 		 * Instantiates whole app flow and executes onInited function if defined. See class description to inspect the flow
 		 * @param rootInstance: your main flash display class instance
@@ -442,7 +429,7 @@ package axl.utils
 			
 			setStageProperties(flashRoot.stage);
 			setGeometry(udesignedForWidth, udesignedForHeight);
-			Easing.init(STG);
+			AO.stage = STG;
 			if(onStageAvailable is Function) onStageAvailable();
 		}
 		public static function loadConfig():void {
