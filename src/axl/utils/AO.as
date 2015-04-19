@@ -191,7 +191,7 @@ package axl.utils
 		
 		private static var animObjects:Vector.<AO> = new Vector.<AO>();
 		private static var easings:Easings = new Easings();
-		private static var defaultEasingFunction:Function = easings.easeOutQuad;
+		private static var defaultEasing:Function = easings.easeOutQuad;
 		private static var numObjects:int=0;
 		
 		//internal
@@ -238,7 +238,7 @@ package axl.utils
 		private var uPrecalculateFrameValues:Boolean=true;
 		private var uProps:Object;
 		private var uSeconds:Number;
-		private var uEasing:Function;
+		private var uEasing:Function = defaultEasing;
 		
 		// live copy 
 		private var incremental:Boolean=false;
@@ -252,13 +252,13 @@ package axl.utils
 			U.log('[AO] destroy');
 			removeFromPool();
 			numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
-			propStartValues = propEndValues = propDifferences = remains = null;
+			propStartValues = propEndValues = propDifferences = remains =  prevs = null;
 			propNames = null;
 			eased = null;
 			direction = cycles = 1;
-			subject = props = null;
+			subject = props = uProps = null;
 			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = null;
-			updateFunction = getValue = null;
+			updateFunction = getValue = easing = uEasing = onUpdate = onYoyoHalf = onCycle = null;
 			
 			if(executeOnComplete && (onComplete != null))
 				onComplete.apply(null, onCompleteArgs);
@@ -299,7 +299,7 @@ package axl.utils
 			
 			
 			props = uProps;
-			easing = uEasing || defaultEasingFunction;
+			easing = uEasing || defaultEasing;
 			precalculateFrameValues = uPrecalculateFrameValues;
 			frameBased = uFrameBased;
 			incremental = uIncremental;
@@ -573,7 +573,7 @@ package axl.utils
 			stop(-1,readNchanges);
 			start();
 		}
-		public function finishEarly(completeImmediately:Boolean):Boolean
+		public function finishEarly(completeImmediately:Boolean):void
 		{
 			U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
@@ -582,7 +582,6 @@ package axl.utils
 				finish(true);
 			}
 			else finish(false);
-			return true
 		}
 		
 		// changes that require stop and re-read;
@@ -606,7 +605,7 @@ package axl.utils
 		
 		// -----------------------  PUBLIC STATIC ------------------- //
 		public static function get easing():Easings { return easings };
-		public static function killOff(target:Object, completeImmediately:Boolean=false):Boolean
+		public static function killOff(target:Object, completeImmediately:Boolean=false):void
 		{
 			U.log('[Easing][killOff]', target);
 			var i:int = numObjects;
@@ -615,12 +614,9 @@ package axl.utils
 					if(animObjects[i] == target)
 						animObjects[i--].finishEarly(completeImmediately);
 			if(!(target is AO))
-			{	U.log('[Easing][killOff][nonAO]',numObjects);
 				for(i = 0; i < numObjects;i++)
 					if(animObjects[i].subject === target)
 						animObjects[i--].finishEarly(completeImmediately);
-			}
-			return false;
 		}
 		
 		public static function contains(target:Object):Boolean
@@ -663,16 +659,15 @@ package axl.utils
 		public static function animate(subject:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
 											   easingType:Function=null, incremental:Boolean=false,frameBased:Boolean=true):AO
 		{
-			var easingFunction:Function = (easingType || defaultEasingFunction);
 			if(STG == null)
 				throw new Error("[AO]Stage not set up!");
 			var ao:AO = new AO(subject, seconds, props);
 			ao.onComplete = onComplete || ao.onComplete;
 			ao.cycles = cycles;
 			ao.yoyo = yoyo;
-			ao.easing = easingType || ao.easing;
-			ao.incremental = incremental;
-			ao.frameBased = frameBased;
+			ao.nEasing = easingType;
+			ao.nIncremental = incremental;
+			ao.nFrameBased = frameBased;
 			ao.start();
 			return ao;
 		}
