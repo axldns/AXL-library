@@ -221,11 +221,13 @@ package axl.utils
 		public var cycles:int=1;
 		public var subject:Object;
 		
+		public var onStartArgs:Array;
 		public var onUpdateArgs:Array;
 		public var onYoyoHalfArgs:Array;
 		public var onCycleArgs:Array;
 		public var onCompleteArgs:Array;
 		
+		public var onStart:Function;
 		public var onUpdate:Function;
 		public var onYoyoHalf:Function;
 		public var onCycle:Function;
@@ -249,7 +251,7 @@ package axl.utils
 		
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
-			U.log('[AO] destroy');
+			//# U.log('[AO][destroy]'+ subject);
 			removeFromPool();
 			numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
 			propStartValues = propEndValues = propDifferences = remains =  prevs = null;
@@ -277,7 +279,7 @@ package axl.utils
 		
 		private function setUp():void
 		{
-			U.log('[AO][setup]');
+			//# U.log('[AO][setup]' + subject);
 			//common
 			prepareCommon();
 			if(incremental) prepareIncremental();
@@ -297,7 +299,6 @@ package axl.utils
 			
 			numProperties  = duration = passedTotal = passedRelative = cur = 0;
 			
-			
 			props = uProps;
 			easing = uEasing || defaultEasing;
 			precalculateFrameValues = uPrecalculateFrameValues;
@@ -310,10 +311,8 @@ package axl.utils
 					propNames[numProperties++] = s;
 				else if(this.hasOwnProperty(s))
 					this[s] = props[s];
-				else throw new ArgumentError("[AO] Invalid property or value: '"+s+"'");  
+				else throw new ArgumentError("[AO]" + subject + " Invalid property '"+s+"' or value: " + props[s]);  
 			}
-			
-			id = getTimer() + numObjects;
 		}
 		
 		// ----------------------------------------- PREPARE ----------------------------------- //
@@ -416,22 +415,15 @@ package axl.utils
 		
 		private function passedDuration():void
 		{
-			trace('('+id+')');
-			var i:int
-			for(i=0;i<numProperties;i++)
-				trace('('+id+')'+propNames[i], ':', subject[propNames[i]].toFixed(20))
 			equalize();
-			if(onUpdate is Function)
-				onUpdate.apply(null, onUpdateArgs);
-			for(i=0;i<numProperties;i++)
-				trace('('+id+')'+propNames[i], ':', subject[propNames[i]].toFixed(20))
+			if(onUpdate is Function) onUpdate.apply(null, onUpdateArgs);
 			passedTotal = 0;
 			resolveContinuation();
 		}
 		
 		private function equalize():void
 		{
-			U.log('('+id+')'+'---------equalize--------', direction);
+			//# U.log('[AO][equalize]' + subject ,'|cycle:'+ +cycles+'|direction:'+ direction);
 			if(!incremental) 
 				if(direction > 0) 
 					applyValues(propEndValues); 	// | > > > > > > [HERE]|
@@ -445,7 +437,7 @@ package axl.utils
 		{
 			for(var i:int=0;i<numProperties;i++)
 			{
-				U.log('r', subject[propNames[i]],propNames[i], ':', remains[i] * direction);
+				//# U.log('r', subject[propNames[i]],propNames[i], ':', remains[i] * direction);
 				subject[propNames[i]] += remains[i] * direction;
 				remains[i] = propDifferences[i];
 			}
@@ -459,14 +451,13 @@ package axl.utils
 		/** this is for absolutes only **/
 		private function applyValues(v:Vector.<Number>):void
 		{
-			trace('applying values', v == this.propStartValues  ? ' start ' : ' end');
 			for(var i:int=0;i<numProperties;i++)
 				subject[propNames[i]] = v[i];
 		}
 		
 		private function resolveContinuation():void
 		{
-			U.log("------resolveContinuation----------");
+			//# U.log("------resolveContinuation----------");
 			if(yoyo)
 			{
 				if(direction > 0) // FIRST HALF  | > > > > > > > [HERE]|
@@ -498,7 +489,7 @@ package axl.utils
 		
 		//-------------------- controll ------------------//
 		private function finish(dispatchComplete:Boolean):void { 
-			U.log('[Easing][finish]');
+			//# U.log('[Easing][finish]',subject);
 			if(destroyOnComplete)
 				destroy(dispatchComplete);
 			else
@@ -511,18 +502,20 @@ package axl.utils
 		
 		private function gotoEnd():void
 		{
+			//# U.log('[Easing][gotoEND]',subject);
 			equalize();
 			if(yoyo && (direction > 0))
 			{
 				direction = -1;
 				equalize();
 			}
-			direction = -1;
-			passedTotal = duration;
+			direction = 1;
+			passedTotal = 0;
 		}
 		
 		private function gotoStart():void
 		{
+			//# U.log('[Easing][gotoSTART]',subject);
 			equalize();
 			if(direction > 0)
 			{
@@ -548,11 +541,12 @@ package axl.utils
 		public function get isAnimating():Boolean { return isPlaying }
 		public function start():void
 		{
-			U.log('[AO][Start]',id);
+			//# U.log('[AO][Start]'+ subject);
 			if(!isPlaying)
 			{
 				AO.animObjects[numObjects++] = this;
 				isPlaying = true;
+				if(onStart is Function) onStart.apply(null, onStartArgs);
 				if(!isSetup)
 					setUp();
 			}
@@ -562,20 +556,20 @@ package axl.utils
 		/** @param goToDirection: negative - start position, 0 - stays still, positive - end position */
 		public function stop(goToDirection:int, readNchanges:Boolean=false):void
 		{
-			U.log('[AO][Stop]',id);
+			//# U.log('[AO][Stop]'+subject);
 			removeFromPool();
 			if(goToDirection > 0) gotoEnd();
 			else if(goToDirection < 0) gotoStart();
 			isSetup = !readNchanges;
 		}
-		public function restart(readNchanges:Boolean=false):void
+		public function restart(goToDirection:int,readNchanges:Boolean=false):void
 		{
-			stop(-1,readNchanges);
+			stop(goToDirection,readNchanges);
 			start();
 		}
 		public function finishEarly(completeImmediately:Boolean):void
 		{
-			U.log('[Easing][finishEarly]',completeImmediately);
+			//# U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
 			{
 				gotoEnd();
@@ -607,7 +601,7 @@ package axl.utils
 		public static function get easing():Easings { return easings };
 		public static function killOff(target:Object, completeImmediately:Boolean=false):void
 		{
-			U.log('[Easing][killOff]', target);
+			//# U.log('[Easing][killOff]', target);
 			var i:int = numObjects;
 			if(target is AO)
 				for(i= 0; i < numObjects;i++)
