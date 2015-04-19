@@ -95,7 +95,7 @@ package axl.utils
 		public var timeout:int;
 		private var requestTimeout:uint;
 		
-		/** Name of the group variable that parsed objects will be assign to. 
+		/** Name of the group variable that parsed objects will be assigned to. 
 		 * <br>It would be your <code>$_POST['variable'] = yourJsonStringifiedData</code>
 		 * This is equivalent of constructor passed <code>variable</code>.*/
 		public var requestVariable:String;
@@ -217,7 +217,7 @@ package axl.utils
 			clearTimeout(requestTimeout);
 			if(e is Error)
 			{
-				U.log("[PHP][Complete]ERROR. next callback is null?\n", currentObject.c);
+				U.log("[PHP][Complete]ERROR. next callback is null?\n", currentObject.c == null);
 				IS_BUSY =false;
 				if(currentObject.oc is Function)
 					currentObject.oc(e);
@@ -245,7 +245,7 @@ package axl.utils
 				try { unjsoned = JSON.parse(decrypted.substr(jsonIndex)) }
 				catch(e:Object)
 				{
-					U.log('[PHP][Complete] JSON PARSE ERROR, returning raw\n',decrypted);
+					U.log('[PHP][Complete] JSON PARSE ERROR, returning raw\n');
 					currentObject.oc(decrypted);
 				}
 				if((unjsoned != null) && currentObject.oc is Function)
@@ -404,22 +404,23 @@ package axl.utils
 		 * clears loaded/sent data. It uses <code>cancel</code> too.
 		 * Make sure you don't need loader data anymore.
 		 * <br>All <code>send^</code> calls on this instance will throw an error once destroyed. Use <code>cancel</code>
-		 * if you want to reuse this object.  @see #cancel */
-		public function destroy():void
+		 * if you want to reuse this object.  @see #cancel 
+		 * @param clearLoaderData determines if loader data should be cleared*/
+		public function destroy(clearLoaderData:Boolean=false):void
 		{
+			_onComplete = _onProgress = null;
+			
 			cancel();
 			removeListeners(loader);
 			urlvars = null;
 			urlreq = null;
-			if(loader && loader.data)
+			if(clearLoaderData && loader !=null && loader.data)
 			{
 				if(loader.dataFormat == URLLoaderDataFormat.BINARY)
 					loader.data.clear();
 				else loader.data = null;
 			}
 			loader = null;
-			_onComplete = null;
-			_onProgress = null;
 		}
 	}
 }
