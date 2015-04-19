@@ -183,7 +183,7 @@ package axl.utils
 	import flash.utils.getTimer;
 
 	public class AO {
-		
+		//general
 		private static var STG:Stage;
 		private static var curFrame:int;
 		private static var frameTime:int;
@@ -194,6 +194,7 @@ package axl.utils
 		private static var defaultEasingFunction:Function = easings.easeOutQuad;
 		private static var numObjects:int=0;
 		
+		//internal
 		private var propNames:Vector.<String>;
 		private var propStartValues:Vector.<Number>;
 		private var propEndValues:Vector.<Number>;
@@ -204,14 +205,20 @@ package axl.utils
 		
 		private var numProperties:int=0
 		private var duration:int=0;
-		private var seconds:Number
 		private var passedTotal:int=0;
 		private var passedRelative:int=0;
 		private var direction:int=1;
 		private var cur:Number=0;
-		public var cycles:int=1;
+	
+		private var updateFunction:Function;
+		private var getValue:Function;
+		private var isPlaying:Boolean;
+		private var isSetup:Boolean;
+		private var id:int;
 		
-		public var yoyo:Boolean;
+		// applying anytime
+		public var yoyo:Boolean=false;
+		public var cycles:int=1;
 		public var subject:Object;
 		
 		public var onUpdateArgs:Array;
@@ -223,27 +230,33 @@ package axl.utils
 		public var onYoyoHalf:Function;
 		public var onCycle:Function;
 		public var onComplete:Function;
-		
-		private var easing:Function;
-		private var updateFunction:Function;
-		private var getValue:Function;
-		
-		private var incremental:Boolean;
-		private var frameBased:Boolean;
-		private var id:int;
-		private var isPlaying:Boolean;
 		public var destroyOnComplete:Boolean = true;
+		
+		// applying only before start
+		private var uIncremental:Boolean=false;
+		private var uFrameBased:Boolean=true;
+		private var uPrecalculateFrameValues:Boolean=true;
+		private var uProps:Object;
+		private var uSeconds:Number;
+		private var uEasing:Function;
+		
+		// live copy 
+		private var incremental:Boolean=false;
+		private var frameBased:Boolean=true;
+		private var precalculateFrameValues:Boolean;
+		private var props:Object;
+		private var easing:Function;
 		
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
 			U.log('[AO] destroy');
 			removeFromPool();
-			numProperties = duration = passedTotal = passedRelative = cur = seconds = 0;
+			numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
 			propStartValues = propEndValues = propDifferences = remains = null;
 			propNames = null;
 			eased = null;
 			direction = cycles = 1;
-			subject = null;
+			subject = props = null;
 			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = null;
 			updateFunction = getValue = null;
 			
@@ -254,22 +267,43 @@ package axl.utils
 			onComplete = null;
 		}
 		
-		public function AO(target:Object, seconds:Number, props:Object, easingFunction:Function, 
-						   incremental:Boolean,frameBased:Boolean) {
+		public function AO(subject:Object, seconds:Number, properties:Object) {
 			if(STG == null)
 				throw new Error("[AO]Stage not set up!");
-			this.subject = target;
-			this.seconds = seconds;
-			this.easing = easingFunction;
-			this.incremental = incremental;
-			this.frameBased = frameBased;
-			
-			propNames= new Vector.<String>();
-			propStartValues = new Vector.<Number>();
-			propEndValues = new Vector.<Number>();
-			propDifferences = new Vector.<Number>();
-			
+			uSeconds = seconds;
+			uProps = properties;
+			this.subject = subject;
+		}
+		
+		private function setUp():void
+		{
+			U.log('[AO][setup]');
 			//common
+			prepareCommon();
+			if(incremental) prepareIncremental();
+			else prepareAbsolute();
+			
+			if(frameBased) prepareFrameBased();
+			else prepareTimeBased();
+			isSetup = true;
+		}
+		
+		private function prepareCommon():void
+		{
+			if(propNames) propNames.length = 0; else propNames = new Vector.<String>();
+			if(propStartValues) propStartValues.length = 0; else propStartValues = new Vector.<Number>();
+			if(propEndValues) propEndValues.length = 0; else propEndValues = new Vector.<Number>();
+			if(propDifferences) propDifferences.length = 0; else propDifferences = new Vector.<Number>();
+			
+			numProperties  = duration = passedTotal = passedRelative = cur = 0;
+			
+			
+			props = uProps;
+			easing = uEasing || defaultEasingFunction;
+			precalculateFrameValues = uPrecalculateFrameValues;
+			frameBased = uFrameBased;
+			incremental = uIncremental;
+			
 			for(var s:String in props)
 			{
 				if(subject.hasOwnProperty(s) && !isNaN(subject[s]) && !isNaN(props[s]))
@@ -279,58 +313,57 @@ package axl.utils
 				else throw new ArgumentError("[AO] Invalid property or value: '"+s+"'");  
 			}
 			
-			var i:int;
-			if(incremental)
-			{
-				prevs = new Vector.<Number>();
-				remains = new Vector.<Number>();
-				updateFunction = updateIncremental
-				for(i=0; i<numProperties;i++)
-				{
-					propDifferences[i] =props[propNames[i]];
-					propStartValues[i] = subject[propNames[i]];
-					propEndValues[i] = propStartValues[i] + propDifferences[i];
-					remains[i] = propDifferences[i];
-					prevs[i] = propStartValues[i];
-				}
-			}
-			else
-			{
-				updateFunction = updateAbsolute;
-				for(i=0; i<numProperties;i++)
-				{
-					propStartValues[i] = subject[propNames[i]];
-					propEndValues[i] = props[propNames[i]];
-					propDifferences[i] = props[propNames[i]] - subject[propNames[i]];
-				}
-			}
-			
-			if(frameBased)
-				prepareFrameBased();
-			else
-				prepareTimeBased();
-			
 			id = getTimer() + numObjects;
 		}
 		
 		// ----------------------------------------- PREPARE ----------------------------------- //
-		//time - values are being calculated at runtime, every frame
+		private function prepareIncremental():void
+		{
+			if(prevs) prevs.length = 0; else prevs = new Vector.<Number>();
+			if(remains) remains.length = 0; else remains = new Vector.<Number>();
+			updateFunction = updateIncremental;
+			for(var i:int=0; i<numProperties;i++)
+			{
+				propDifferences[i] = props[propNames[i]];
+				propStartValues[i] = subject[propNames[i]];
+				propEndValues[i] = propStartValues[i] + propDifferences[i];
+				remains[i] = propDifferences[i];
+				prevs[i] = propStartValues[i];
+			}
+		}
+		
+		private function prepareAbsolute():void
+		{
+			updateFunction = updateAbsolute;
+			for(var i:int=0; i<numProperties;i++)
+			{
+				propStartValues[i] = subject[propNames[i]];
+				propEndValues[i] = props[propNames[i]];
+				propDifferences[i] = props[propNames[i]] - subject[propNames[i]];
+			}
+		}
+		
 		private function prepareTimeBased():void {
-			duration  =  (seconds * 1000); 
+			duration  =  (uSeconds * 1000); 
 			getValue = getValueLive;
 		}
-		//frame	- values are being pre-calculated before animation
 		private function prepareFrameBased():void
 		{
-			duration = Math.ceil(STG.frameRate * seconds);
-			getValue = getValueEased;
-			eased = new Vector.<Vector.<Number>>();
-			var i:int, j:int;
-			for(i=0;i<numProperties;i++)
+			duration = Math.ceil(STG.frameRate * uSeconds) // no frames
+			
+			if(!precalculateFrameValues)
+				getValue = getValueLive;
+			else 
 			{
-				eased[i] = new Vector.<Number>();
-				for(j=0; j < duration;j++) 
-					eased[i][j] = easing(j, propStartValues[i], propDifferences[i], duration);
+				getValue = getValueEased;
+				eased = new Vector.<Vector.<Number>>(numProperties,true);
+				var i:int, j:int;
+				for(i=0;i<numProperties;i++)
+				{
+					eased[i] = new Vector.<Number>(duration,true);
+					for(j=0; j < duration;j++) 
+						eased[i][j] = easing(j, propStartValues[i], propDifferences[i], duration);
+				}
 			}
 		}
 		// ----------------------------------------- UPDATE ------------------------- //
@@ -365,7 +398,7 @@ package axl.utils
 			{
 				cur = getValue(i);
 				var add:Number = (cur - prevs[i]);
-				subject[propNames[i]] += (cur - prevs[i]);
+				subject[propNames[i]] += add;
 				remains[i] += (-add * direction);
 				prevs[i] = cur;
 			}
@@ -378,7 +411,7 @@ package axl.utils
 		}
 		private function getValueLive(i:int):Number
 		{
-			return  easing(passedRelative, propStartValues[i], propDifferences[i], duration);
+			return easing(passedRelative, propStartValues[i], propDifferences[i], duration);
 		}
 		
 		private function passedDuration():void
@@ -398,15 +431,12 @@ package axl.utils
 		
 		private function equalize():void
 		{
-			U.log('('+id+')'+'---------equalize--------');
+			U.log('('+id+')'+'---------equalize--------', direction);
 			if(!incremental) 
-				if(yoyo)
-					if(direction > 0) 
-						applyValues(propEndValues); 	// | > > > > > > [HERE]|
-					else				
-						applyValues(propStartValues);	// |[HERE] < < < < < < |
-				else
-					applyValues(propEndValues);
+				if(direction > 0) 
+					applyValues(propEndValues); 	// | > > > > > > [HERE]|
+				else				
+					applyValues(propStartValues);	// |[HERE] < < < < < < |
 			else 		
 				applyRemainings();
 		}
@@ -429,6 +459,7 @@ package axl.utils
 		/** this is for absolutes only **/
 		private function applyValues(v:Vector.<Number>):void
 		{
+			trace('applying values', v == this.propStartValues  ? ' start ' : ' end');
 			for(var i:int=0;i<numProperties;i++)
 				subject[propNames[i]] = v[i];
 		}
@@ -478,7 +509,7 @@ package axl.utils
 			}
 		}
 		
-		private function restartPosition():void
+		private function gotoEnd():void
 		{
 			equalize();
 			if(yoyo && (direction > 0))
@@ -486,6 +517,20 @@ package axl.utils
 				direction = -1;
 				equalize();
 			}
+			direction = -1;
+			passedTotal = duration;
+		}
+		
+		private function gotoStart():void
+		{
+			equalize();
+			if(direction > 0)
+			{
+				direction = -1;
+				equalize();
+			}
+			direction = 1;
+			passedTotal = 0;
 		}
 		
 		private function removeFromPool():void
@@ -499,27 +544,33 @@ package axl.utils
 			}
 		}
 		
-		// -------------------- public instance ---------------- //
+		// ---------------------------------- public instance API----------------------------------------------- //
 		public function get isAnimating():Boolean { return isPlaying }
 		public function start():void
 		{
+			U.log('[AO][Start]',id);
 			if(!isPlaying)
 			{
 				AO.animObjects[numObjects++] = this;
 				isPlaying = true;
+				if(!isSetup)
+					setUp();
 			}
 		}
 		public function resume():void { start() };
 		public function pause():void { removeFromPool() };
-		public function stop():void
+		/** @param goToDirection: negative - start position, 0 - stays still, positive - end position */
+		public function stop(goToDirection:int, readNchanges:Boolean=false):void
 		{
+			U.log('[AO][Stop]',id);
 			removeFromPool();
-			restartPosition();
-			passedTotal = 0;
+			if(goToDirection > 0) gotoEnd();
+			else if(goToDirection < 0) gotoStart();
+			isSetup = !readNchanges;
 		}
-		public function restart():void
+		public function restart(readNchanges:Boolean=false):void
 		{
-			stop();
+			stop(-1,readNchanges);
 			start();
 		}
 		public function finishEarly(completeImmediately:Boolean):Boolean
@@ -527,12 +578,31 @@ package axl.utils
 			U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
 			{
-				restartPosition();
+				gotoEnd();
 				finish(true);
 			}
 			else finish(false);
 			return true
 		}
+		
+		// changes that require stop and re-read;
+		public function get nIncremental():Boolean { return incremental }
+		public function set nIncremental(v:Boolean):void { uIncremental = v }
+		
+		public function get nFrameBased():Boolean { return frameBased }
+		public function set nFrameBased(v:Boolean):void { uFrameBased = v }
+		
+		public function get nPrecalculateFrameValues():Boolean { return precalculateFrameValues }
+		public function set nPrecalculateFrameValues(v:Boolean):void {  uPrecalculateFrameValues = v }
+		
+		public function get nProperties():Object { return props }
+		public function set nProperties(v:Object):void { uProps = v }
+		
+		public function get nSeconds():Number { return uSeconds }
+		public function set nSeconds(v:Number):void { uSeconds = v }
+		
+		public function get nEasing():Function { return easing }
+		public function set nEasing(v:Function):void { uEasing = v }
 		
 		// -----------------------  PUBLIC STATIC ------------------- //
 		public static function get easing():Easings { return easings };
@@ -596,10 +666,13 @@ package axl.utils
 			var easingFunction:Function = (easingType || defaultEasingFunction);
 			if(STG == null)
 				throw new Error("[AO]Stage not set up!");
-			var ao:AO = new AO(subject, seconds, props,easingFunction, incremental,frameBased);
+			var ao:AO = new AO(subject, seconds, props);
+			ao.onComplete = onComplete || ao.onComplete;
 			ao.cycles = cycles;
 			ao.yoyo = yoyo;
-			ao.onComplete = onComplete || ao.onComplete;
+			ao.easing = easingType || ao.easing;
+			ao.incremental = incremental;
+			ao.frameBased = frameBased;
 			ao.start();
 			return ao;
 		}
