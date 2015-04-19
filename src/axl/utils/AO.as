@@ -189,9 +189,9 @@ package axl.utils
 		private static var frameTime:int;
 		private static var prevFrame:int;
 		
-		private static var easings:Easings = new Easings();
-		public static function get easing():Easings { return easings } 
 		private static var animObjects:Vector.<AO> = new Vector.<AO>();
+		private static var easings:Easings = new Easings();
+		private static var defaultEasingFunction:Function = easings.easeOutQuad;
 		private static var numObjects:int=0;
 		
 		private var propNames:Vector.<String>;
@@ -204,6 +204,7 @@ package axl.utils
 		
 		private var numProperties:int=0
 		private var duration:int=0;
+		private var seconds:Number
 		private var passedTotal:int=0;
 		private var passedRelative:int=0;
 		private var direction:int=1;
@@ -212,7 +213,6 @@ package axl.utils
 		
 		public var yoyo:Boolean;
 		public var subject:Object;
-		public var easing:Function;
 		
 		public var onUpdateArgs:Array;
 		public var onYoyoHalfArgs:Array;
@@ -224,14 +224,35 @@ package axl.utils
 		public var onCycle:Function;
 		public var onComplete:Function;
 		
+		private var easing:Function;
 		private var updateFunction:Function;
 		private var getValue:Function;
 		
-		private var FPS:int;
-		private var seconds:Number;
 		private var incremental:Boolean;
 		private var frameBased:Boolean;
 		private var id:int;
+		private var isPlaying:Boolean;
+		public var destroyOnComplete:Boolean = true;
+		
+		public function destroy(executeOnComplete:Boolean=false):void
+		{
+			U.log('[AO] destroy');
+			removeFromPool();
+			numProperties = duration = passedTotal = passedRelative = cur = seconds = 0;
+			propStartValues = propEndValues = propDifferences = remains = null;
+			propNames = null;
+			eased = null;
+			direction = cycles = 1;
+			subject = null;
+			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = null;
+			updateFunction = getValue = null;
+			
+			if(executeOnComplete && (onComplete != null))
+				onComplete.apply(null, onCompleteArgs);
+			
+			onCompleteArgs = null;
+			onComplete = null;
+		}
 		
 		public function AO(target:Object, seconds:Number, props:Object, easingFunction:Function, 
 						   incremental:Boolean,frameBased:Boolean) {
@@ -290,7 +311,6 @@ package axl.utils
 				prepareTimeBased();
 			
 			id = getTimer() + numObjects;
-			AO.animObjects[numObjects++] = this;
 		}
 		
 		// ----------------------------------------- PREPARE ----------------------------------- //
@@ -314,8 +334,7 @@ package axl.utils
 			}
 		}
 		// ----------------------------------------- UPDATE ------------------------- //
-		
-		public function tick(milsecs:int):void
+		protected function tick(milsecs:int):void
 		{
 			passedTotal += frameBased ? 1 : milsecs;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
@@ -364,7 +383,7 @@ package axl.utils
 		
 		private function passedDuration():void
 		{
-			trace('('+id+')'+state);
+			trace('('+id+')');
 			var i:int
 			for(i=0;i<numProperties;i++)
 				trace('('+id+')'+propNames[i], ':', subject[propNames[i]].toFixed(20))
@@ -407,7 +426,7 @@ package axl.utils
 				for(i=0; i < numProperties; i++)
 					prevs[i] = propEndValues[i];
 		}
-		
+		/** this is for absolutes only **/
 		private function applyValues(v:Vector.<Number>):void
 		{
 			for(var i:int=0;i<numProperties;i++)
@@ -449,37 +468,74 @@ package axl.utils
 		//-------------------- controll ------------------//
 		private function finish(dispatchComplete:Boolean):void { 
 			U.log('[Easing][finish]');
-			destroy(dispatchComplete);
-		}
-		public function finishEarly(completeImmediately:Boolean):Boolean
-		{
-			U.log('[Easing][finishEarly]',completeImmediately);
-			if(completeImmediately)
+			if(destroyOnComplete)
+				destroy(dispatchComplete);
+			else
 			{
-				equalize();
-				if(yoyo && (direction > 0))
-				{
-					direction = -1;
-					equalize();
-				}
-				finish(true);
+				pause();
+				if(onComplete != null)
+					onComplete.apply(null, onCompleteArgs);
 			}
-			else finish(false);
-			return true
 		}
 		
-		public function destroy(dispCompl:Boolean):void
+		private function restartPosition():void
+		{
+			equalize();
+			if(yoyo && (direction > 0))
+			{
+				direction = -1;
+				equalize();
+			}
+		}
+		
+		private function removeFromPool():void
 		{
 			var i:int = animObjects.indexOf(this);
 			if(i>-1) 
 			{
 				animObjects.splice(i,1);
 				numObjects--;
+				isPlaying = false;
 			}
-			if(dispCompl && (onComplete != null))
-				onComplete.apply(null, onCompleteArgs);
 		}
 		
+		// -------------------- public instance ---------------- //
+		public function get isAnimating():Boolean { return isPlaying }
+		public function start():void
+		{
+			if(!isPlaying)
+			{
+				AO.animObjects[numObjects++] = this;
+				isPlaying = true;
+			}
+		}
+		public function resume():void { start() };
+		public function pause():void { removeFromPool() };
+		public function stop():void
+		{
+			removeFromPool();
+			restartPosition();
+			passedTotal = 0;
+		}
+		public function restart():void
+		{
+			stop();
+			start();
+		}
+		public function finishEarly(completeImmediately:Boolean):Boolean
+		{
+			U.log('[Easing][finishEarly]',completeImmediately);
+			if(completeImmediately)
+			{
+				restartPosition();
+				finish(true);
+			}
+			else finish(false);
+			return true
+		}
+		
+		// -----------------------  PUBLIC STATIC ------------------- //
+		public static function get easing():Easings { return easings };
 		public static function killOff(target:Object, completeImmediately:Boolean=false):Boolean
 		{
 			U.log('[Easing][killOff]', target);
@@ -517,20 +573,6 @@ package axl.utils
 				animObjects[i].tick(frameTime);
 		}
 		
-		private function get state():String
-		{
-			var s:String ='\n---------------------';
-			s += String('\nincremental: ' + incremental);
-			s += String('\nframeBased: ' + frameBased);
-			s += String('\ncycles: ' + cycles);
-			s += String('\nyoyo: ' + yoyo);
-			s += String('\npassedTotal: ' + passedTotal);
-			s += String('\nduration: ' + duration);
-			s += '\ndirection: ' + direction;
-			s += '\n---------------------';
-			return s;
-		}
-		
 		public static function set stage(v:Stage):void
 		{
 			if(STG != null) 
@@ -548,16 +590,18 @@ package axl.utils
 			broadcastFrame(frameTime);
 		}
 		
-		public static function animate(o:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
-											   easingType:Function=null, incremental:Boolean=false,frameBased:Boolean=true):void
+		public static function animate(subject:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
+											   easingType:Function=null, incremental:Boolean=false,frameBased:Boolean=true):AO
 		{
-			var easingFunction:Function = (easingType || easings.easeOutQuad);
+			var easingFunction:Function = (easingType || defaultEasingFunction);
 			if(STG == null)
 				throw new Error("[AO]Stage not set up!");
-			var ao:AO = new AO(o, seconds, props,easingFunction, incremental,frameBased);
+			var ao:AO = new AO(subject, seconds, props,easingFunction, incremental,frameBased);
 			ao.cycles = cycles;
 			ao.yoyo = yoyo;
-			ao.onComplete = onComplete;
+			ao.onComplete = onComplete || ao.onComplete;
+			ao.start();
+			return ao;
 		}
 	}
 }
