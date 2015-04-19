@@ -125,26 +125,13 @@ internal class Req extends EventDispatcher {
 		urlLoader = null;
 		urlRequest = null;
 		listeners = null;
-		eventComplete = null;
-		eventProgress = null;
-		_context = null;
-		loadFilter = null;
-		onComplete = null;
-		individualComplete = null;
-		onProgress = null;
 		loaderInfo = null;
-		storePrefix = null;
-		storeFilter = null;
+		_context = null;
+		eventComplete = eventProgress = null;
+		onComplete = individualComplete = onProgress = storeFilter = loadFilter =  loadBehaviorCustom = null;
+		storePrefix = extension = filename = originalPath = concatenatedPath = null;;
 		storingBehaviorRegexp = null;
-		loadBehaviorCustom = null;
-		extension = null;
-		filename = null;
-		originalPath = null;
-		concatenatedPath = null;
-		if(pathList != null) pathList.length = 0;
-		pathList = null;
-		if(prefixList != null) prefixList.length = 0;
-		prefixList = null;
+		pathList = prefixList = null;;
 	}
 	
 // ----------------------------------------------- START OF INIT SETUP -----------------------------------------------//
@@ -740,10 +727,10 @@ package  axl.utils
 		private static var _verbose:Function;
 		public static const defaultValue:String = ":default";
 		
+		public static const behaviours:Behaviours = new Behaviours();
 		private static var objects:Object = {};
 		private static var loaders:Object = {};
 		private static var requests:Vector.<Req> = new Vector.<Req>();
-		public static var behaviours:Behaviours = new Behaviours();
 		
 		Req.loaders = loaders;
 		Req.objects = objects;
@@ -751,6 +738,9 @@ package  axl.utils
 		private static var IS_LOADING:Boolean;
 		public static var policyFileCheck:Boolean;
 		
+		/** Indicates weather app has flash.filesystem.File class accessible */
+		public static function get fileInterfaceAvailable():Boolean { return Req.fileInterfaceAvailable }
+		public static function get FileClass():Class { return Req.FileClass }
 		/**
 		 * (AIR only)<br>
 		 Defines default value if <code>storeDirectory</code> argument of method <code>Ldr.load</code> is ommited.
@@ -811,7 +801,7 @@ package  axl.utils
 		public static function get numAllLoaded():int { return Req.numAllLoaded }
 		
 		/** returns number of all elements that failed to load within all queues. Rolls back to 0 once all queues are done. */
-		public static function get numAllSkipped():int { return Req.numAllSkipped } 
+		public static function get numAllSkipped():int { return Req.numAllSkipped }
 		
 		
 		public static function addExternalProgressListener(v:Function):Boolean
