@@ -409,16 +409,18 @@ package axl.utils
 		public function destroy(clearLoaderData:Boolean=false):void
 		{
 			_onComplete = _onProgress = null;
-			
 			cancel();
-			removeListeners(loader);
 			urlvars = null;
 			urlreq = null;
-			if(clearLoaderData && loader !=null && loader.data)
+			if(loader != null)
 			{
-				if(loader.dataFormat == URLLoaderDataFormat.BINARY)
-					loader.data.clear();
-				else loader.data = null;
+				removeListeners(loader);
+				if(clearLoaderData && loader.data)
+				{
+					if(loader.dataFormat == URLLoaderDataFormat.BINARY)
+						loader.data.clear();
+					else loader.data = null;
+				}
 			}
 			loader = null;
 		}
