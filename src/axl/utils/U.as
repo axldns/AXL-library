@@ -24,38 +24,22 @@ package axl.utils
 
 	/**
 	 * Geometric utilty, handy tool, stage setter, quick refference. 
-	 * Use <code>init</code> to init app flow: 
-	 * <ul>
-	 * <li> display splash</li> 
-	 * <li>	set-up your stage and geometry</li>
-	 * <li> load config</li>
-	 * <li> load assets (with progress bar)</li>
-	 * <li> instantiate starling
-	 * <li> clean up and execute onInited </li>
 	 */
 	public class U
 	{
 		Ldr.verbose = log;
 		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
-		/**
-		 * indicates if stage is in full screen interactive mode or not<br>
+		
+		/**indicates if stage is in full screen interactive mode or not<br>
 		 * indicates if <code>U.REC</code> is based on <i>stage.fullScreen*W/H*</i> or <i>stage.stage*W/H*</i>
-		 * <br>According to on playerType.match: <i> /^(StandAlone|ActiveX|PlugIn)/i </i>
-		 */
+		 * <br>According to on playerType.match: <i> /^(StandAlone|ActiveX|PlugIn)/i </i>*/
 		public static function get ISWEB():Boolean { return isWeb }
 		private static var isWeb:Boolean = (Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i) != null);
-		/**
-		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY
-		 */
+		
+		/** USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY */
 		public static var onStageAvailable:Function;
-		public static var onConfigLoaded:Function;
-		public static var onFilesLoaded:Function;
-		/**
-		 * USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY.
-		 * Pass a path to well formated xml (pattern) to load your config. If you omite it, none of the assets will be loaded at launch,
-		 * and Config class wont be instantiated
-		 */
+		
 		private static var rec:Rectangle;
 		private static var uSTG:flash.display.Stage;
 		private static var flashRoot:DisplayObjectContainer;
@@ -71,16 +55,12 @@ package axl.utils
 		private static var uscalarReversed:Number;
 		
 		private static var bsplash:DisplayObject;
-		private static var progressBar:IprogBar;
-		public static var progressBarFactory:Function;
 		
 		private static var ubin:BinAgent;
 		private static var uconfig:XML;
-		public static var configPath:String;
-		public static var APP_REMOTE:String;
-		public static var GATEWAY:String;
 		
 		public static function get CONFIG():XML { return uconfig }
+		public static function set CONFIG(v:XML):void { uconfig = v}
 		
 		/*** returns bin agent reference. Read BinAgent class description to see what it does */
 		public static function get bin():BinAgent{ return ubin	}
@@ -107,7 +87,6 @@ package axl.utils
 		
 		/** returns value of ... scalarXreversed*/
 		public static function get scalarReversed():Number	{ return uscalarReversed }
-		
 		
 		/** scalarY tells how much different current stage width is to values of designedFor.
 		 *<br> othher words :  designedForHeight / REC.height;*/
@@ -153,7 +132,6 @@ package axl.utils
 			else
 				bsplash = v;
 		}
-		
 		
 		/** @param Inside: indicates whether to include coords of static (mov and static share the same coord space) or not (treat movable as a child of static)
 		 *  @param movable: any object which contains x,y,width,height
@@ -363,18 +341,14 @@ package axl.utils
 		public static function getBitmaDatapSlice(source:Bitmap, clip:Rectangle):BitmapData
 		{
 			if(source == null || clip == null) return null;
-			else
-			{
-				var m:Matrix = new Matrix(1,0,0,1,-clip.x, -clip.y)
-				var s:BitmapData = new BitmapData(clip.width, clip.height, true, 0x000000);
-					s.draw(source,m,null,null,clip,true);
-					m = null;
-				return s;
-			}
+			var m:Matrix = new Matrix(1,0,0,1,-clip.x, -clip.y)
+			var s:BitmapData = new BitmapData(clip.width, clip.height, true, 0x000000);
+				s.draw(source,m,null,null,clip,true);
+				m = null;
+			return s;
 		}
 		
-		public static function getBitmapSlice(source:Bitmap, clip:Rectangle):Bitmap
-		{
+		public static function getBitmapSlice(source:Bitmap, clip:Rectangle):Bitmap {
 			return new Bitmap(getBitmaDatapSlice(source, clip));
 		}
 		
@@ -431,68 +405,6 @@ package axl.utils
 			setGeometry(udesignedForWidth, udesignedForHeight);
 			AO.stage = STG;
 			if(onStageAvailable is Function) onStageAvailable();
-		}
-		public static function loadConfig():void {
-			if(configPath != null)
-				Ldr.load(configPath, configLoaded);
-		}
-		private static function configLoaded():void
-		{
-			if(readConfig())
-				if(onConfigLoaded is Function) onConfigLoaded();
-			else Messages.msg("Can't load config file :( Tap to try againg", loadConfig);
-		}
-		
-		public static function readConfig():Boolean
-		{
-			var cfg:XML = Ldr.getXML(configPath);
-			if(cfg is XML)
-			{
-				log('--CONFIG READED--');
-				uconfig = cfg;
-				APP_REMOTE = uconfig.remote;
-				GATEWAY = uconfig.gateway;
-				return true;
-			}
-			return false;
-		}
-		
-		public static function loadFiles(loadCommand:Function):void
-		{
-			U.log('-- FILES LOADING --');
-			if(progressBarFactory is Function)
-			{
-				progressBar = progressBarFactory();
-				U.STG.addChild(progressBar as DisplayObject);
-			}
-			Ldr.addExternalProgressListener(externalProgressListener);
-			loadCommand();
-		}
-		private static function externalProgressListener():void
-		{
-			U.log('progress:', (Ldr.numAllLoaded+ Ldr.numAllSkipped)/Ldr.numAllQueued * 100 + '%');
-			if(progressBar)
-				progressBar.setProgress((Ldr.numAllLoaded+ Ldr.numAllSkipped)/Ldr.numAllQueued);
-			if(Ldr.numAllRemaining == 0)
-			{
-				U.log('progress: removing listener');
-				Ldr.removeExternalProgressListener(externalProgressListener);
-				filesLoaded();
-			}
-		}
-		private static function filesLoaded():void
-		{
-			log('--FILES LOADED--');
-			if(progressBar)
-			{
-				if(DisplayObject(progressBar).parent)
-					DisplayObject(progressBar).parent.removeChild(DisplayObject(progressBar))
-				progressBar.destroy();
-				progressBar = null;
-			}
-			if(Ldr.numCurrentSkipped > 0)
-				Messages.msg("WARNING: " + Ldr.numCurrentSkipped + " file(s) not loaded!");
-			if(onFilesLoaded is Function) onFilesLoaded();
 		}
 		
 		private static function setGeometry(designedForWid:Number, designedForHei:Number):void

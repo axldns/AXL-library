@@ -4,5 +4,6 @@ package axl.ui
 	{
 		function setProgress(v:Number):void;
 		function destroy():void
+		function build():void;
 	}
 }
