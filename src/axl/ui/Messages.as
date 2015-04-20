@@ -11,16 +11,16 @@ package axl.ui
 	import axl.utils.U;
 	
 	/**
-	 * handy as stupidly simple widget to dialog user. If only stage is accesssible, you are free to 
-	 * display  "interactive" message/nottification to the user. Very usefull for debugging too.
+	 * Basic native flash display list messages on top of the screen.
+	 * Provides basic interactivity by defining inside and outside tap functions.
 	 */
-
 	public class Messages
 	{
 		private static var tff_msg:TextFormat = new TextFormat("Verdana", 16, 0xffffff,null,null,null,null,null,'center');
 		private static var tff_mini:TextFormat =new TextFormat("Verdana", 8, 0xffffff,null,null,null,null,null,'center');
 		private static var tf:TextField = makeTf();
-		private static var ON_TAP:Function;
+		private static var insideTap:Function;
+		private static var outsideTap:Function;
 		
 		/**
 		 * tells if messages dialog is on stage at the moment
@@ -33,11 +33,12 @@ package axl.ui
 			tf.defaultTextFormat = tff_msg;
 			tf.setTextFormat(tff_msg);
 		}
-		public static function msg(v:String=null, onTap:Function=null):void
+		public static function msg(v:String=null, onTapOutside:Function=null, onTapInside:Function=null):void
 		{
 			if(v == null)
 				return MD();
-			ON_TAP = onTap;
+			insideTap = onTapInside;
+			outsideTap = onTapOutside;
 			tf.text = v;
 			tf.appendText(String(' ('+getTimer()/1000 + ')'));
 			tf.setTextFormat(tff_mini, v.length, tf.text.length);
@@ -63,13 +64,22 @@ package axl.ui
 			return tfm;
 		}
 		
-		protected static function MD(e:MouseEvent=null):void
+		private static function MD(e:MouseEvent=null):void
 		{
 			U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
 			if(tf != null && U.STG.contains(tf))
 				U.STG.removeChild(tf);
-			if(ON_TAP is Function)
-				ON_TAP();
+			trace(e != null, e ? e.target : 'no target', outsideTap);
+			if(e != null)
+			{
+				if(e.target == tf)
+				{
+					if(insideTap != null) insideTap();
+				}
+				else 
+					if(outsideTap != null)
+						outsideTap();
+			}
 		}	
 	}
 }
