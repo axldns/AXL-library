@@ -147,7 +147,7 @@ internal class Req extends EventDispatcher {
 		flatList.length = 0;
 		flatList = null;
 		counters(l);
-		log("[Ldr][Queue] added to queue.");
+		log("[Ldr][Queue] added to queue.", Ldr.state);
 		return l;
 	}
 	
@@ -1045,12 +1045,12 @@ package  axl.utils
 				req.addPrefixes((pathPrefixes == Ldr.defaultValue ? Ldr.defaultPathPrefixes : pathPrefixes));
 			if(!IS_LOADING)
 			{
+				IS_LOADING = true;
 				U.log("[Ldr][LISTENERS ADD]");
 				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
 				req.addEventListener(flash.events.Event.CHANGE, progressHandler);
 				req.load();
 			}
-			IS_LOADING = true;
 			return req.id;
 		}
 		
