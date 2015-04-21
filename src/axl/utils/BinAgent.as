@@ -149,7 +149,7 @@
 		// ------------------------------------- WINDOW CONTROLL ------------------------------------- //
 		protected function localMovement(e:MouseEvent=null):void
 		{
-			if(!this.sliderIsDown)
+			if(e != null && !this.sliderIsDown)
 				return;
 			var newy:Number = console.mouseY;
 			
@@ -312,7 +312,7 @@
 				message = ErrorEvent(e.error).text;
 			else
 				message = e.error.toString();
-			trrace('uncaught error: ', message, '(', e.error, e.text, e.toString(), e.type, e.target, ')');
+			trrace('[BinAgent][you] uncaught error: ', message, '(', e.error, e.text, e.toString(), e.type, e.target, ')');
 		}
 		//-------------------------------------  END OF CONTROLL SETUP  ------------------------------------------  //
 		//-------------------------------------    MAGIC PRIVATE API  ------------------------------------------  //
