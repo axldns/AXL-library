@@ -3,13 +3,15 @@
 	/**
 	 * [axldns free coding 2015]
 	 */
+	import flash.display.DisplayObject;
 	import flash.display.Sprite;
+	import flash.display.Stage;
 	import flash.events.ErrorEvent;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
 	import flash.events.UncaughtErrorEvent;
-	import flash.external.ExternalInterface;
+	import flash.geom.Rectangle;
 	import flash.text.TextField;
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
@@ -17,116 +19,83 @@
 	import flash.utils.getDefinitionByName;
 	
 	/**
-	 * Console window for flash :) ctrl + alt + RIGHT_ARROW to run it/hide it.
-	 * Use it to interact with your live compiled app elements. 
+	 * <h3>Console window for flash</h3>
+	 * Use it to interact with your live compiled app elements or to debug your software easily. 
 	 * It can read basic actionscript syntax. Understands references, assignments, mathematical operations basic types. All live but buggy in some areas (Boolean)
-	 * Use it for trace outs wherever you can't see regular trace. 
+	 * Use it for trace outs wherever you can't see regular trace, or substitute regular trace call with it at all.
 	 * Use bin.pool to asign any object anywhere and debug it quickly
-	 * Use setExternalTrace to pass trace to ExternalInterface too
-	 */
+	 * <h4>Non-programatic window opening/closing</h4>
+	 * ctrl + alt + RIGHT_ARROW to run it/hide it 
+	 * <br>or do a  gesture: 
+	 * <ol>
+	 * <li>push your pointer in top left corner of the screen (fit-in 30x30), don't release</li>
+	 * <li>move it at least 130px towards right edge of the screen</li>
+	 * <li>release your pointer less than 30px from top</li>
+	 * <li>repeat points 1-3 four times.</li>
+	 * </ol>
+	 * Gesture is made hard on purpose (mobile devices usualy drops menu in this area) to
+	 * avoid accidental opening if you decide to keep your bin in release version */
 	public class BinAgent extends Sprite
 	{
+		//parsing input
 		private var regFreeIndex:RegExp = /".*?"\s*\d/g;
 		private var regScontext:RegExp= /(\A|[\(|\[|\{|\+|\,|\=])\s*".*?"\s*|\Z|[\+|\=|\.|\,|\)|\]|\}|;]/g;
 		private var regEdgeRight:RegExp = /\A\s*?([.,;:=}\+\)\]\|\&]|\Z)/;
 		private var regEdgeLeft:RegExp = /\.*(\A|\s|[.,;:=\+\|\(\{\[\&])\Z/;
-		protected var regArgumentEquations:RegExp = /-=|[\|]{2}|[\d*[.]{0,1}\d]|[\+|\*|\/|<|>|\|=|\!]={0,2}|¬|[\&]{2}/g;///[\d*[.]{0,1}\d]|[+|\-|*|\/|==|<|>]/g;
-		
-		public var hierarchy:Array = [['*','/','*=','/=','!'],['+','-','+=','-='],['<','<=','>','>=','==','===','!=', '!==', S_IS], ['||','&&'],['=']]
-		protected var asignments:Array=['=','+=','-=','*=','/='];
+		private var regArgumentEquations:RegExp = /-=|[\|]{2}|[\d*[.]{0,1}\d]|[\+|\*|\/|<|>|\|=|\!]={0,2}|¬|[\&]{2}/g;///[\d*[.]{0,1}\d]|[+|\-|*|\/|==|<|>]/g;
+		private var hierarchy:Array = [['*','/','*=','/=','!'],['+','-','+=','-='],['<','<=','>','>=','==','===','!=', '!==', S_IS], ['||','&&'],['=']]
+		private var asignments:Array=['=','+=','-=','*=','/='];
 		private var hdict:Object = {};
-		
 		private var HASH_BRACKETS:Array;
 		private var HASH_STRINGS:Array;
-		protected var S_IS:String = '¬';
-		protected var S_BRACKETS:String = '©';
-		protected var S_STRINGS:String = 'µ';
-		
-		private var input:TextField;
+		private var S_IS:String = '¬';
+		private var S_BRACKETS:String = '©';
+		private var S_STRINGS:String = 'µ';
+		// internall
+		private var stg:Stage;
+		private var rootObj:DisplayObject;
+		private var _pool:Object = {};
+		//window
+		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 14, 0xaaaaaa);//, null, null, null, null, null, null, null, null, null, -1);
+		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0x333333);//, null, null, null, null, null, null, null, null, null, -1);
+		private var consoleOutput_TextFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0xFFDE9D);//, null, null, null, null, null, null, null, null, null, -1);
 		private var console:TextField;
-		public var rootObj:Object;
-		private var EXTERNAL_JS:String;
-		
-		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 14, 0xaaaaaa, null, null, null, null, null, null, null, null, null, -1);
-		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0x333333, null, null, null, null, null, null, null, null, null, -1);
-		private var consoleOutput_TextFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0xFFDE9D, null, null, null, null, null, null, null, null, null, -1);
-		
+		private var input:TextField;
+		private var cslider:Sprite;
 		private var past:Vector.<String> = new Vector.<String>();
 		private var pastIndex:int;
-		private var container:Sprite;
-		private var LISTENER_ADDED:Boolean;
-		private var _pool:Object = {};
-		private var cslider:Sprite;
 		private var sliderIsDown:Boolean;
-		public static var LIVE:Boolean;
-		public var regularTrace:Boolean = true;
+		//gesture opening
+		private var nonKarea:Rectangle= new Rectangle(0,0,100,30);
+		private var nonKlmitHor:int = 30;
+		private var gestureRepetitions:int = 0;
+		private var nonRepsIndicator:int = 4;
+		// public api vars
+		private var bIsEnabled:Boolean= true;
+		private var bIsOpen:Boolean = false;
+		private var bAllowGestureOpen:Boolean=true;
+		private var bAllowKeyboardOpen:Boolean=true;
+		public var regularTraceToo:Boolean = true;
+		private var bExternalTrace:Function;
 		
-		public function BinAgent(root:Object, isitDebug:Boolean)
+		public function BinAgent(root:DisplayObject)
 		{
-			LIVE = !isitDebug;
-			if(LIVE)
-				return;
 			rootObj = root;
-			rootObj.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, uncaughtError);
-
 			build();
-			rootObj.addChild(this);
-			this.alpha = .9;
-			trace("==== BIN AGENT ====");
+			rootSetup();
+			trrace("==== BIN AGENT ====");
 		}
-		
-		public function resize(w:Number, h:Number=0):void
-		{
-			if(LIVE)
-				return;
-			console.width = w;
-			input.width = w;
-			cslider.x = console.width - cslider.width;
-			if(h !=0)
-			{
-				console.height = h;
-				input.height = h;
-			}
-		}
-		private function uncaughtError(e:UncaughtErrorEvent):void
-		{
-			var message:String;
-			
-			if (e.error is Error)
-				message = Error(e.error).message;
-			else if (e.error is ErrorEvent)
-				message = ErrorEvent(e.error).text;
-			else
-				message = e.error.toString();
-			trrace('uncaught error: ', message, '(', e.error, e.text, e.toString(), e.type, e.target, ')');
-		}
-		
-		
 		
 		private function build():void
 		{
-			this.build_hierarchy();
-			this.container = new Sprite();
-			this.build_console();
-			this.build_consoleSlider();
-			this.build_input();
-			this.build_controll();
-		}
-		private function build_hierarchy():void
-		{
-			var ha:Array;
-			while(hierarchy.length)
-			{
-				ha = hierarchy.pop();
-				while(ha.length)
-					hdict[ha.pop()] = hierarchy.length;
-			}
-			ha =null;
-			hierarchy = null;
+			build_console();
+			build_consoleSlider();
+			build_input();
+			align();
+			build_hierarchy();
 		}
 		
-		//////// GUI ////////
-		
+		//-------------------------------------  WINDOW BUILD -------------------------------------//
 		private function build_console():void
 		{
 			console = new TextField();
@@ -140,7 +109,23 @@
 			console.backgroundColor = 0x333333;
 			console.type = 'dynamic';
 			console.selectable = true;
-			container.addChild(console);
+			this.addChild(console);
+		}
+		
+		private function build_input():void
+		{
+			input = new TextField();
+			input.defaultTextFormat = input_textFormat;
+			input.multiline = false;
+			input.wordWrap= true;
+			input.border = true;
+			input.width = 500;
+			input.height = 20;
+			input.background=true;
+			input.backgroundColor= 0xffffff;
+			input.type = 'input';
+			input.addEventListener(KeyboardEvent.KEY_UP, KEY_UP);
+			this.addChild(input);
 		}
 		
 		private function build_consoleSlider():void
@@ -149,14 +134,20 @@
 			cslider.graphics.beginFill(0xffffff);
 			cslider.graphics.drawRoundRect(0,0, 15,25,5,5);
 			cslider.graphics.endFill();
-			cslider.x = console.x + console.width - cslider.width;
 			cslider.mouseChildren = false;
-			cslider.y = console.y + console.height - cslider.height;
-			container.addChild(cslider);
-			
+			this.addChild(cslider);
 		}
 		
-		protected function sliderMove(e:MouseEvent):void
+		private function align():void
+		{
+			cslider.x = console.x + console.width - cslider.width;
+			cslider.y = console.y + console.height - cslider.height;
+			input.y = console.height;
+			localMovement();
+		}
+		//------------------------------------- END OF WINDOW BUILD ------------------------------------- //
+		// ------------------------------------- WINDOW CONTROLL ------------------------------------- //
+		protected function localMovement(e:MouseEvent=null):void
 		{
 			if(!this.sliderIsDown)
 				return;
@@ -175,50 +166,17 @@
 			cslider.y = sy;
 		}
 		
-		private function build_input():void
+		protected function stageMouseDown(e:MouseEvent):void
 		{
-			input = new TextField();
-			input.defaultTextFormat = input_textFormat;
-			input.multiline = false;
-			input.wordWrap= true;
-			input.border = true;
-			input.width = 500;
-			input.height = 20;
-			input.y = console.height;
-			input.background=true;
-			input.backgroundColor= 0xffffff;
-			input.type = 'input';
-			
-			container.addChild(input);
+			if((e.stageY > nonKarea.height) || (e.stageX  > (nonKarea.x + nonKlmitHor)))
+				gestureRepetitions = 0;
 		}
 		
-		private function build_controll():void
+		public function localMouseDown(e:MouseEvent):void
 		{
-			this.addEventListener(Event.ADDED_TO_STAGE, ats);
-			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
-			this.addEventListener(MouseEvent.MOUSE_DOWN, md);
-			input.addEventListener(KeyboardEvent.KEY_UP, KEY_UP);
-		}
-		
-		
-		///////  CONTROL
-		
-		public function ats(e:Event):void{
-			stage.focus= this;
-			if(!LISTENER_ADDED)
-				stage.addEventListener(KeyboardEvent.KEY_DOWN, KEY_DOWN);
-			LISTENER_ADDED = true;
-			rootObj.stage.addEventListener(MouseEvent.MOUSE_UP, mu);
-			rootObj.stage.addEventListener(MouseEvent.MOUSE_MOVE, sliderMove);
-		}
-		public function rfs(e:Event):void
-		{
-			rootObj.stage.removeEventListener(MouseEvent.MOUSE_UP, mu);
-			rootObj.stage.removeEventListener(MouseEvent.MOUSE_MOVE, sliderMove);
-		}
-		
-		public function md(e:MouseEvent):void
-		{
+			// some software may still focus e.g. Feathers
+			if(e.target == input && stg.focus != input)
+				stg.focus = input;
 			if(e.shiftKey)
 				this.startDrag();
 			sliderIsDown = (e.target == cslider);
@@ -226,24 +184,38 @@
 		
 		public function mu(e:MouseEvent):void
 		{
-			this.stopDrag()
-			sliderIsDown = false;
+			if(stg != null)
+			{
+				this.stopDrag()
+				sliderIsDown = false;
+			}
+			if(allowGestureOpen)
+			{
+				if((e.stageY > nonKarea.height) || (e.stageX < (nonKarea.width + nonKlmitHor)))
+					gestureRepetitions = 0;
+				else if(++gestureRepetitions > nonRepsIndicator-1)
+					openClose();
+			}
 		}
 		
-		protected function KEY_DOWN(e:KeyboardEvent):void
+		protected function stageKeyDown(e:KeyboardEvent):void
 		{
-			//trace(e);
 			if(e.altKey && e.ctrlKey && (e.keyCode == Keyboard.RIGHT)) // alt + s
+				openClose();
+		}
+		
+		// uses parent a bin may be addaed anywhere..
+		private function openClose():void
+		{
+			if(bIsOpen)
+				this.parent.removeChild(this);
+			else if(stg != null)
 			{
-				if(this.contains(container))
-					this.removeChild(container);
-				else
-				{
-					this.addChild(container);
-					this.stage.focus =input;
-				}
-				
+				align();
+				stg.addChild(this);
+				stg.focus =input;
 			}
+			gestureRepetitions = 0;
 		}
 		
 		protected function KEY_UP(e:KeyboardEvent):void
@@ -255,16 +227,19 @@
 					return;
 				var tstart:int = console.text.length;
 				var tlen:int = trrace(t);
-				
-				console.setTextFormat(consoleOutput_TextFormat, tstart, tstart +tlen);
+				if(tstart < console.text.length)
+					console.setTextFormat(consoleOutput_TextFormat, tstart, tstart +tlen);
 				console.scrollV = console.maxScrollV;
 				
 				try{ trrace(PARSE_INPUT(t))}
-				catch (e:*) { trrace("ERROR OCCURED:\n", e) }
-				
-				console.setTextFormat(console_textFormat, tstart +tlen, console.text.length);
-				past.push(t);
-				pastIndex = past.length;
+				catch (e:*) { trrace("[BinAgent]ERROR OCCURED:\n", e) }
+				if((tstart + tlen) < console.text.length)
+					console.setTextFormat(console_textFormat, tstart +tlen);
+				if(past.indexOf(t) < 0)
+				{
+					past.push(t);
+					pastIndex = past.length;
+				}
 				input.text = '';
 			}
 			else if(e.keyCode == flash.ui.Keyboard.UP)
@@ -286,13 +261,76 @@
 				input.setSelection(0, input.text.length);
 			}
 		}
-		//////////////////////////////// END OF BUILD //////////////////////////////// 
+		//-------------------------------------  END OF WINDOW CONTROLL ------------------------------------- // 
+		//-------------------------------------    CONTROLL SETUP ------------------------------------------  //
+		private function rootSetup():void
+		{
+			rootObj.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, uncaughtError);
+			
+			this.addEventListener(Event.ADDED_TO_STAGE, ats);
+			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
+			if(rootObj.stage != null)
+				giveStage(rootObj.stage);
+			else
+				rootObj.addEventListener(Event.ADDED_TO_STAGE, gotStage);
+		}
 		
-		/////////////////////////////  magic
+		private function ats(e:Event):void 
+		{
+			stg.focus= this.input;
+			stg.addEventListener(MouseEvent.MOUSE_MOVE, localMovement);
+			this.addEventListener(MouseEvent.MOUSE_DOWN, localMouseDown);
+			bIsOpen = true;
+		}
+		private function rfs(e:Event):void
+		{
+			stg.removeEventListener(MouseEvent.MOUSE_MOVE, localMovement);
+			this.removeEventListener(MouseEvent.MOUSE_DOWN, localMouseDown);
+			bIsOpen = false;
+		}
 		
+		private function gotStage(event:Event=null):void { giveStage(rootObj.stage) }
+		private function giveStage(stage:Stage):void
+		{
+			if(stg != null) return;
+			stg = stage;
+			// slider needs to know, gesture uses it as well
+			stg.addEventListener(MouseEvent.MOUSE_UP, mu);
+			// dirty refresh
+			allowKeyboardOpen = allowKeyboardOpen;
+			allowGestureOpen = allowGestureOpen;
+			align();
+		}
+		
+		private function uncaughtError(e:UncaughtErrorEvent):void
+		{
+			var message:String;
+			
+			if (e.error is Error)
+				message = Error(e.error).message;
+			else if (e.error is ErrorEvent)
+				message = ErrorEvent(e.error).text;
+			else
+				message = e.error.toString();
+			trrace('uncaught error: ', message, '(', e.error, e.text, e.toString(), e.type, e.target, ')');
+		}
+		//-------------------------------------  END OF CONTROLL SETUP  ------------------------------------------  //
+		//-------------------------------------    MAGIC PRIVATE API  ------------------------------------------  //
+		
+		private function build_hierarchy():void
+		{
+			var ha:Array;
+			while(hierarchy.length)
+			{
+				ha = hierarchy.pop();
+				while(ha.length)
+					hdict[ha.pop()] = hierarchy.length;
+			}
+			ha =null;
+			hierarchy = null;
+		}
 		private function PARSE_INPUT(s:String):Object
 		{
-			
 			HASH_BRACKETS = [];
 			HASH_STRINGS  = [];
 			s = hashStrings(s);
@@ -303,13 +341,11 @@
 			if(s==null)
 				return "ERROR: Unpaired brackets";
 			//trace('brackets hashed, STATE:\n' + s);
-			dsp(HASH_BRACKETS); // display
 			//trace('------------------------------------------------------------------------');
 			var RESULT:Object = loopStructure(s,0);
 			//trace("RESULT", RESULT);
 			return RESULT;
 		}
-		
 		
 		private function hashStrings(s:String):String
 		{
@@ -448,8 +484,7 @@
 			var helper:Array;
 			for( e=0; e < ELEMENTS.length; e++)
 			{
-				trace('\t\t---------- ELEMENT', e+1,'/',ELEMENTS.length, '----------:\t', ELEMENTS[e]);
-				
+				//trace('\t\t---------- ELEMENT', e+1,'/',ELEMENTS.length, '----------:\t', ELEMENTS[e]);
 				el = ELEMENTS[e];
 				//trace('-el', el);
 				if(!isNaN(Number(el))){
@@ -468,8 +503,6 @@
 			// OPERATIONS
 			//trace('ghosts', GHOSTS);
 			bitOperations(ELEMENTS, operations, GHOSTS);
-			
-			
 			// after all operations it should do fusion to single argument; which may be an array chain
 			//trace("ALL ELEMENTS DONE ("+ELEMENTS.length+"):", ELEMENTS);
 			if(ELEMENTS.length > 1)
@@ -499,7 +532,6 @@
 				{
 					bit = revHash(Number(bit), lastObject);
 					//trace("REVERSED", bit, 'is array?', bit is Array);
-					dsp(bit as Array);
 				}
 				else if(!isNaN(bit.replace(/\µ/g, "")))
 				{
@@ -680,13 +712,73 @@
 			//trace("REV HASHed", indx, caller, DEEP);
 			return dehashed;
 		}
-		/////// features 
-		
+		//-------------------------------------  END OF MAGIC PRIVATE API  ------------------------------------------  //
+		//-------------------------------------  	    PUBLIC API  ------------------------------------------  //
+		/** Opens and closes bin window programatically */
+		public function get isOpen():Boolean { return bIsOpen }
+		public function set isOpen(v:Boolean):void
+		{
+			if(v == bIsOpen || stg == null) return;
+			if(v) stg.addChild(this);
+			else if(this.parent != null) this.parent.removeChild(this)
+		}
+		/** controlls non-programatic opening of the bin window. @see BinAgent */
+		public function get allowGestureOpen():Boolean { return bAllowGestureOpen }
+		public function set allowGestureOpen(v:Boolean):void
+		{
+			bAllowGestureOpen = v;
+			if(stg != null)
+			{
+				stg.removeEventListener(MouseEvent.MOUSE_DOWN, stageMouseDown); 
+				if(bAllowGestureOpen)
+					stg.addEventListener(MouseEvent.MOUSE_DOWN, stageMouseDown); 
+			}
+		}
+		/** controlls non-programatic opening of the bin window. @see BinAgent */
+		public function get allowKeyboardOpen():Boolean { return bAllowKeyboardOpen }
+		public function set allowKeyboardOpen(v:Boolean):void
+		{
+			bAllowKeyboardOpen = v;
+			if(stg != null)
+			{
+				stg.removeEventListener(KeyboardEvent.KEY_DOWN, stageKeyDown);
+				if(bAllowKeyboardOpen)
+					stg.addEventListener(KeyboardEvent.KEY_DOWN, stageKeyDown);
+			}
+		}
+		/** enables or disables all trace (external and internal */
+		public function get isEnabled():Boolean { return bIsEnabled }
+		public function set isEnabled(value:Boolean):void { bIsEnabled = value }
+		/**allows to route your trace to any external output like Externalnterface.call 
+		 * Function should accept only one argument of type <code>String</code>*/
+		public function get externalTrace():Function { return bExternalTrace }
+		public function set externalTrace(value:Function):void { bExternalTrace = value }
+		/** clears entire console text */
+		public function clear():void { console.text = '' };
+		/** resizes it to specified dimensions, 0 means parameter untouched */
+		public function resize(w:Number, h:Number=0):void
+		{
+			if(w != 0)
+			{
+				console.width = w;
+				input.width = w;
+			}
+			if(h !=0)
+				console.height = h - input.height;
+			align();
+		}
+		/** executes flash.utils.describeType on object */
+		public function desc(a:Object=null):void { trrace(flash.utils.describeType(a)) }
+		/** your pool. allows to asign elements to test quickly. */
+		public function get pool():Object { return _pool }
+		/** If <code>bin.enabled = true</code> passes parsed string in to: 
+		 * <ul><li>bin console (main bin window)</li> 
+		 * <li>regular <code>trace</code> function if <u>bin.regularTraceToo == true</u></li>
+		 * <li><code>bin.externalTrace</code> function if <u>it is not null</u> */
 		public function trrace(...args):int
 		{
-			if(LIVE)
-				return 0;
-			if(regularTrace)
+			if(!isEnabled) return 0;
+			if(regularTraceToo)
 				trace.apply(null,args);
 			var v:Object;
 			var s:String='';
@@ -706,64 +798,14 @@
 			}
 			s += '\n';
 			console.appendText(s);
-			externalTrace(s);
+			if(bExternalTrace != null)
+				bExternalTrace(s);
 			
 			console.scrollV = console.maxScrollV;
 			if(this.parent)
 				this.parent.setChildIndex(this, this.parent.numChildren-1);
 			v=null;
 			return s.length;
-		}
-		
-		public function setExternalTrace(funcName:String=null):void
-		{
-			if(LIVE)
-				return;
-			EXTERNAL_JS = funcName;
-		}
-		
-		private function externalTrace(v:String):void
-		{
-			if(EXTERNAL_JS && ExternalInterface.available)
-				ExternalInterface.call(EXTERNAL_JS,v);
-		}
-		
-		////////////////////////// helpers
-		
-		
-		public function dsp(a:Object, t:String=''):String
-		{
-			//trace(a);
-			if(LIVE)
-				return null;
-			if(!a)
-				return null;
-			var s:String = t + a.toString();
-			
-			if(a is Object)
-			{
-				for (var ss:String in a)
-				{
-					s += '\n' + t  +ss + ' : ' + dsp(a[ss], t + '\t');
-					/*if(a[ss] is Object)
-					s+= */
-				}
-			}
-			return s;
-		}	
-		
-		public function desc(a:Object=null):void
-		{
-			if(LIVE)
-				return;
-			this.trrace(flash.utils.describeType(a));
-		}
-		
-		public function get pool():Object
-		{
-			if(LIVE)
-				return null;
-			return _pool;
 		}
 	}
 }

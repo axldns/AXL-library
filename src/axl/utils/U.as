@@ -357,7 +357,7 @@ package axl.utils
 		
 		
 		/** Displays or hides flash stage splash if both splash and stage are instantiated.
-		 *  Messages are not covered by splash*/
+		 *  Messages are being displayed underneath splash*/
 		public static function get splash():Boolean { return uSplash != null && uSplash.parent != null }
 		public static function set splash(v:Boolean):void
 		{
@@ -424,7 +424,7 @@ package axl.utils
 				flashRoot.addChild(uSplash);
 			
 			if(DEBUG)
-				ubin = new BinAgent(flashRoot,DEBUG);
+				ubin = new BinAgent(flashRoot);
 			
 			udesignedForWidth = designedForWidth;
 			udesignedForHeight = designedForHeight;
@@ -491,7 +491,7 @@ package axl.utils
 				U.center(uSplash, U.rec);
 			}
 			if(U.bin)
-				bin.resize(U.rec.width, U.rec.height>>1);
+				bin.resize(U.rec.width);
 		}
 		
 		private static function setStageProperties():void
