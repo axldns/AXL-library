@@ -1,13 +1,16 @@
 package axl.utils
 {
 	import flash.display.DisplayObject;
+	import flash.events.ErrorEvent;
+	import flash.events.Event;
+	import flash.events.EventDispatcher;
 	import flash.utils.setTimeout;
 	
 	import axl.ui.IprogBar;
 	import axl.ui.Messages;
 	
 
-	public class Flow
+	public class Flow extends EventDispatcher
 	{
 		private var uUpdateRequestObjectFactory:Function;
 		private var uAppRemoteGateway:String;
@@ -25,9 +28,11 @@ package axl.utils
 		private var webflow:Boolean;
 		private var mobileflow:Boolean;
 		private var files:Array = [];
+		private var updateFiles:Array=[];
 		private var appConfigDate:String;
 		private var php:ConnectPHP;
-		private var updateFiles:Array;
+		private var errorCoruptedConfig:ErrorEvent = new ErrorEvent(ErrorEvent.ERROR,false,false, "Corupted or missing config file",1);
+		private var errorFilesLoading:ErrorEvent = new ErrorEvent(ErrorEvent.ERROR,false,true, "Not all files loaded",2);
 		
 		public function Flow()
 		{
@@ -88,7 +93,7 @@ package axl.utils
 			webflow = !mobileflow;
 			defaultFlow();
 		}
-		/** this represents main flow in nutshell. 
+		/** this represents main flow in a nutshell. 
 		 * 1. setup, 2. config ^, 3.files, 4. complete 
 		 * <br>^ on mobile flow, after config load there 
 		 * is also server update check and potential repeat config load*/
@@ -128,7 +133,10 @@ package axl.utils
 			if(readConfig())
 				afterConfigLoaded();
 			else 
-				return Messages.msg("Can't load config file :( Tap to try againg", loadConfig);
+			{
+				Messages.msg("Can't load config file :( Tap to try againg", loadConfig);
+				this.dispatchEvent(errorCoruptedConfig);
+			}
 		}
 		
 		protected function afterConfigLoaded():void
@@ -160,10 +168,7 @@ package axl.utils
 			else
 			{
 				if(e.hasOwnProperty('date'))
-				{
 					appConfigDate = e.date;
-					trace("NEW DATE IS",e.date, 'old was', U.CONFIG.@date);
-				}
 				if(e.hasOwnProperty('files') && e.files is Array)
 				{
 					updateFiles = e.files;
@@ -196,7 +201,10 @@ package axl.utils
 			if(readConfig())
 				afterConfigUpdated();
 			else 
+			{
 				Messages.msg("Config update corrupted :( Tap to try againg", loadConfig);
+				this.dispatchEvent(errorCoruptedConfig);
+			}
 		}
 		
 		protected function afterConfigUpdated():void
@@ -280,8 +288,12 @@ package axl.utils
 		protected function filesLoaded():void
 		{
 			U.log('[Flow][FilesLoaded]:',Ldr.numAllQueued + '/' + Ldr.numAllLoaded);
-			if(Ldr.numCurrentSkipped > 0)
+			var notLoaded:int = Ldr.numCurrentSkipped - updateFiles.length;
+			if(notLoaded > 0)
+			{
 				U.log("[Flow] WARNING: " + Ldr.numCurrentSkipped + " file(s) not loaded!");
+				this.dispatchEvent(errorFilesLoading); 
+			}
 			setTimeout(complete, 100);
 		}
 		
@@ -289,11 +301,12 @@ package axl.utils
 		{
 			U.log("[Flow][Complete]");
 			if(onAllDone != null) onAllDone();
-			destroy();
+			this.dispatchEvent(new Event(Event.COMPLETE));
 		}
 		
 		public function destroy():void
 		{
+			errorFilesLoading = errorCoruptedConfig = null;
 			files = null;
 			filesToLoad = null;
 			onAllDone = null;

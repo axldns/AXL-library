@@ -15,13 +15,9 @@ package axl.utils
 	import flash.events.Event;
 	import flash.geom.Matrix;
 	import flash.geom.Rectangle;
-	import flash.media.SoundMixer;
 	import flash.system.Capabilities;
 	
-	import axl.ui.IprogBar;
 	import axl.ui.Messages;
-	
-
 	/**
 	 * Geometric utilty, handy tool, stage setter, quick refference. 
 	 */
@@ -37,11 +33,9 @@ package axl.utils
 		public static function get ISWEB():Boolean { return isWeb }
 		private static var isWeb:Boolean = (Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i) != null);
 		
-		/** USE IT BEFORE INIT. CHANGES AFTER WON'T APPLY */
-		public static var onStageAvailable:Function;
 		
-		private static var rec:Rectangle;
-		private static var uSTG:flash.display.Stage;
+		private static var rec:Rectangle=new Rectangle(0,0,1,1);
+		private static var uSTG:Stage;
 		private static var flashRoot:DisplayObjectContainer;
 
 		private static var udesignedForWidth:Number;
@@ -54,7 +48,7 @@ package axl.utils
 		private static var uscalarYreversed:Number;
 		private static var uscalarReversed:Number;
 		
-		private static var bsplash:DisplayObject;
+		private static var uSplash:DisplayObject;
 		
 		private static var ubin:BinAgent;
 		private static var uconfig:XML;
@@ -65,6 +59,7 @@ package axl.utils
 		/*** returns bin agent reference. Read BinAgent class description to see what it does */
 		public static function get bin():BinAgent{ return ubin	}
 		
+		
 		/** reference to values passed in <code>U.init</code> method. does affects on scallars only */
 		public static function get designedForHeight():Number {	return udesignedForHeight }
 		
@@ -72,7 +67,7 @@ package axl.utils
 		public static function get designedForWidth():Number { return udesignedForWidth	}
 
 		/** reference to flash display stage */
-		public static function get STG():flash.display.Stage { return uSTG	}
+		public static function get STG():flash.display.Stage { return uSTG }
 		
 		/** returns value of ... scalarX. See scalarX and Y defs*/
 		public static function get scalar():Number	{ return uscalar }
@@ -101,36 +96,10 @@ package axl.utils
 		 * like <code>U.center</code>, <code>U.align</code> or matrix transformations  */
 		public static function get REC():Rectangle { return rec }
 		
-		/** Displays or hides flash stage splash if both splash and stage are instantiated. Messages are not covered by splash*/
-		public static function set splash(v:Boolean):void
-		{
-			if(STG && bsplash)
-			{
-				if(v && !STG.contains(bsplash))
-				{
-					if(!Messages.areDisplayed)
-						STG.addChild(bsplash);
-					else
-						STG.addChildAt(bsplash, STG.numChildren-1);
-				}
-				else if(!v && bsplash.parent)
-					bsplash.parent.removeChild(bsplash)
-			}
-		}
-		
-		/**sets or replaces current stage splash object*/
-		public static function set splashObject(v:DisplayObject):void
-		{
-			resolveSize(v, U.REC,true);
-			center(v, U.REC);
-			if(bsplash.parent)
-			{
-				bsplash.parent.removeChild(bsplash);
-				bsplash = v;
-				STG.addChild(bsplash);
-			}
-			else
-				bsplash = v;
+		/** Displays semi dialog pop-up message on top of the screen. Message disappears on first focus change / tap / click.
+		 * To adjust layout use Messages class. @see axl.ui.Messages */
+		public static function msg(message:String, onOutsideTap:Function=null, onInsideTap:Function=null):void {
+			Messages.msg(message, onOutsideTap, onInsideTap);
 		}
 		
 		/** @param Inside: indicates whether to include coords of static (mov and static share the same coord space) or not (treat movable as a child of static)
@@ -138,8 +107,13 @@ package axl.utils
 		 *  @param static: any object which contains x,y,width,height */
 		public static function center(movable:Object, static:Object, inside:Boolean=true):void
 		{
-			movable.x = (static.width - movable.width) / 2 + (inside ? 0 : static.x );
-			movable.y = (static.height - movable.height) / 2 + (inside ? 0 :  static.y);
+			movable.x = (static.width - movable.width >> 1);
+			movable.y = (static.height - movable.height >> 1);
+			if(!inside)
+			{
+				movable.x += static.x
+				movable.y += static.y
+			}
 		} 
 		/**
 		 * @param hor: left || center || right
@@ -148,7 +122,8 @@ package axl.utils
 		 * @param movable: any object which contains x,y,width,height
 		 * @param static: any object which contains x,y,width,height
 		 */
-		public static function align(movable:Object, static:Object, hor:String='center', ver:String='center', horizontalInside:Boolean=true, verticalInside:Boolean=true):void
+		public static function align(movable:Object, static:Object, hor:String='center', 
+									 ver:String='center', horizontalInside:Boolean=true, verticalInside:Boolean=true):void
 		{
 			switch (ver)
 			{
@@ -156,7 +131,7 @@ package axl.utils
 					movable.y = verticalInside ? static.y : static.y - movable.height;
 					break;
 				case "center":
-					movable.y = ((verticalInside ? 0 : static.y) + ((static.height - movable.height) / 2));
+					movable.y = ((verticalInside ? 0 : static.y) + (static.height - movable.height>>1));
 					break;
 				case "bottom":
 					movable.y = (verticalInside ? (static.y + static.height - movable.height) :  (static.y + static.height));
@@ -169,7 +144,7 @@ package axl.utils
 					movable.x = horizontalInside ? static.x : (static.x - movable.width);
 					break;
 				case "center":
-					movable.x = ((horizontalInside ? 0 : static.x ) + ((static.width - movable.width) / 2));
+					movable.x = ((horizontalInside ? 0 : static.x ) + (static.width - movable.width>>1));
 					break;
 				case "right":
 					movable.x = (horizontalInside ? (static.x + static.width - movable.width) : (static.x + static.width));
@@ -183,7 +158,6 @@ package axl.utils
 		 * @param gap: value to add between each children
 		 * @param horizontal: direction of distribution. function will return container.width if true and container.height if false
 		 * @param offset: start value of first children (lives space at start)
-		 * 
 		 */
 		public static function distribute(cont:Object, gap:Number, horizontal:Boolean=true, offset:Number=0):Number
 		{
@@ -204,8 +178,17 @@ package axl.utils
 			cont = null;
 			return totalSize - gap;
 		}
-		
-		public static function distributePattern(cont:Object, gap:Object=0, horizontal:Boolean=true, offset:Number=0, scaleGapAndOffset:Boolean=false):Number
+		/** Distributes container members based on their width, height and gap between them.<br>
+		 * Container member can be any object which has x,y,width,height properites.
+		 * Container itself can be any vector, array or other enum, OR object with methods numChildren & getchildAt. 
+		 * Members are being distributed accodring to their indexes.
+		 * @cont - enum or DisplayObjectContainer
+		 * @gap - Number or enum of Numbers. If e.g. gap=[50,100]: m1-m2 gap:50, m2-m3g:100, m3-m4:50, etc.
+		 * @param offset, member0 initial value.
+		 * @scaleGapAndOffset - more as a reminder here but fully working. It uses U.scalar value
+		 * */
+		public static function distributePattern(cont:Object, gap:Object=0, horizontal:Boolean=true, 
+												 offset:Number=0, scaleGapAndOffset:Boolean=false):Number
 		{
 			var patternLength:int = 0;
 			var numObjects:int = 0;
@@ -267,8 +250,10 @@ package axl.utils
 		/**
 		 * Resolves size of <code>movable</code> by comparing its aspect ratio to <code>static</code> aspect ratio TO FIT STATIC object dimensions.
 		 * @param movable: object to resize (any type of object which consist properties of <code>width & height</code>)
-		 * @param static: object to fit <code>movable</code> into. static object wont be resized. (<b>any</b> type of object which consist properties of <code>width & height</code>)
-		 * @param outsidefit: if <code>true</code> movable is <strong>inscribed</strong> into static. if <code>false</code> movable is <strong>circumscribed around</strong> static
+		 * @param static: object to fit <code>movable</code> into. static object wont be resized. (<b>any</b> type of object which 
+		 * consist properties of <code>width & height</code>)
+		 *  @param outsidefit: if <code>true</code> movable is <strong>inscribed</strong> into static. if <code>false</code> movable 
+		 * is <strong>circumscribed around</strong> static
 		 */
 		public static function resolveSize(movable:Object, static:Object,outsidefit:Boolean=false):void
 		{
@@ -327,7 +312,7 @@ package axl.utils
 						left[s] = right[s];
 		}
 		
-		/** Reads structure of nested arrays vectors and objects and returns it as a string*/
+		/** Reads structure of nested arrays vectors and objects and returns it as a well formated string*/
 		public static function structureToString(input:Object, deep:String=''):String
 		{
 			var output:String='';
@@ -338,83 +323,154 @@ package axl.utils
 			return output;
 		}	
 		
-		public static function getBitmaDatapSlice(source:Bitmap, clip:Rectangle):BitmapData
+		/** Draws any flash.display.DisplayObject to BitmapData*/
+		public static function getBitmapData(source:Object):BitmapData
+		{
+			var bmd:BitmapData = new BitmapData(Math.ceil(source.width), Math.ceil(source.height), true, 0x00000000);
+			bmd.draw(IBitmapDrawable(source));
+			return bmd;
+		}
+		/** Draws any flash.display.DisplayObject to BitmapData @param clip - limits source to
+		 * specific slice - any object that has x,y,width,height*/
+		public static function getBitmaDatapSlice(source:IBitmapDrawable, clip:Object):BitmapData
 		{
 			if(source == null || clip == null) return null;
-			var m:Matrix = new Matrix(1,0,0,1,-clip.x, -clip.y)
-			var s:BitmapData = new BitmapData(clip.width, clip.height, true, 0x000000);
-				s.draw(source,m,null,null,clip,true);
+			var rec:Rectangle = clip as Rectangle;
+			if(rec == null)
+			{
+				rec = new Rectangle();
+				rec.setTo(clip.x, clip.y, clip.width, clip.height);
+			}
+			var m:Matrix = new Matrix(1,0,0,1,-rec.x, -rec.y)
+			var s:BitmapData = new BitmapData(rec.width, rec.height, true, 0x000000);
+				s.draw(source,m,null,null,rec,true);
 				m = null;
+				rec = null;
+				clip = null;
 			return s;
 		}
-		
-		public static function getBitmapSlice(source:Bitmap, clip:Rectangle):Bitmap {
+		/** Draws any flash.display.DisplayObject to BitmapData and returns it wrapped into Bitmap
+		 *  @param clip - limits source to  specific slice - any object that has x,y,width,height*/
+		public static function getBitmapSlice(source:IBitmapDrawable, clip:Object):Bitmap {
 			return new Bitmap(getBitmaDatapSlice(source, clip));
 		}
 		
-		/**
-		 * Draws any flash.display.DisplayObject (including containers) to bitmap data
-		 * @param source: flash display object
-		 */
-		public static function flashToBitmapData(source:Object):BitmapData
+		
+		/** Displays or hides flash stage splash if both splash and stage are instantiated.
+		 *  Messages are not covered by splash*/
+		public static function get splash():Boolean { return uSplash != null && uSplash.parent != null }
+		public static function set splash(v:Boolean):void
 		{
-			var bmd:BitmapData = new BitmapData(Math.ceil(source.width), Math.ceil(source.height), true, 0x00000000);
-				bmd.draw(IBitmapDrawable(source));
-			return bmd;
+			if(uSplash == null) return;
+			if(v == false)
+			{
+				if(uSplash.parent != null)
+					uSplash.parent.removeChild(uSplash);
+			}//yes
+			else if(STG != null)
+			{
+				if(Messages.areDisplayed)
+					STG.addChildAt(uSplash, STG.numChildren-1);
+				else
+					STG.addChild(uSplash);
+			} 
+			else if(flashRoot != null)
+				STG.addChild(uSplash);
+		}
+		
+		/**sets or replaces current stage splash object*/
+		public static function get splashObject():DisplayObject { return uSplash }
+		public static function set splashObject(v:DisplayObject):void
+		{
+			if(uSplash == v) return;
+			if(v == null)
+				splash = false;
+			else if(uSplash != null && uSplash.parent != null) 
+			{
+				uSplash.parent.removeChild(uSplash);
+				uSplash = v;
+				splash = true;
+			}
+			uSplash = v;
 		}
 		
 		/**
-		 * Instantiates whole app flow and executes onInited function if defined. See class description to inspect the flow
-		 * @param rootInstance: your main flash display class instance
-		 * @param designedForWid/Hei affect on scalar values. Useful when you Do design in e.g. photoshop, all contents got predefined wid
-		 * and hei. in different scales, many times all you want to do is apply U.scalar to the object
-		 * @param starlingRootClass: Starling class which will be instantiated as soon as: stage is ready AND settings are loaded AND assets are loaded
-		 * @param splashObj: Flash display object which will cover whole stage (circumscribed) ON app launch until starling.events.Event.rootCreated is dispatched AND whenever you set <code>U.splash = true</code>
-		 * @param progBar: flash display object it requires is <code>setProgress(0-1)</code> and <code>destroy()</code> which will be called once starling.events.Event.rootCreated is dispatched. <code>Use Utils.ProgressBar</code> for basic flash drawn progress bar 
+		 * Instantiates whole app and runs the flow if supplied. If you're using Starling, 
+		 * you probably want to use <code>S.init</code> instead - don't call both as S.init already does call this one.<br><br>
+		 * In your project root class call e.g. <code>U.init(this,1024,768)</code> to take advantage of automatization.
+		 * If you do not call init, following elements will have to been set up manually in order to be able to use of it:
+		 * <ul>
+		 * <li><code>AO.stage</code> - animation engine motor</li>
+		 * <li><code>U.REC.setTo</code> - as it will remain 0,0,1,1</li>
+		 * </ul>
+		 * and following elements will still remain unavailable:
+		 * <ul>
+		 * <li>all scalar^ values</li> - used in some geometric functions of this class.
+		 * <li><code>U.splash</code> won't work
+		 * <li><code>Flow.progressBar</code></li> won't be displayed
+		 * <li><code>U.msg</code> as well as <code>Messages.msg</code></li> semi-interactive ui pop-ups
+		 * </ul>
+		 * @param rootInstance: your main flash display class instance. In your top display class use <code>this</code> keyword
+		 * @param designedForWid/Hei - these compared to the actual stage dimensions are used to calculate scalar^ values.
+		 * @param onReady: function to execute once everything is done (stage available / flow is complete) 
+		 * @param flow: flow to execute before onReady. see <code>Flow</code> class description. Flow instance
+		 * will not be destroyed by this method, this should be handled by flow instantiator.
 		 */
-		public static function init(rootInstance:DisplayObjectContainer, designedForWid:Number, designedForHei:Number, splashObj:DisplayObject=null):void
+		public static function init(rootInstance:DisplayObjectContainer, designedForWidth:Number, 
+									designedForHeight:Number, onReady:Function=null, flow:Flow=null):void
 		{
 			flashRoot = rootInstance;
-			bsplash = splashObj;
-			if(bsplash)
-				flashRoot.addChild(bsplash);
+			if(uSplash)
+				flashRoot.addChild(uSplash);
 			
 			if(DEBUG)
-			{
 				ubin = new BinAgent(flashRoot,DEBUG);
-			}
 			
-			udesignedForWidth = designedForWid;
-			udesignedForHeight = designedForHei;
-			
-			SoundMixer.audioPlaybackMode  = 'media';
+			udesignedForWidth = designedForWidth;
+			udesignedForHeight = designedForHeight;
 			
 			if(flashRoot.stage == null)
-				flashRoot.addEventListener(flash.events.Event.ADDED_TO_STAGE, stageCreated);
+				flashRoot.addEventListener(Event.ADDED_TO_STAGE, stageAvailable);
 			else
-				stageCreated();
-		}
-		
-		protected static function stageCreated(event:flash.events.Event=null):void
-		{
-			log('--STAGE CREATED--');
-			if(flashRoot.hasEventListener(flash.events.Event.ADDED_TO_STAGE))
-				flashRoot.removeEventListener(flash.events.Event.ADDED_TO_STAGE, stageCreated);
+				stageAvailable();
 			
-			setStageProperties(flashRoot.stage);
-			setGeometry(udesignedForWidth, udesignedForHeight);
-			AO.stage = STG;
-			if(onStageAvailable is Function) onStageAvailable();
+			function stageAvailable(event:Event=null):void
+			{
+				log('--STAGE CREATED--', flashRoot.stage.align, flashRoot.stage.scaleMode);
+				if(flashRoot.hasEventListener(Event.ADDED_TO_STAGE))
+					flashRoot.removeEventListener(Event.ADDED_TO_STAGE, stageAvailable);
+				uSTG = flashRoot.stage;
+				STG.addEventListener(Event.RESIZE, setGeometry);
+				AO.stage = STG;
+				setStageProperties();
+				log('--STAGE CREATED--', flashRoot.stage.align, flashRoot.stage.scaleMode);
+				setGeometry();
+				if(bin != null) bin.resize(rec.width);
+				if(flow != null)
+				{
+					flow.addEventListener(Event.COMPLETE, flowComplete);
+					flow.start();
+				}
+				else
+					flowComplete();
+			}
+			
+			function flowComplete(e:Event=null):void
+			{
+				if(flow != null)
+					flow.removeEventListener(Event.COMPLETE, flowComplete);
+				if(onReady is Function)
+					onReady();
+				trace(U.rec)
+			}
 		}
-		
-		private static function setGeometry(designedForWid:Number, designedForHei:Number):void
+	
+		private static function setGeometry(e:Event=null):void
 		{
-			udesignedForWidth = designedForWid;
-			udesignedForHeight = designedForHei;
 			if(ISWEB)
-				rec = new Rectangle(0,0, STG.stageWidth, STG.stageHeight);
+				rec.setTo(0,0, STG.stageWidth, STG.stageHeight);
 			else
-				rec = new Rectangle(0,0, STG.fullScreenWidth, STG.fullScreenHeight);
+				rec.setTo(0,0, STG.fullScreenWidth, STG.fullScreenHeight);
 			
 			uscalarX = rec.width / designedForWidth;
 			uscalarY = rec.height / designedForHeight;
@@ -423,24 +479,28 @@ package axl.utils
 			uscalarXreversed =  designedForWidth / rec.width;
 			uscalarYreversed = designedForHeight / rec.height;
 			uscalarReversed = uscalarXreversed;
-			
-			if(bsplash)
-			{
-				resolveSize(U.bsplash, U.REC,true);
-				center(U.bsplash, U.REC);
-				splash = true
-			}
-			if(bin != null)
-				bin.resize(rec.width);
+			selfResize();
 		}		
 		
-		private static function setStageProperties(stage:flash.display.Stage):void
+		private static function selfResize():void
 		{
-			stage.align = StageAlign.TOP_LEFT;
-			stage.scaleMode = StageScaleMode.NO_SCALE;
+			trace("SELF RESIZE", U.rec);
+			if(uSplash != null)
+			{
+				U.resolveSize(uSplash, U.REC, true);
+				U.center(uSplash, U.rec);
+			}
+			if(U.bin)
+				bin.resize(U.rec.width, U.rec.height>>1);
+		}
+		
+		private static function setStageProperties():void
+		{
+			uSTG.align = StageAlign.TOP_LEFT;
+			uSTG.scaleMode = StageScaleMode.NO_SCALE;
 			if(!ISWEB)
-				stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
-			uSTG = stage;
+				uSTG.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+			uSTG = uSTG;
 		}
 		
 		public static function log(...args):void
@@ -450,5 +510,6 @@ package axl.utils
 			else
 				trace.apply(null,args);
 		}
+		
 	}
 }

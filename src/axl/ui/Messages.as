@@ -35,7 +35,7 @@ package axl.ui
 		}
 		public static function msg(v:String=null, onTapOutside:Function=null, onTapInside:Function=null):void
 		{
-			if(v == null)
+			if(v == null || U.STG == null)
 				return MD();
 			insideTap = onTapInside;
 			outsideTap = onTapOutside;
@@ -66,10 +66,10 @@ package axl.ui
 		
 		private static function MD(e:MouseEvent=null):void
 		{
+			if(U.STG == null) return;
 			U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
 			if(tf != null && U.STG.contains(tf))
 				U.STG.removeChild(tf);
-			trace(e != null, e ? e.target : 'no target', outsideTap);
 			if(e != null)
 			{
 				if(e.target == tf)
