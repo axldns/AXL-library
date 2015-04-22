@@ -771,6 +771,41 @@
 		public function desc(a:Object=null):void { trrace(flash.utils.describeType(a)) }
 		/** your pool. allows to asign elements to test quickly. */
 		public function get pool():Object { return _pool }
+		
+		/** Reads structure of nested arrays vectors and objects and returns it as a well formated string*/
+		public function structureToString(input:Object, deep:String=''):String
+		{
+			var output:String='', t:String = '  ';
+			if(input == null) return 'null\n';
+			output +=  input.toString() + '\n';
+			for(var p:String in input)
+				output +=  deep + t + p +' : ' + structureToString(input[p], deep + t);
+			return output;
+		}
+		/** Returns well formated string (tree structure) of parent node's children structure
+		 * @param parentNode - any display object (flash,starling). Default - flash stage.
+		 * @param properties - array of properties that will be checked for each particular 
+		 * display list element, e.g, ['x','y','width','height'] */
+		public function displayList(parentNode:Object=null,properties:Array=null):String
+		{
+			var ncp:String = 'numChildren', gcap:String = 'getChildAt', t:String='  ', n:String='\n';
+			if(parentNode == null) parentNode = stg;
+			if(properties == null) properties = [];
+			var np:int = properties.length;
+			var output:String = recurse(parentNode, properties);
+			function recurse(o:Object, p:Array, d:String=''):String
+			{
+				var s:String=(d+o.toString());
+				var nc:int = o.hasOwnProperty(ncp) ?  o[ncp] : 0;
+				for(var i:int = 0; i < np; i++)
+						s += '|'+String((o.hasOwnProperty(p[i]) ?  o[p[i]] : ("?" +p[i] +"?")));
+				for(i=0;i<nc;i++)
+					s += String(n+t+recurse(o[gcap](i),p,d+t));
+				return s;
+			}
+			return output;
+		}
+		
 		/** If <code>bin.enabled = true</code> passes parsed string in to: 
 		 * <ul><li>bin console (main bin window)</li> 
 		 * <li>regular <code>trace</code> function if <u>bin.regularTraceToo == true</u></li>

@@ -33,7 +33,6 @@ package axl.utils
 		public static function get ISWEB():Boolean { return isWeb }
 		private static var isWeb:Boolean = (Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i) != null);
 		
-		
 		private static var rec:Rectangle=new Rectangle(0,0,1,1);
 		private static var uSTG:Stage;
 		private static var flashRoot:DisplayObjectContainer;
@@ -102,9 +101,10 @@ package axl.utils
 			Messages.msg(message, onOutsideTap, onInsideTap);
 		}
 		
-		/** @param Inside: indicates whether to include coords of static (mov and static share the same coord space) or not (treat movable as a child of static)
-		 *  @param movable: any object which contains x,y,width,height
-		 *  @param static: any object which contains x,y,width,height */
+		/** @param movable: any object which contains x,y,width,height
+		 *  @param static: any object which contains x,y,width,height
+		 *  @param Inside: indicates whether to include coords of static 
+		 * (mov and static share the same coord space) or not (treat movable as a child of static) */
 		public static function center(movable:Object, static:Object, inside:Boolean=true):void
 		{
 			movable.x = (static.width - movable.width >> 1);
@@ -116,11 +116,11 @@ package axl.utils
 			}
 		} 
 		/**
+		 * @param movable: any object which contains x,y,width,height | target
+		 * @param static: any object which contains x,y,width,height | source
 		 * @param hor: left || center || right
 		 * @param ver: bottom || center || top
 		 * @param *Inside: indicates whether to include coords of static (mov and static share the same coord space) or not (treat movable as a child of static)
-		 * @param movable: any object which contains x,y,width,height
-		 * @param static: any object which contains x,y,width,height
 		 */
 		public static function align(movable:Object, static:Object, hor:String='center', 
 									 ver:String='center', horizontalInside:Boolean=true, verticalInside:Boolean=true):void
@@ -136,7 +136,6 @@ package axl.utils
 				case "bottom":
 					movable.y = (verticalInside ? (static.y + static.height - movable.height) :  (static.y + static.height));
 					break;
-				
 			}
 			switch (hor)
 			{
@@ -182,10 +181,10 @@ package axl.utils
 		 * Container member can be any object which has x,y,width,height properites.
 		 * Container itself can be any vector, array or other enum, OR object with methods numChildren & getchildAt. 
 		 * Members are being distributed accodring to their indexes.
-		 * @cont - enum or DisplayObjectContainer
-		 * @gap - Number or enum of Numbers. If e.g. gap=[50,100]: m1-m2 gap:50, m2-m3g:100, m3-m4:50, etc.
+		 * @param cont - enum or DisplayObjectContainer
+		 * @param gap - Number or enum of Numbers. If e.g. gap=[50,100]: m1-m2 gap:50, m2-m3g:100, m3-m4:50, etc.
 		 * @param offset, member0 initial value.
-		 * @scaleGapAndOffset - more as a reminder here but fully working. It uses U.scalar value
+		 * @param scaleGapAndOffset - more as a reminder here but fully working. It uses U.scalar value
 		 * */
 		public static function distributePattern(cont:Object, gap:Object=0, horizontal:Boolean=true, 
 												 offset:Number=0, scaleGapAndOffset:Boolean=false):Number
@@ -252,7 +251,7 @@ package axl.utils
 		 * @param movable: object to resize (any type of object which consist properties of <code>width & height</code>)
 		 * @param static: object to fit <code>movable</code> into. static object wont be resized. (<b>any</b> type of object which 
 		 * consist properties of <code>width & height</code>)
-		 *  @param outsidefit: if <code>true</code> movable is <strong>inscribed</strong> into static. if <code>false</code> movable 
+		 * @param outsidefit: if <code>true</code> movable is <strong>inscribed</strong> into static. if <code>false</code> movable 
 		 * is <strong>circumscribed around</strong> static
 		 */
 		public static function resolveSize(movable:Object, static:Object,outsidefit:Boolean=false):void
@@ -286,12 +285,12 @@ package axl.utils
 			}
 		}
 		/**
-		 * Copies properties FROM RIGHT to LEFT if left has right property availavble
-		 * @param onlyProperies: allows to filter copying publicly available right fields. Copies only specified in array if both got them available
-		 * @param left: object to change
-		 * @param right: object to copy values from
+		 * Asigns properties FROM RIGHT to LEFT if left has right property availavble
+		 * @param onlyProperies: allows to filter asignment of publicly available right fields. Copies only specified in array if both got them available
+		 * @param left: object to change (target)
+		 * @param right: object to copy values from (source)
 		 */
-		public static function copyProperties(left:Object, right:Object, onlyProperties:Array=null):void
+		public static function asignProperties(left:Object, right:Object, onlyProperties:Array=null):void
 		{
 			if((left == null) || right == null)
 				return;
@@ -311,17 +310,6 @@ package axl.utils
 					if(left.hasOwnProperty(s))
 						left[s] = right[s];
 		}
-		
-		/** Reads structure of nested arrays vectors and objects and returns it as a well formated string*/
-		public static function structureToString(input:Object, deep:String=''):String
-		{
-			var output:String='';
-			if(input == null) return 'null\n';
-			output +=  input.toString() + '\n';
-			for(var p:String in input)
-				output +=  deep + '\t' + p +' : ' + structureToString(input[p], deep + '\t');
-			return output;
-		}	
 		
 		/** Draws any flash.display.DisplayObject to BitmapData*/
 		public static function getBitmapData(source:Object):BitmapData
@@ -354,7 +342,6 @@ package axl.utils
 		public static function getBitmapSlice(source:IBitmapDrawable, clip:Object):Bitmap {
 			return new Bitmap(getBitmaDatapSlice(source, clip));
 		}
-		
 		
 		/** Displays or hides flash stage splash if both splash and stage are instantiated.
 		 *  Messages are being displayed underneath splash*/
@@ -398,7 +385,7 @@ package axl.utils
 		 * Instantiates whole app and runs the flow if supplied. If you're using Starling, 
 		 * you probably want to use <code>S.init</code> instead - don't call both as S.init already does call this one.<br><br>
 		 * In your project root class call e.g. <code>U.init(this,1024,768)</code> to take advantage of automatization.
-		 * If you do not call init, following elements will have to been set up manually in order to be able to use of it:
+		 * If you do not call init, following elements would have to be set up manually in order to be able to use of it:
 		 * <ul>
 		 * <li><code>AO.stage</code> - animation engine motor</li>
 		 * <li><code>U.REC.setTo</code> - as it will remain 0,0,1,1</li>
@@ -406,9 +393,9 @@ package axl.utils
 		 * and following elements will still remain unavailable:
 		 * <ul>
 		 * <li>all scalar^ values</li> - used in some geometric functions of this class.
-		 * <li><code>U.splash</code> won't work
-		 * <li><code>Flow.progressBar</code></li> won't be displayed
-		 * <li><code>U.msg</code> as well as <code>Messages.msg</code></li> semi-interactive ui pop-ups
+		 * <li><code>U.splash</code>
+		 * <li><code>Flow.progressBar</code></li>
+		 * <li><code>U.msg</code> as well as <code>Messages.msg</code></li>
 		 * </ul>
 		 * @param rootInstance: your main flash display class instance. In your top display class use <code>this</code> keyword
 		 * @param designedForWid/Hei - these compared to the actual stage dimensions are used to calculate scalar^ values.
@@ -436,14 +423,13 @@ package axl.utils
 			
 			function stageAvailable(event:Event=null):void
 			{
-				log('--STAGE CREATED--', flashRoot.stage.align, flashRoot.stage.scaleMode);
+				log('[U] stage available');
 				if(flashRoot.hasEventListener(Event.ADDED_TO_STAGE))
 					flashRoot.removeEventListener(Event.ADDED_TO_STAGE, stageAvailable);
 				uSTG = flashRoot.stage;
 				STG.addEventListener(Event.RESIZE, setGeometry);
 				AO.stage = STG;
 				setStageProperties();
-				log('--STAGE CREATED--', flashRoot.stage.align, flashRoot.stage.scaleMode);
 				setGeometry();
 				if(bin != null) bin.resize(rec.width);
 				if(flow != null)
@@ -461,7 +447,6 @@ package axl.utils
 					flow.removeEventListener(Event.COMPLETE, flowComplete);
 				if(onReady is Function)
 					onReady();
-				trace(U.rec)
 			}
 		}
 	
