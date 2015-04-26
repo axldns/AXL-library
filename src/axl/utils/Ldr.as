@@ -18,8 +18,10 @@ import flash.system.Capabilities;
 import flash.system.ImageDecodingPolicy;
 import flash.system.LoaderContext;
 import flash.utils.ByteArray;
+import flash.utils.clearTimeout;
 import flash.utils.getDefinitionByName;
 import flash.utils.getTimer;
+import flash.utils.setTimeout;
 
 import axl.utils.Ldr;
 
@@ -82,8 +84,6 @@ internal class Req extends EventDispatcher {
 	private var storeFilter:Function;
 	private var storePrefix:String;
 	
-	private var listeners:Array;
-	
 	public var urlRequest:URLRequest;
 	public var urlLoader:URLLoader;
 	public var loaderInfo:LoaderInfo;
@@ -95,21 +95,24 @@ internal class Req extends EventDispatcher {
 	public var isLoading:Boolean;
 	private var isPaused:Boolean;
 	
-	private var timer:int;
+	public var timeOut:int = 5000;
+	private var requestTimeOutID:int;
+	
+	private var benchmarkTimer:int;
 	private var loadFilter:Function;
 	
 	private var _context:LoaderContext;
 		
 	private var eventComplete:Event = new Event(Event.COMPLETE);
 	private var eventProgress:Event = new Event(Event.CHANGE);
+	private var eventCancel:Event = new Event(Event.CANCEL);
 	public var id:Number;
 	
 	public function Req()
 	{
 		urlLoader = new URLLoader();
 		urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
-		listeners = [urlLoader, onError, onError, onHttpResponseStatus, onLoadProgress, onUrlLoaderComplete];
-		addListeners.apply(null, listeners);
+		addListeners();
 		urlRequest = new URLRequest();
 	}
 	public function destroy():void
@@ -117,14 +120,10 @@ internal class Req extends EventDispatcher {
 		currentQueueDone();
 		isLoading = false;
 		isPaused = false;
-		if(listeners.length > 0)
-		{
-			removeListeners.apply(null, listeners);
-			listeners.length = 0;
-		}
+		if(urlLoader != null)
+			removeListeners();
 		urlLoader = null;
 		urlRequest = null;
-		listeners = null;
 		loaderInfo = null;
 		_context = null;
 		eventComplete = eventProgress = null;
@@ -300,7 +299,7 @@ internal class Req extends EventDispatcher {
 	{
 		numCurrentSkipped++;
 		_numAllSkipped++;
-		log("[Ldr][Queue]["+filename+"] SKIPPED:("+ String(getTimer()- timer)+"ms):");
+		log("[Ldr][Queue]["+filename+"] SKIPPED:("+ String(getTimer()- benchmarkTimer)+"ms):");
 		element_complete();
 	}
 	
@@ -308,7 +307,7 @@ internal class Req extends EventDispatcher {
 	{
 		numCurrentLoaded++;
 		_numAllLoaded++;
-		log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- timer)+"ms):", urlRequest.url);
+		log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- benchmarkTimer)+"ms):", urlRequest.url);
 		element_complete();
 	}
 	
@@ -332,7 +331,7 @@ internal class Req extends EventDispatcher {
 			return finalize();
 		if(!isLoading || isPaused)
 			return
-		timer = flash.utils.getTimer();
+		benchmarkTimer = getTimer();
 		prefix = validatedPrefix;
 		subpath = pathList.pop();
 		
@@ -349,8 +348,19 @@ internal class Req extends EventDispatcher {
 		
 		//setup loaders and load
 		urlRequest.url = concatenatedPath;
-		log("[Ldr][Queue]["+filename+"] loading:("+ String(getTimer()- timer)+'ms):', urlRequest.url);
+		log("[Ldr][Queue]["+filename+"] loading:("+ String(getTimer()- benchmarkTimer)+'ms):', urlRequest.url);
+		this.requestTimeOutID = setTimeout(requestTimePassed, this.timeOut);
 		urlLoader.load(urlRequest);
+	}
+	
+	private function requestTimePassed():void
+	{
+		log("[Ldr][RequestTimeout]", concatenatedPath);
+		if(urlLoader)
+		{
+			urlLoader.close();
+			urlLoader.dispatchEvent(eventCancel);
+		}
 	}
 	
 	public function saveIfRequested(data:ByteArray, savingPath:String, validateSameDirs:Boolean=true):void
@@ -390,10 +400,9 @@ internal class Req extends EventDispatcher {
 	{
 		isLoading = false;
 		isPaused = false;
-		removeListeners.apply(null, listeners);
+		removeListeners()
 		urlLoader = null;
 		urlRequest = null;
-		listeners.length = 0;
 		this.dispatchEvent(eventComplete);
 	}
 	
@@ -401,9 +410,21 @@ internal class Req extends EventDispatcher {
 	
 	private function onError(e:Event):void
 	{
-		log("[Ldr][Queue]["+filename+"] url error:("+ String(getTimer()- timer)+"ms):", e);
+		log("[Ldr][Queue]["+filename+"][Error]:("+ String(getTimer()- benchmarkTimer)+"ms):", e);
+		clearTimeout(this.requestTimeOutID);
 		bothLoadersComplete(null);
 	}
+	protected function onCancel(e:Event):void
+	{
+		clearTimeout(this.requestTimeOutID);
+		onError(e);
+	}
+	
+	protected function onOpen(event:Event):void
+	{
+		clearTimeout(this.requestTimeOutID);
+	}
+	
 	private function onLoadProgress(e:ProgressEvent):void
 	{
 		if(e.bytesTotal > 0)
@@ -423,7 +444,7 @@ internal class Req extends EventDispatcher {
 	
 	private function onUrlLoaderComplete(e:Object):void
 	{
-		log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- timer)+"ms)");
+		log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- benchmarkTimer)+"ms)");
 		var bytes:ByteArray = urlLoader.data;
 		if(bytes) saveIfRequested(bytes, originalPath);
 		else return bothLoadersComplete(null);
@@ -486,7 +507,7 @@ internal class Req extends EventDispatcher {
 		{
 			pathList.push(originalPath);
 			log("[Ldr][Queue]["+filename+"] soft fail:", url, 
-				'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- timer)+"ms):", validatedPrefix);
+				'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- benchmarkTimer)+"ms):", validatedPrefix);
 			nextElement();
 		}
 		else if(asset != null) element_loaded();
@@ -528,7 +549,7 @@ internal class Req extends EventDispatcher {
 		if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
 		{ 
 			// workaround for inconsistency in traversing up directories on windows. 
-			// FP takes working dir, AIR doesn't. There are also isssues with
+			// FP takes working dir, AIR doesn't.
 			var cp:String = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix; 
 			try {
 				var f:Object = new FileClass(cp) ;
@@ -632,27 +653,27 @@ internal class Req extends EventDispatcher {
 		return null;
 	}
 	
-	private function addListeners(urlLoader:URLLoader, onIoError:Function, onSecurityError:Function, 
-										 onHttpResponseStatus:Function, onLoadProgress:Function, onUrlLoaderComplete:Function):void
+	private function addListeners():void
 	{
-		urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
-		urlLoader.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onSecurityError);
+		urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onError);
+		urlLoader.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onError);
 		urlLoader.addEventListener(HTTPStatusEvent.HTTP_STATUS, onHttpResponseStatus);
+		urlLoader.addEventListener(Event.CANCEL, onCancel);
+		urlLoader.addEventListener(Event.OPEN, onOpen);
 		urlLoader.addEventListener(Event.COMPLETE, onUrlLoaderComplete);
 		if(onProgress is Function)
 			urlLoader.addEventListener(ProgressEvent.PROGRESS, onLoadProgress);
 	}
-	private  function removeListeners(urlLoader:URLLoader, onIoError:Function, onSecurityError:Function, 
-											onHttpResponseStatus:Function, onLoadProgress:Function, onUrlLoaderComplete:Function):void
+	
+	private  function removeListeners():void
 	{
-		urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onIoError);
-		urlLoader.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, onSecurityError);
+		urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onError);
+		urlLoader.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, onError);
 		urlLoader.removeEventListener(HTTPStatusEvent.HTTP_STATUS, onHttpResponseStatus);
 		urlLoader.removeEventListener(Event.COMPLETE, onUrlLoaderComplete);
 		if(urlLoader.hasEventListener(ProgressEvent.PROGRESS))
 			urlLoader.removeEventListener(ProgressEvent.PROGRESS, onLoadProgress);
 	}
-	
 	
 	private function get context():LoaderContext
 	{
@@ -663,12 +684,12 @@ internal class Req extends EventDispatcher {
 		return _context;
 	}
 }
-internal class Behaviours 
+internal class Behaviors 
 {
 	public const loadOverwrite:int=0;
 	public const loadSkip:int=1;
 	public const downloadOnly:int=2;
-	public function Behaviours(){}
+	public function Behaviors(){}
 }
 package  axl.utils
 {
@@ -727,7 +748,7 @@ package  axl.utils
 		private static var _verbose:Function;
 		public static const defaultValue:String = ":default";
 		
-		public static const behaviours:Behaviours = new Behaviours();
+		public static const behaviours:Behaviors = new Behaviors();
 		private static var objects:Object = {};
 		private static var loaders:Object = {};
 		private static var requests:Vector.<Req> = new Vector.<Req>();
@@ -765,6 +786,11 @@ package  axl.utils
 		 *	@default Ldr.behaviours.loadSkip
 		 *  @see Ldr#load*/
 		public static var defaultLoadBehavior:Object = Ldr.behaviours.loadSkip;
+		
+		/***Defines default value if <code>timeOutMS</code> argument of method <code>Ldr.load</code> is ommited.
+		 *	@default 5000
+		 *  @see Ldr#load*/
+		public static var defaultTimeout:int = 5000;
 		
 		/** <code>true</code>: If element's subpath matches <code>/^(http:|https:|ftp:|ftps:)/i</code>
 		 * Ldr will try to load subpath only.
@@ -904,7 +930,8 @@ package  axl.utils
 		/**
 		 * Loads all elements/files one by one from array of paths, subpaths or single url.
 		 * Checks for alternative directories, stores loaded files to directories (AIR only).
-		 * It does not allow to load same asset twice. Use <code>Ldr.unload</code> to remove previously loaded files.
+		 * It controlls loading same asset twice. Use <code>Ldr.unload</code> to
+		 * remove previously loaded and instantiated files.
 		 *
 		 * @param resources : Basic types: <code>String, File, XML, XMLList</code> 
 		 * or collections: <code>Array, Vector</code> of basic types. 
@@ -1003,17 +1030,21 @@ package  axl.utils
 		 * 	<li><code>String</code> tries to resolve path
 		 * 	<li><code>File</code> tries to resolve path
 		 * 	<li><code>null</code> and/or other incorrect values - disables storing</li>
-		 * </ul>
+		 * </ul> 
+		 * @param timeOutMS: Defines time (ms) after which particular element request will move to the next
+		 * path prefix (if specifed) or to the next element in queue IF server does not response at all.
+		 * If your server is down, response may not come immediately but after browser defined timeout or (AIR) urlRequest.idleTimeout value.
+		 * Use this parameter to shorten your response awaiting time. This limits OPEN time, not loading time.
 		 * 
 		 * @return 
 		 * <ul>
 		 * <li><code>-2</code> if there are no resources specified and no queues to start</li>
 		 * <li><code>-1</code> if there are no resources specified and queue is already started</li>
-		 * <li><code><i>ID</i></code> of the queue started or queued along with other queues</li></ul>*/
+		 * <li><code><i>ID</i></code> of the queue</li></ul>*/
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
 												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
 												 loadBehavior:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue,
-												 storeDirectory:Object=Ldr.defaultValue):int
+												 storeDirectory:Object=Ldr.defaultValue, timeOutMS:int=0):int
 		{
 			log("[Ldr] request load.");
 			var req:Req;
@@ -1043,12 +1074,13 @@ package  axl.utils
 				
 				req.addPaths(resources);
 				req.addPrefixes((pathPrefixes == Ldr.defaultValue ? Ldr.defaultPathPrefixes : pathPrefixes));
+				req.timeOut = (timeOutMS > 0) ? timeOutMS : defaultTimeout;
 			if(!IS_LOADING)
 			{
 				IS_LOADING = true;
 				U.log("[Ldr][LISTENERS ADD]");
-				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
-				req.addEventListener(flash.events.Event.CHANGE, progressHandler);
+				req.addEventListener(Event.COMPLETE, completeHandler);
+				req.addEventListener(Event.CHANGE, progressHandler);
 				req.load();
 			}
 			return req.id;
@@ -1069,21 +1101,21 @@ package  axl.utils
 		private static function reqComplete(req:Req, dispatchComplete:Boolean=true):void
 		{
 			var st:String = state;
-			var rComplete:Function = req.onComplete;
 			var index:int = requests.indexOf(req);
 			if(index > -1)
 				requests.splice(index,1);
-			req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
-			req.removeEventListener(flash.events.Event.CHANGE, progressHandler);
+			req.removeEventListener(Event.COMPLETE, completeHandler);
+			req.removeEventListener(Event.CHANGE, progressHandler);
+			if(dispatchComplete && (req.onComplete != null))
+				req.onComplete();
 			req.destroy();
-			
 			IS_LOADING = (numQueues > 0);
 			if(IS_LOADING)
 			{
 				log("[Ldr] current queue finished with state:");//, st, '\ntimer:', getTimer()-startTime, 'ms');
 				req = requests[0];
-				req.addEventListener(flash.events.Event.COMPLETE, completeHandler);
-				req.addEventListener(flash.events.Event.CHANGE, progressHandler);
+				req.addEventListener(Event.COMPLETE, completeHandler);
+				req.addEventListener(Event.CHANGE, progressHandler);
 				req.load();
 			}
 			else
@@ -1092,9 +1124,7 @@ package  axl.utils
 				req = null;
 				log("[Ldr] all queues finished. state:", st);//, '\ntimer:', getTimer()-startTime, 'ms');
 			}
-			if(dispatchComplete && (rComplete is Function))
-				rComplete();
-			rComplete=null;
+			
 			st = null;
 		}
 		
@@ -1141,7 +1171,7 @@ package  axl.utils
 				if(qi > 0)
 				{
 					req = requests[qi];
-					req.removeEventListener(flash.events.Event.COMPLETE, completeHandler);
+					req.removeEventListener(Event.COMPLETE, completeHandler);
 					req.destroy();
 					req.currentQueueDone();
 					requests.splice(qi,1);
