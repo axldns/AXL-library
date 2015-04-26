@@ -86,11 +86,12 @@ package axl.utils
 		 * as loading process usues <code>Ldr.defaultPathPrefixes</code> and behaviors.*/
 		public function get configPath():String	{ return uconfigPath }
 		public function set configPath(value:String):void { uconfigPath = value }
-
+		private var flowName:String;
 		public function start():void
 		{
 			mobileflow = Ldr.fileInterfaceAvailable;
 			webflow = !mobileflow;
+			U.log('[Flow][Start][' + webflow ? 'web]' : 'mobile]');
 			defaultFlow();
 		}
 		/** this represents main flow in a nutshell. 
@@ -126,7 +127,10 @@ package axl.utils
 			}
 		}
 		
-		protected function loadConfig():void { 	Ldr.load(configPath, configLoaded)	}
+		protected function loadConfig():void { 	
+			U.log('[Flow][ConfigLoad]');
+			Ldr.load(configPath, configLoaded)	
+		}
 		
 		protected function configLoaded():void
 		{
@@ -134,6 +138,7 @@ package axl.utils
 				afterConfigLoaded();
 			else 
 			{
+				U.log('[Flow][BREAK] config not loaded');
 				Messages.msg("Can't load config file :( Tap to try againg", loadConfig);
 				this.dispatchEvent(errorCoruptedConfig);
 			}
@@ -141,6 +146,7 @@ package axl.utils
 		
 		protected function afterConfigLoaded():void
 		{
+			U.log('[Flow][configLoaded]');
 			if(webflow) 
 				return loadFiles();
 			else if(mobileflow)
@@ -154,7 +160,7 @@ package axl.utils
 		
 		protected function performUpdateRequest():void
 		{
-			U.log('[Flow][performUpdateRequest]');
+			U.log('[Flow][UpdateRequest]');
 			php = new ConnectPHP('update');
 			php.sendData(updateRequestObjectFactory(), onUpdateReceived, appRemoteGateway);
 		}
@@ -194,7 +200,7 @@ package axl.utils
 					loadFiles();
 			}
 		}
-		
+
 		protected function configUpdated():void
 		{
 			U.log('[Flow][configUpdateReceived]');
@@ -290,11 +296,12 @@ package axl.utils
 			U.log('[Flow][FilesLoaded]:',Ldr.numAllQueued + '/' + Ldr.numAllLoaded);
 			var notLoaded:int = Ldr.numCurrentSkipped - updateFiles.length;
 			if(notLoaded > 0)
-			{
-				U.log("[Flow] WARNING: " + Ldr.numCurrentSkipped + " file(s) not loaded!");
+			{ 
+				U.log("[Flow][BREAK]: " + Ldr.numCurrentSkipped + " file(s) not loaded!");
 				this.dispatchEvent(errorFilesLoading); 
+			} else {
+				setTimeout(complete, 100);
 			}
-			setTimeout(complete, 100);
 		}
 		
 		protected function complete():void
@@ -306,6 +313,7 @@ package axl.utils
 		
 		public function destroy():void
 		{
+			U.log('[Flow][Destroy]');
 			errorFilesLoading = errorCoruptedConfig = null;
 			files = null;
 			filesToLoad = null;
