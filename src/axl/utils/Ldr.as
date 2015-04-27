@@ -787,11 +787,6 @@ package  axl.utils
 		 *  @see Ldr#load*/
 		public static var defaultLoadBehavior:Object = Ldr.behaviours.loadSkip;
 		
-		/***Defines default value if <code>timeOutMS</code> argument of method <code>Ldr.load</code> is ommited.
-		 *	@default 5000
-		 *  @see Ldr#load*/
-		public static var defaultTimeout:int = 5000;
-		
 		/** <code>true</code>: If element's subpath matches <code>/^(http:|https:|ftp:|ftps:)/i</code>
 		 * Ldr will try to load subpath only.
 		 * <br><code>false</code>: regular Behavior where url = prefix[i] + subpath[j]
@@ -1074,7 +1069,7 @@ package  axl.utils
 				
 				req.addPaths(resources);
 				req.addPrefixes((pathPrefixes == Ldr.defaultValue ? Ldr.defaultPathPrefixes : pathPrefixes));
-				req.timeOut = (timeOutMS > 0) ? timeOutMS : defaultTimeout;
+				req.timeOut = (timeOutMS > 0) ? timeOutMS : NetworkSettings.defaultTimeout;
 			if(!IS_LOADING)
 			{
 				IS_LOADING = true;

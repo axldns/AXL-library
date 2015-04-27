@@ -12,19 +12,17 @@ package axl.utils
 
 	public class Flow extends EventDispatcher
 	{
+
 		private var uUpdateRequestObjectFactory:Function;
-		private var uAppRemoteGateway:String;
-		private var uconfigPath:String;
 		
-		public var appRemoteRoot:String;
 		/** <code>Ldr.load</code> first argument: string, file, XML, XMLList or Arrays or Vectors of these. 
 		 * @see axl.utls.Ldr#load*/
 		public var filesToLoad:Object;
-		
 		public var onAllDone:Function;
 		
+		private var flowName:String;
 		private var progBar:IprogBar;
-		private var configDefinedFiles:XML;
+		private var configDefinedFiles:Object;
 		private var webflow:Boolean;
 		private var mobileflow:Boolean;
 		private var files:Array = [];
@@ -33,22 +31,16 @@ package axl.utils
 		private var php:ConnectPHP;
 		private var errorCoruptedConfig:ErrorEvent = new ErrorEvent(ErrorEvent.ERROR,false,false, "Corupted or missing config file",1);
 		private var errorFilesLoading:ErrorEvent = new ErrorEvent(ErrorEvent.ERROR,false,true, "Not all files loaded",2);
+		private var configToLoad:String;
+		private var updateRequest:Function;
 		
+		/** If your app loads config and/or files and/or makes update requests,
+		 * then setup your Network Settings Class first */
 		public function Flow()
 		{
+			configToLoad = NetworkSettings.configPath;
+			updateRequest = NetworkSettings.filesUpdateRequestObjectFactory;
 		}
-		
-		/** (AIR) When config is loaded, flow can check for updates by sending post request to <code>appRemoteGateway
-		 * </code> using <code>ConnectPHP.sendData</code> method. This function should return data argument (POST content).
-		 * Returned object will be JSON.stringify and POST as 'update' variable. Response will be parsed, looking for json string.
-		 * If response contains variable <code>files</code>, these files will be attempted to download and overwrite
-		 * existing ones along with loading remaining. If no function is set, no launch update check will be mande.
-		 * @see configPath
-		 * @see Ldr#load
-		 * @see ConnectPHP
-		 * <br>*/
-		public function get updateRequestObjectFactory():Function { return uUpdateRequestObjectFactory }
-		public function set updateRequestObjectFactory(value:Function):void	{ uUpdateRequestObjectFactory = value }
 		
 		/** can be set any time. if its loading at the moment and its' displayObject,
 		 * it will get added to stage straight away */
@@ -64,29 +56,6 @@ package axl.utils
 				U.STG.addChild(progressBar as DisplayObject);
 		}
 		
-		/** Default address for <code>ConnectPHP</code> class. Auto-update from config */
-		public function get appRemoteGateway():String { return uAppRemoteGateway }
-		public function set appRemoteGateway(value:String):void
-		{
-			uAppRemoteGateway = value;
-			ConnectPHP.defaultAddress = uAppRemoteGateway
-		}
-		/** If config path is set, there will be an attempt to load it and parse config as 
-		 * a first flows asynchronous operation, before file loading. <br>Aside from fact,
-		 * that loaded config will be available as <code>U.CONFIG</code>, parsing config reads
-		 * five main properties: 
-		 * <ul>
-		 * <li><code>files</code> - files specified in config will be added to flow load list.
-		 * <li><code>date</code> - indicates when config/files has been updated last time. This 
-		 * <li><code>gatway</code> - updates remote gateway address - updates default ConnectPHP address</li>
-		 * <li><code>remote</code> - updates remote app address used mostly for Ldr & ConnectPHP</li>
-		 * value will be updated and config will get re-saved on disc (air) if flow's update point is there.
-		 * If it's not set, flow goes to next step which is files loading.
-		 * it should be either full path or (preferable) sub-path similar to <code>/assets/config.cfg</code>
-		 * as loading process usues <code>Ldr.defaultPathPrefixes</code> and behaviors.*/
-		public function get configPath():String	{ return uconfigPath }
-		public function set configPath(value:String):void { uconfigPath = value }
-		private var flowName:String;
 		public function start():void
 		{
 			mobileflow = Ldr.fileInterfaceAvailable;
@@ -102,7 +71,7 @@ package axl.utils
 		{
 			setDefaultLoadingPaths();
 			
-			if(configPath != null)
+			if(configToLoad != null)
 				loadConfig();
 			else
 				if(filesToLoad != null)
@@ -115,21 +84,27 @@ package axl.utils
 		{
 			if(webflow)
 			{
-				Ldr.defaultPathPrefixes[0] = appRemoteRoot;
-				Ldr.defaultPathPrefixes[1] = '';
+				Ldr.defaultPathPrefixes.push(NetworkSettings.appRemoteAddresses);
 			}
 			else if(mobileflow)
 			{
-				Ldr.defaultPathPrefixes[0] = Ldr.FileClass.applicationStorageDirectory;
-				Ldr.defaultPathPrefixes[1] = appRemoteRoot;
-				Ldr.defaultPathPrefixes[2] = Ldr.FileClass.applicationDirectory;
+				Ldr.defaultPathPrefixes.push( mobileLoadingOrder);
 				Ldr.defaultStoreDirectory = Ldr.FileClass.applicationStorageDirectory;
 			}
 		}
 		
+		protected function get mobileLoadingOrder():Array
+		{
+			return 	[
+				Ldr.FileClass.applicationStorageDirectory,
+				Ldr.FileClass.applicationStorageDirectory,
+				NetworkSettings.appRemoteAddresses,
+					];
+		}
+		
 		protected function loadConfig():void { 	
 			U.log('[Flow][ConfigLoad]');
-			Ldr.load(configPath, configLoaded)	
+			Ldr.load(configToLoad, configLoaded)	
 		}
 		
 		protected function configLoaded():void
@@ -151,8 +126,10 @@ package axl.utils
 				return loadFiles();
 			else if(mobileflow)
 			{
-				if(appRemoteGateway != null && updateRequestObjectFactory != null)
+				if(configToLoad != null && updateRequest != null)
+				{
 					performUpdateRequest();
+				}
 				else
 					loadFiles();
 			}
@@ -162,7 +139,7 @@ package axl.utils
 		{
 			U.log('[Flow][UpdateRequest]');
 			php = new ConnectPHP('update');
-			php.sendData(updateRequestObjectFactory(), onUpdateReceived, appRemoteGateway);
+			php.sendData(updateRequest(), onUpdateReceived);
 		}
 		
 		protected function onUpdateReceived(e:Object):void
@@ -178,7 +155,7 @@ package axl.utils
 				if(e.hasOwnProperty('files') && e.files is Array)
 				{
 					updateFiles = e.files;
-					var configIndex:int = e.files.indexOf(configPath);
+					var configIndex:int = e.files.indexOf(configToLoad);
 					if(configIndex > -1)
 					{
 						updateFiles.splice(configIndex, 1);
@@ -186,7 +163,8 @@ package axl.utils
 						// special flow - load config first, re-read it
 						// remove it from list, hen load other files
 						// it looks for new config only in appRemoteGateway
-						Ldr.load(configPath, configUpdated,null,null,appRemoteRoot,Ldr.behaviours.loadOverwrite);
+						Ldr.load(configToLoad, configUpdated,null,null,
+							NetworkSettings.appRemoteAddresses,Ldr.behaviours.loadOverwrite);
 					}
 					else
 					{
@@ -224,12 +202,12 @@ package axl.utils
 		 * <br>Regular files need to be loaded according to defaultPathPrefixes
 		 * <br>Both need to display progress and listen for global complete.
 		 * <br>This effectively makes two queues with both separate and global listeners.
-		 * <br>On complete of update queue, new config date need to be stored.
-		*/
+		 * <br>On complete of update queue, new config date need to be stored.*/
 		protected function mergeLoadings():void
 		{
 			U.log('[Flow][MergeLoad]');
-			var a:int = Ldr.load(updateFiles,null,validateUpdatedFiles,null, appRemoteRoot,Ldr.behaviours.loadOverwrite);
+			Ldr.load(updateFiles,null,validateUpdatedFiles,null, 
+				NetworkSettings.appRemoteAddresses,Ldr.behaviours.loadOverwrite);
 			loadFiles();
 		}
 		
@@ -239,21 +217,27 @@ package axl.utils
 			{
 				U.log("[Flow]UPDATE DONE! Skipped ?", Ldr.numCurrentSkipped, 'saving with date', appConfigDate);
 				U.log('state:', Ldr.state);
-				U.CONFIG.@date = appConfigDate;
-				Ldr.save(configPath, U.CONFIG);
+				U.CONFIG.date = appConfigDate;
+				Ldr.save(configToLoad, U.CONFIG);
 			}
 		}
-		
+		/** warining! this function can modify app server addresses */
 		protected function readConfig():Boolean
 		{
-			var cfg:XML = Ldr.getXML(configPath);
-			if(cfg is XML)
+			//either json or xml
+			var cfg:Object = Ldr.getAny(configToLoad);
+			if(cfg != null)
 			{
 				U.CONFIG = cfg;
 				if(cfg.remote != null)
-					appRemoteRoot = cfg.remote;
+				{
+					var newRemotes:Array = [];
+					for each (var o:Object in cfg.remote)
+						newRemotes.push(o);
+					NetworkSettings.appRemoteAddresses = newRemotes;
+				}
 				if(cfg.gateway != null)
-					appRemoteGateway = cfg.gateway;
+					NetworkSettings.gatewayPath = cfg.gateway;
 				if(cfg.files != null)
 					configDefinedFiles = cfg;
 				U.log('[Flow][configReaded]');

@@ -59,39 +59,22 @@ package axl.utils
 			clearStored();
 		}
 		
-		/**Default function to process input/response with <b>if</b> particular instance's <code>decrypyion</code>
-		 * property is not set.*/
-		public static var defaultEncryption:Function;
-		/**Default function to process output (json parsed string) with <b>if</b> particular instance's <code>encrypyion</code>
-		 * property is not set. Must return <code>String</code>.*/
-		public static var defaultDecryption:Function;
-		
-		/** Setup your API gateway address here. e.g.: <code>http://domain.com/gateway.php</code> for general requests.
-		 * Particular request can have different address - just pass it as an argument in <code>send^</code> methods. */
-		public static var defaultAddress:String;
-		
 		/** Long responses can eat your log output. Limit it to *any* int to output only first *any* chars of it @default 200*/
 		public static var limitLogResponeses:int = 200;
 		
-		/** Defines default number of miliseconds after which request is being canceled if no server response is there. 
-		 * <br>This does not apply to <code>sendRaw</code> method.
-		 * <br>After timeout<code>onComplete</code> is executed with Error of <code>errorID=10</code> as an argument. @default 10000*/
-		public static var defaultTimeout:int = 10000;
-		
-		
 		/** Function to process output (json parsed string) with. Must return <code>String</code>
-		 * If<code>null</code> then <code>defaultEncryption</code> will be used. If both are <code>null</code>
+		 * If<code>null</code> then <code>NetworkSettings.inputProcessor</code> will be used. If both are <code>null</code>
 		 * then plain jsoned string will be sent.<br><code>sendRaw</code> does not use encryption/decryption*/
 		public var encryption:Function;
 		/** Function to process input/response data with. </code>
-		 * If <code>null</code> then <code>defaultDecryption</code> will be used. If both are <code>null</code>
+		 * If <code>null</code> then <code>NetworkSettings.inputProcessor</code> will be used. If both are <code>null</code>
 		 * then plain response or JSON parsed plain response will be passed to <code>onComplete</code>
 		 * <br><code>sendRaw</code> does not use encryption/decryption*/
 		public var decryption:Function;
 		
 		/** Defines request specific number of miliseconds after which request is being canceled if no server response is there.
-		 * <br>This does not apply to <code>sendRaw</code> method.
-		 * <br>After timeout <code>onComplete</code> is executed with Error of <code>errorID=10</code> as an argument. @default 10000 */
+		 * <br>After timeout <code>onComplete</code> is executed with Error of <code>errorID=10</code> as an argument.<br>
+		 * This applies to OPEN time, not entire loading/sending process. @default NetworkSettings.defaultTimeout */
 		public var timeout:int;
 		private var requestTimeout:uint;
 		
@@ -141,7 +124,7 @@ package axl.utils
 		public function sendRaw(content:Object,onComplete:Function=null, GETParameters:Object=null,address:String=null):void
 		{
 			_onComplete = onComplete || _onComplete;
-			address = address || defaultAddress;
+			address = address || NetworkSettings.availableGatewayAddress();
 			
 			var parameters:String;
 			if(GETParameters)
@@ -176,16 +159,16 @@ package axl.utils
 		{	
 			_onComplete = onComplete || _onComplete;
 			_onProgress = onProgress || _onProgress;
-			encryption = encryption || defaultEncryption;
-			decryption = decryption || defaultDecryption;
-			address = address || defaultAddress;
-			timeout = timeout || defaultTimeout;
+			encryption = encryption || NetworkSettings.outputProcessor;
+			decryption = decryption || NetworkSettings.inputProcessor;
+			address = address || NetworkSettings.availableGatewayAddress();
+			timeout = timeout || NetworkSettings.defaultTimeout;
 			
 			urlreq.method = URLRequestMethod.POST;
 			loader.dataFormat = URLLoaderDataFormat.TEXT;
 	
 			var jsoned:String = JSON.stringify(urlVarObject);
-			var encrypted:String = (encryption is Function) ? encryption(jsoned) : jsoned; 
+			var encrypted:String = (encryption != null) ? encryption(jsoned) : jsoned; 
 				storeObject = { 
 				v : requestVariable, 
 				a : address, 
@@ -358,10 +341,22 @@ package axl.utils
 			onError(new Error("TIMEOUT- no response in " + timeout + 'ms',10));
 		}
 		
+		private function openHandler():void	{ clearTimeout(requestTimeout) }
 		private function onError(e:Error):void
 		{
 			U.log("[PHP][Error]",e);
-			completeHandler(e);
+			clearTimeout(requestTimeout);
+			var alternativeAddress:String = NetworkSettings.availableGatewayAddress(true);
+			if(alternativeAddress != null)
+			{
+				if(currentObject.t>0)
+					requestTimeout = setTimeout(timeoutPassed, currentObject.t);
+				urlreq.url = alternativeAddress;
+				U.log("[PHP][Send]>>>>>>>>>>",urlreq.url, '[timeout:', currentObject.t + 'ms]\n'+currentObject.c);
+				send();
+			} else {
+				completeHandler(e);
+			}
 		}
 		private function securityErrorHandler(e:SecurityErrorEvent):void { onError(new Error(e,11)) }
 		private function ioErrorHandler(e:IOErrorEvent):void { onError(new Error(e,11)) }
@@ -376,14 +371,17 @@ package axl.utils
 		private function addListeners(dispatcher:IEventDispatcher):void 
 		{
 			dispatcher.addEventListener(Event.COMPLETE, completeHandler);
+			dispatcher.addEventListener(Event.OPEN, openHandler);
 			dispatcher.addEventListener(ProgressEvent.PROGRESS, progressHandler);
 			dispatcher.addEventListener(HTTPStatusEvent.HTTP_STATUS, httpStatusHandler);
 			dispatcher.addEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
 			dispatcher.addEventListener(IOErrorEvent.IO_ERROR, ioErrorHandler);
 		}
+		
 		private function removeListeners(dispatcher:IEventDispatcher):void
 		{
 			dispatcher.removeEventListener(Event.COMPLETE, completeHandler);
+			dispatcher.removeEventListener(Event.OPEN, openHandler);
 			dispatcher.removeEventListener(ProgressEvent.PROGRESS, progressHandler);
 			dispatcher.removeEventListener(HTTPStatusEvent.HTTP_STATUS, httpStatusHandler);
 			dispatcher.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
