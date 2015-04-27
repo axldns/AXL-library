@@ -60,7 +60,7 @@ package axl.utils
 		{
 			mobileflow = Ldr.fileInterfaceAvailable;
 			webflow = !mobileflow;
-			U.log('[Flow][Start][' + webflow ? 'web]' : 'mobile]');
+			U.log('[Flow][Start]' + (webflow? '[WEB]' : '[MOBILE]'));
 			defaultFlow();
 		}
 		/** this represents main flow in a nutshell. 
@@ -97,7 +97,7 @@ package axl.utils
 		{
 			return 	[
 				Ldr.FileClass.applicationStorageDirectory,
-				Ldr.FileClass.applicationStorageDirectory,
+				Ldr.FileClass.applicationDirectory,
 				NetworkSettings.appRemoteAddresses,
 					];
 		}
