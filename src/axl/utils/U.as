@@ -50,10 +50,10 @@ package axl.utils
 		private static var uSplash:DisplayObject;
 		
 		private static var ubin:BinAgent;
-		private static var uconfig:XML;
+		private static var uconfig:Object;
 		
-		public static function get CONFIG():XML { return uconfig }
-		public static function set CONFIG(v:XML):void { uconfig = v}
+		public static function get CONFIG():Object { return uconfig }
+		public static function set CONFIG(v:Object):void { uconfig = v}
 		
 		/*** returns bin agent reference. Read BinAgent class description to see what it does */
 		public static function get bin():BinAgent{ return ubin	}
