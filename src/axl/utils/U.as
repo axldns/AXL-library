@@ -16,7 +16,7 @@ package axl.utils
 	import flash.geom.Matrix;
 	import flash.geom.Rectangle;
 	import flash.system.Capabilities;
-	
+	import axl.utils.binAgent.BinAgent;
 	import axl.ui.Messages;
 	/**
 	 * Geometric utilty, handy tool, stage setter, quick refference. 
