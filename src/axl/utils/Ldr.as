@@ -496,7 +496,7 @@ internal class Req extends EventDispatcher {
 	
 	private function bothLoadersComplete(asset:Object):void
 	{
-		objects[filename] = asset;
+		
 		var url:String = urlRequest.url;
 		if(loaderInfo)
 		{
@@ -510,7 +510,11 @@ internal class Req extends EventDispatcher {
 				'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- benchmarkTimer)+"ms):", validatedPrefix);
 			nextElement();
 		}
-		else if(asset != null) element_loaded();
+		else if(asset != null)
+		{
+			objects[filename] = asset;
+			element_loaded();
+		}
 		else element_skipped();
 	}
 	
