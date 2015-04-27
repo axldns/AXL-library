@@ -20,8 +20,13 @@
 	
 	/**
 	 * <h3>Console window for flash</h3>
-	 * Use it to interact with your live compiled app elements or to debug your software easily. 
-	 * It can read basic actionscript syntax. Understands references, assignments, mathematical operations basic types. All live but buggy in some areas (Boolean)
+	 * Two main purposes of using it:
+	 * <ol><li>Routing your trace to the window which can be open non-programatically</li>
+	 * <li>Execution of basic code at runtime (eval style)</li></ol>
+	 * Interact with your live compiled app elements or to debug your software easily. 
+	 * It can read/execute basic actionscript syntax at run-time.
+	 * Understands references, assignments, mathematical operations basic types. 
+	 * All live but buggy in some areas (...arguments, Array's n element accessible as array.n )
 	 * Use it for trace outs wherever you can't see regular trace, or substitute regular trace call with it at all.
 	 * Use bin.pool to asign any object anywhere and debug it quickly
 	 * <h4>Non-programatic window opening/closing</h4>
@@ -33,7 +38,7 @@
 	 * <li>release your pointer less than 30px from top</li>
 	 * <li>repeat points 1-3 four times.</li>
 	 * </ol>
-	 * Gesture is made hard on purpose (mobile devices usualy drops menu in this area) to
+	 * Gesture is made hard on purpose (mobile devices usualy drop menu in this area) to
 	 * avoid accidental opening if you decide to keep your bin in release version */
 	public class BinAgent extends Sprite
 	{
@@ -42,7 +47,7 @@
 		private var regScontext:RegExp= /(\A|[\(|\[|\{|\+|\,|\=])\s*".*?"\s*|\Z|[\+|\=|\.|\,|\)|\]|\}|;]/g;
 		private var regEdgeRight:RegExp = /\A\s*?([.,;:=}\+\)\]\|\&]|\Z)/;
 		private var regEdgeLeft:RegExp = /\.*(\A|\s|[.,;:=\+\|\(\{\[\&])\Z/;
-		private var regArgumentEquations:RegExp = /-=|[\|]{2}|[\d*[.]{0,1}\d]|[\+|\*|\/|<|>|\|=|\!]={0,2}|¬|[\&]{2}/g;///[\d*[.]{0,1}\d]|[+|\-|*|\/|==|<|>]/g;
+		private var regArgumentEquations:RegExp = /-=|[\|]{2}|[\d*[.]{0,1}\d]|[\+|\*|\/|<|>|\|=|\!]={0,2}|¬|[\&]{2}/g;
 		private var hierarchy:Array = [['*','/','*=','/=','!'],['+','-','+=','-='],['<','<=','>','>=','==','===','!=', '!==', S_IS], ['||','&&'],['=']]
 		private var asignments:Array=['=','+=','-=','*=','/='];
 		private var hdict:Object = {};
@@ -51,14 +56,15 @@
 		private var S_IS:String = '¬';
 		private var S_BRACKETS:String = '©';
 		private var S_STRINGS:String = 'µ';
+		private var S_NULL:String = "•";
 		// internall
 		private var stg:Stage;
 		private var rootObj:DisplayObject;
 		private var _pool:Object = {};
 		//window
-		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 14, 0xaaaaaa);//, null, null, null, null, null, null, null, null, null, -1);
-		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0x333333);//, null, null, null, null, null, null, null, null, null, -1);
-		private var consoleOutput_TextFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0xFFDE9D);//, null, null, null, null, null, null, null, null, null, -1);
+		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 14, 0xaaaaaa);
+		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0x333333);
+		private var consoleOutput_TextFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0xFFDE9D);
 		private var console:TextField;
 		private var input:TextField;
 		private var cslider:Sprite;
@@ -66,8 +72,7 @@
 		private var pastIndex:int;
 		private var sliderIsDown:Boolean;
 		//gesture opening
-		private var nonKarea:Rectangle= new Rectangle(0,0,100,30);
-		private var nonKlmitHor:int = 30;
+		private var nonKarea:Rectangle= new Rectangle(30,0,100,30);
 		private var gestureRepetitions:int = 0;
 		private var nonRepsIndicator:int = 4;
 		// public api vars
@@ -168,7 +173,7 @@
 		
 		protected function stageMouseDown(e:MouseEvent):void
 		{
-			if((e.stageY > nonKarea.height) || (e.stageX  > (nonKarea.x + nonKlmitHor)))
+			if((e.stageY > nonKarea.height) || (e.stageX  > nonKarea.x))
 				gestureRepetitions = 0;
 		}
 		
@@ -191,7 +196,7 @@
 			}
 			if(allowGestureOpen)
 			{
-				if((e.stageY > nonKarea.height) || (e.stageX < (nonKarea.width + nonKlmitHor)))
+				if((e.stageY > nonKarea.height) || (e.stageX < (nonKarea.x + nonKarea.width)))
 					gestureRepetitions = 0;
 				else if(++gestureRepetitions > nonRepsIndicator-1)
 					openClose();
@@ -341,7 +346,6 @@
 			if(s==null)
 				return "ERROR: Unpaired brackets";
 			//trace('brackets hashed, STATE:\n' + s);
-			//trace('------------------------------------------------------------------------');
 			var RESULT:Object = loopStructure(s,0);
 			//trace("RESULT", RESULT);
 			return RESULT;
@@ -429,7 +433,7 @@
 			if(!s)
 				return null;
 			var ARGUMENTS:Array = PARSE_ARGUMENTS(s.split(','), DEEP);
-			//trace(DEEP, "ARGUMENTS DONE", ARGUMENTS);
+			trace(DEEP, "ARGUMENTS DONE", ARGUMENTS);
 			return ARGUMENTS;
 		}
 		
@@ -440,12 +444,16 @@
 			for(var i:int = 0; i < ARGUMENTS.length;i++)
 			{
 				var arg:String = ARGUMENTS[i];
-				//trace('\t---------- ARGUMENT', i+1,'/',ARGUMENTS.length, '-----(,)-----:\t',arg);
-				var helper:Array = argumentReadyTypeCheck(arg, DEEP);
-				if(helper)
+				trace('\t---------- ARGUMENT', i,'/',ARGUMENTS.length, '-----(,)-----:\t',arg);
+				var helper:* = argumentReadyTypeCheck(arg, DEEP);
+				trace("MY HELPER", helper);
+				if(helper != null)
 				{
-					ARESULT[i] = helper.pop();
-					//trace('argument is ready type', ARESULT[i]);
+					if(helper is String && (helper == S_NULL))
+						ARESULT[i] = null;
+					else
+						ARESULT[i] = helper;
+					trace('argument is ready type', ARESULT[i]);
 				}
 				else
 					ARESULT[i] = PARSE_ARGUMENT_ELEMENTS(arg,DEEP);
@@ -453,8 +461,23 @@
 			return ARESULT;
 		}
 		
-		private function argumentReadyTypeCheck(arg:String, DEEP:int):Array
+		private function argumentReadyTypeCheck(arg:String, DEEP:int):*
 		{
+			trace('argumentReadyTypeCheck', arg);
+			if(!isNaN(Number(arg)))
+				return Number(arg)//, trace('skip due to numeric');
+			else if(arg == 'true' || arg == 'false')
+				return (arg == 'true')//, trace('skip due to boolean');
+			else if(arg == 'null')
+				return S_NULL;// trace('skip due to null');
+			else if(arg == 'this')
+				return this// trace('skip due to null');
+			else return findRootBit(arg,DEEP);
+		}
+		
+		private function argumentReadyTypeCheckOld(arg:String, DEEP:int):Array
+		{
+			trace('argumentReadyTypeCheck', arg);
 			if(!isNaN(Number(arg)))
 				return [Number(arg)]//, trace('skip due to numeric');
 			else if(arg == 'true' || arg == 'false')
@@ -464,13 +487,13 @@
 			else if(arg == 'this')
 				return [this]// trace('skip due to null');
 			else if(arg.replace(/(\w|\d|\$)+/g, "").length == 0)
-				return [findRootBit(arg,DEEP)]// trace('skip due to whole-word case');
+				return [findRootBit(arg,DEEP)]
 			return null;
 		}
 		
 		private function PARSE_ARGUMENT_ELEMENTS(arg:String, DEEP:int):Object
 		{
-			//trace(DEEP, ' - PARSE_ARGUMENT_ELEMENTS', arg)
+			trace(DEEP, ' - PARSE_ARGUMENT_ELEMENTS', arg)
 			// /[\|]{2}|[\d*[.]{0,1}\d]|[\+|\-|\*|\/|<|>|\|=|\!]={0,2}|¬|[\&]{2}/g;
 			var operations:Array = arg.match(regArgumentEquations);
 			var ELEMENTS:Array = arg.split(regArgumentEquations);
@@ -484,9 +507,8 @@
 			var helper:Array;
 			for( e=0; e < ELEMENTS.length; e++)
 			{
-				//trace('\t\t---------- ELEMENT', e+1,'/',ELEMENTS.length, '----------:\t', ELEMENTS[e]);
+				trace('\t---------- ELEMENT', e+1,'/',ELEMENTS.length, '----------:\t', ELEMENTS[e]);
 				el = ELEMENTS[e];
-				//trace('-el', el);
 				if(!isNaN(Number(el))){
 					ELEMENTS[e] = [Number(el)];// trace('skip due to numeric case'); | array because of ghost access
 					GHOSTS[e] = [Number(el)];
@@ -515,32 +537,40 @@
 		
 		private function PARSE_BIT_PATHS(argumentElement:String, DEEP:int):Array
 		{
-			//trace('PARSE_BIT_PATHS', argumentElement);
+			trace('PARSE_BIT_PATHS', argumentElement);//(axl.utils.U).REC
 			var result:Array = [];
-			var BITS:Array = argumentElement.split(/[\.©]/g);
+			var BITS:Array = argumentElement.split(/[\.]/g);
+			//var BITS:Array = argumentElement.split(/[\.©]/g);
 			removeEmptyStrings(BITS);
 			var GHOSTS:Array = BITS.concat();
 			var bit:Object;
 			var lastObject:Object;
 			var curObject:Object;
+			var hashedS:Number;
+			var hashedO:Number;
+			var bitfound:Boolean;
 			for(var i:int = 0; i < BITS.length; i++)
 			{
-				//trace('\t\t\t---------- BIT', i,'/',BITS.length-1, '----------:\t', BITS[i]);
+				trace('\t\t---------- BIT', i,'/',BITS.length-1, '----------:\t', BITS[i]);
 				bit = BITS[i];
+				hashedO = bit.replace(/\©/g, "");
+				hashedS = bit.replace(/\µ/g, "");
+				bitfound = (!isNaN(hashedS) || !isNaN(hashedO));
 				//trace('!isNaN(bit.replace(S_STRINGS, "") test', bit.replace(/\µ/g, ""), 'isnan?', isNaN( bit.replace(/\µ/g, "")));
-				if(!isNaN(Number(bit)))
+				if(!isNaN(hashedO))
 				{
-					bit = revHash(Number(bit), lastObject);
-					//trace("REVERSED", bit, 'is array?', bit is Array);
+					bit = revHash(hashedO, lastObject);
+					trace("REVERSED", bit, 'is array?', bit is Array);
 				}
-				else if(!isNaN(bit.replace(/\µ/g, "")))
+				else if(!isNaN(hashedS))
 				{
-					//trace('hash brackets restore');
-					bit = HASH_STRINGS[Number(bit.replace(/\µ/g, ""))];
+					trace('hash brackets restore');
+					bit = HASH_STRINGS[int(hashedS)];
 				}
+				trace(">>AFTER HASH CHECK res", result, result.length);
 				if(result.length > 0) // root already there
 				{
-					//trace(i,'=bit=', bit, 'while last obj', lastObject, 'bit is array', bit is Array)
+					trace(i,'=bit=', bit, 'while last obj', lastObject, 'bit is array', bit is Array)
 					try {
 						if(result[i-1] is Function)
 						{
@@ -549,11 +579,12 @@
 							else
 								result[i] = result[i-1].apply(null, bit is Array ? bit : [bit]);
 						}
-							
 						else
 						{
-							//trace('trying to get', bit, 'from', result[i-1], ' --->', result[i-1][bit]);
-							result[i] = result[i-1][bit is Array ? bit.pop() : bit] ;
+							trace('prev', result[i-1], desc(result[i-1]));
+							trace('\---asign prop', bit, desc(bit));
+							trace('trying to get', bit, 'from', result[i-1], ' --->', result[i-1][bit] );
+							result[i] = result[i-1][bit] ;
 						}
 						
 					}
@@ -561,15 +592,16 @@
 						//trace(e);
 						return [e] }
 				}
-				else{
-					//trace('crap root');
-					result[i]  = findRootBit(bit.toString(), DEEP);
-					//trace(i,"ROOT is", result[i]);
+				else
+				{
+					trace('crap root', result);
+					result[i] = bitfound ? bit : findRootBit(bit.toString(), DEEP);
+					trace(i,"ROOT is", result[i], (result[i] is Array) ? '(array)' : '(not an array)');
 				}
 				lastObject=result[i];
-				//trace("AXON ENDING", lastObject);
+				trace("----bit element ready: AXON ENDING", lastObject);
 			}
-			//trace('bit path merged', result);//
+			trace('bit path merged', result);//
 			return [GHOSTS, result];
 		}		
 		
@@ -679,7 +711,7 @@
 		
 		private function findRootBit(bit:String, DEEP:int):Object
 		{
-			//trace("FIND ROOT BIT", bit, 'bit is arr?', bit is Array);
+			trace("FIND ROOT BIT '", bit, "'bit is arr?", bit is Array);
 			var helper:Object;
 			if(bit == 'this')
 				return this;
@@ -696,13 +728,13 @@
 			}
 			else 
 			{
+				trace("trying class lookup");
 				// THIS WILL RETURN STRING IF IT"S NOT A CLASS
 				try { helper = getDefinitionByName(bit) }
-				catch(e:Error) { 
-					//trace("root is not a class");
-					return bit }
+				catch(e:Error) {}
+				trace("FOUND AS CLASS", helper);
+				return helper;//(helper != null ? [helper] : null);
 			}
-			return null;
 		}
 		
 		private function revHash(indx:int, caller:Object=null, DEEP:int=0):Object
@@ -798,7 +830,7 @@
 				var s:String=(d+o.toString());
 				var nc:int = o.hasOwnProperty(ncp) ?  o[ncp] : 0;
 				for(var i:int = 0; i < np; i++)
-						s += '|'+String((o.hasOwnProperty(p[i]) ?  o[p[i]] : ("?" +p[i] +"?")));
+						s += '|'+(o.hasOwnProperty(p[i]) ?  o[p[i]] : ("?" +p[i] +"?").toString());
 				for(i=0;i<nc;i++)
 					s += String(n+t+recurse(o[gcap](i),p,d+t));
 				return s;
