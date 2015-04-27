@@ -42,7 +42,7 @@ package axl.utils.binAgent
 		public var regularTraceToo:Boolean = true;
 		
 		//gesture opening
-		private var nonKarea:Rectangle= new Rectangle(30,0,100,30);
+		private var nonKarea:Rectangle= new Rectangle(60,0,100,60);
 		private var gestureRepetitions:int = 0;
 		private var nonRepsIndicator:int = 4;
 		
