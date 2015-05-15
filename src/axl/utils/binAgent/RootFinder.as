@@ -638,7 +638,7 @@ package axl.utils.binAgent
 			return (chunk.length > 0) ? chunk : null;
 		}
 		
-		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):*
+		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):Object
 		{
 			trace('[*]readyTypeCheck[*]', arg);
 			if(!isNaN(Number(arg))) return Number(arg)
@@ -658,6 +658,7 @@ package axl.utils.binAgent
 					try { help = userRoot[arg] } catch (e:*) {}
 					return help;
 				}
+				else return null;
 			}
 		}
 		
