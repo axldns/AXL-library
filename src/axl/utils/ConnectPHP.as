@@ -16,7 +16,8 @@ package axl.utils
 	import flash.utils.setTimeout;
 	
 	/**
-	 * Quick and light class to communicate with your backend/server. 
+	 * Quick and light class to communicate with your backend/server.
+	 * It takes care of all event listeners and error handling allowing you to focus only on callbacks.
 	 * For most of the cases all you need is to use <code>sendData</code> method and <code>destroy</code> once you're done.
 	 * <br><br>It also provides extra options like controlled order of requests (queue) and storing unsent requests on disc,
 	 * but make sure you're understand its behaviour first (especially callbacks executions), 
@@ -146,8 +147,9 @@ package axl.utils
 		}
 		
 		/** Sends POST request to <code>defaultAddress</code> or <code>address</code>.
-		 * @param urlVarObject - object will be <code>JSON.stringify</code>, processed with <code>encryption</code> if specified
-		 * and sent to <code>address</code> as <code>variable</code> specified in constructor.
+		 * @param urlVarObject - if null - request  will be of GET type,
+		 * else object will be <code>JSON.stringify</code>, processed with <code>encryption</code> if specified
+		 * and sent to <code>address</code> as <code>variable</code> specified in constructor (POST)
 		 * @param onComplete - function to execute once request is complete. 
 		 * Should accept one argument: loaded data <code>Object</code> (JSON strings are parsed autumatically) or <code>Error</code> 
 		 * if request was unsuccessful.
@@ -164,11 +166,19 @@ package axl.utils
 			address = address || NetworkSettings.availableGatewayAddress();
 			timeout = timeout || NetworkSettings.defaultTimeout;
 			
-			urlreq.method = URLRequestMethod.POST;
-			loader.dataFormat = URLLoaderDataFormat.TEXT;
-	
-			var jsoned:String = JSON.stringify(urlVarObject);
-			var encrypted:String = (encryption != null) ? encryption(jsoned) : jsoned; 
+			var jsoned:String;
+			var encrypted:String
+			if(urlVarObject != null)
+			{
+				urlreq.method = URLRequestMethod.POST;
+				loader.dataFormat = URLLoaderDataFormat.TEXT;
+				jsoned = JSON.stringify(urlVarObject);
+				encrypted = (encryption != null) ? encryption(jsoned) : jsoned; 
+			}
+			else
+			{
+				urlreq.method = URLRequestMethod.GET;
+			}
 				storeObject = { 
 				v : requestVariable, 
 				a : address, 
@@ -322,10 +332,14 @@ package axl.utils
 		// ------------------------------------------ REQUESTS COMMON ---------------------------------- //
 		private function sendCurrent():void
 		{
-			urlvars = new URLVariables();
-			urlvars[currentObject.v] = currentObject.c;
+			if(currentObject.c != null)
+			{
+				urlvars = new URLVariables();
+				urlvars[currentObject.v] = currentObject.c;
+				urlreq.data = urlvars;
+			}
+			
 			urlreq.url = currentObject.a;
-			urlreq.data = urlvars;
 			addListeners(loader);
 			if(currentObject.t>0)
 				requestTimeout = setTimeout(timeoutPassed, currentObject.t);
@@ -341,7 +355,7 @@ package axl.utils
 			onError(new Error("TIMEOUT- no response in " + timeout + 'ms',10));
 		}
 		
-		private function openHandler():void	{ clearTimeout(requestTimeout) }
+		private function openHandler(e:Event):void	{ clearTimeout(requestTimeout) }
 		private function onError(e:Error):void
 		{
 			U.log("[PHP][Error]",e);
