@@ -33,7 +33,6 @@ package axl.utils.binAgent
 		private var hashedCurl:Vector.<String> = new Vector.<String>();
 		private var numStrings:int=0;
 		//oper
-		private var careteIndex:int;
 		private var original:String;
 		private var current:Object;
 		public const errorUnmatchedString:Error = new Error("Unmatched String!",1);
@@ -47,6 +46,7 @@ package axl.utils.binAgent
 		private var binApi:Object;
 		public var currentResult:Object;
 		private var errorOperands:Error = new Error("Invalid logic operator");
+		private var consoleResult:Result = new Result();
 	
 		
 		public function get userInputRoot():Object {  return consoleRoot }
@@ -72,11 +72,10 @@ package axl.utils.binAgent
 			}
 		}
 	
-		public function find(text:String):Object
+		public function parseInput(text:String):Object
 		{
 			trace('---input:',text);
 			consoleRoot =userRoot;
-			original = text.substr();
 			hashedStrings.length= hashedSquares.length = hashedRounds.length = hashedCurl.length=  numStrings =0;
 			current = hashStrings(text);
 			trace('strings hashed:\n', current);
@@ -136,7 +135,6 @@ package axl.utils.binAgent
 			{
 				trace('  <not ready type. parsing Operations',arg);
 				help = parseOperations(arg);
-				//help = parseDots(arg.split('.'));
 			}
 			return help;
 		}
@@ -309,12 +307,10 @@ package axl.utils.binAgent
 					trace("ASIGNMENT TEXT", left.text);
 				}
 			}
-			
 			var help:*;			
 			trace('left				is 			', left, left is Result ? left.chain : '');
 			trace('math				is			', oper);
 			trace('right				is			', right, right is Result ? right.chain : '');
-			trace('all should be results apart from oper. never overwrite oper');
 			switch(oper)
 			{
 				case '!': rc[rci] = !rc[rci]; break;
@@ -347,8 +343,7 @@ package axl.utils.binAgent
 			{
 				if(liveElements.length > i +3)
 				{
-					var dd:Object = liveElements[i+2] as  String;
-					if(dd != null && dd == ':')
+					if(liveElements[i+2] == ':')
 					{
 						var rr:Result = liveElements[i+3] as Result;
 						if(rr != null)
@@ -368,7 +363,6 @@ package axl.utils.binAgent
 			
 			var mainWithHashes:Array = [];
 			var textual:Array = [];
-			var result:Array = [];
 			var chain:Array = [];
 			var mlen:int = main.length;
 			var mwhlen:int;
@@ -644,7 +638,7 @@ package axl.utils.binAgent
 			return (chunk.length > 0) ? chunk : null;
 		}
 		
-		private function readyTypeCheck(arg:String):*
+		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):*
 		{
 			trace('[*]readyTypeCheck[*]', arg);
 			if(!isNaN(Number(arg))) return Number(arg)
@@ -658,7 +652,7 @@ package axl.utils.binAgent
 				var help:*;
 				try { help = getDefinitionByName(arg) as Class} catch (e:*) {}
 				if(help is Class) return help as Class;
-				else
+				else if(tryUserRoot)
 				{
 					trace("TRYING USER ROOT PROPERTY", userRoot,'?', help);
 					try { help = userRoot[arg] } catch (e:*) {}
@@ -738,10 +732,55 @@ package axl.utils.binAgent
 			hashedStrings[numStrings++] = center;
 			return hashStrings(text);
 		}
+		
+		public function findCareteContext(text:String, caretIndex:int):Result
+		{
+			original = text.substr();
+			var cropped:String = text.substring(0, caretIndex);
+			//current = hashStrings(text);
+			var sreg:RegExp = /(\.|\".*\"|\'.*\'|,|\(|\)|\{|\{|\}|\[|\]|\s|\+|\-|\*|\/|\%|\=|\<|\>|\:|\||\&\&|\?|\:)/g;
+			var schars:Array= ['.', ',','+', '-', '*', '/', '%'];
+			var limiters:Array=  cropped.match(sreg);
+			var values:Array =cropped.split(sreg);
+			consoleResult.chain = [];
+			consoleResult.text = [];
+			trace("LIMITERS:", limiters);
+			trace("VALUES", values);
+			var numValues:int = values.length;
+			var help:*;
+			consoleResult.chain[0] = readyTypeCheck(values[0],false) || userRoot;
+			consoleResult.text[0] = values[0];
+			trace("SCOPE 0:", consoleResult.chain[0]);
+			for(var i:int = 1; i < numValues; i++)
+			{
+				switch(values[i])
+				{
+					case '.': 
+					case '(': continue;
+						break;
+				}
+				trace('trying to match', consoleResult.chain[consoleResult.chain.length-1], '>>>>>>>>> ['+ values[i] + ']'); 
+				try {help = consoleResult.chain[consoleResult.chain.length-1][values[i]] } catch (e:*) { help =e}
+				if(help is Error)
+				{
+					trace('error', help, 'unknown context');
+					//return null
+				}
+				else
+				{
+					consoleResult.chain.push(help);
+					consoleResult.text.push(values[i]);
+				}
+				trace('consoleResult.chain',  consoleResult.chain);
+				trace('consoleResult.text',  consoleResult.text);
+			}
+			return consoleResult;
+			
+		}
 	}
 }
 internal class Result { 
 	public var chain:Array;
 	public var text:Array;
-	public function Result(c:Array, t:Array) { chain = c, text = t }
+	public function Result(c:Array=null, t:Array=null) { chain = c, text = t }
 }

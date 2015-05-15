@@ -280,7 +280,6 @@ package axl.utils
 		private function setUp():void
 		{
 			//# U.log('[AO][setup]' + subject);
-			//common
 			prepareCommon();
 			if(incremental) prepareIncremental();
 			else prepareAbsolute();
@@ -297,7 +296,7 @@ package axl.utils
 			if(propEndValues) propEndValues.length = 0; else propEndValues = new Vector.<Number>();
 			if(propDifferences) propDifferences.length = 0; else propDifferences = new Vector.<Number>();
 			
-			numProperties  = duration = passedTotal = passedRelative = cur = 0;
+			numProperties = duration = passedTotal = passedRelative = cur = 0;
 			
 			props = uProps;
 			easing = uEasing || defaultEasing;
@@ -437,7 +436,6 @@ package axl.utils
 		{
 			for(var i:int=0;i<numProperties;i++)
 			{
-				//# U.log('r', subject[propNames[i]],propNames[i], ':', remains[i] * direction);
 				subject[propNames[i]] += remains[i] * direction;
 				remains[i] = propDifferences[i];
 			}
@@ -460,7 +458,7 @@ package axl.utils
 			//# U.log("------resolveContinuation----------");
 			if(yoyo)
 			{
-				if(direction > 0) // FIRST HALF  | > > > > > > > [HERE]|
+				if(direction > 0)
 					direction = -1;
 				else
 				{
@@ -537,7 +535,7 @@ package axl.utils
 			}
 		}
 		
-		// ---------------------------------- public instance API----------------------------------------------- //
+		// ---------------------------------- public instance API------------------------------------------ //
 		public function get isAnimating():Boolean { return isPlaying }
 		public function start():void
 		{
@@ -554,7 +552,7 @@ package axl.utils
 		public function resume():void { start() };
 		public function pause():void { removeFromPool() };
 		/** @param goToDirection: negative - start position, 0 - stays still, positive - end position */
-		public function stop(goToDirection:int, readNchanges:Boolean=false):void
+		public function stop(goToDirection:int=0, readNchanges:Boolean=false):void
 		{
 			//# U.log('[AO][Stop]'+subject);
 			removeFromPool();
@@ -654,7 +652,7 @@ package axl.utils
 											   easingType:Function=null, incremental:Boolean=false,frameBased:Boolean=true):AO
 		{
 			if(STG == null)
-				throw new Error("[AO]Stage not set up!");
+				throw new Error("[AO]Stage not set");
 			var ao:AO = new AO(subject, seconds, props);
 			ao.onComplete = onComplete || ao.onComplete;
 			ao.cycles = cycles;

@@ -4,9 +4,11 @@ package axl.utils.binAgent
 	import flash.display.Sprite;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
+	import flash.text.TextField;
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
+
 	public class BinAgent extends Console
 	{
 		private var tfSyntax:TextFormat = new TextFormat('Lucida Console', 15,0xff0000,true);
@@ -27,6 +29,7 @@ package axl.utils.binAgent
 		private var assist:Asist;
 		private var maxHints:int = 10;
 		private var prevText:String;
+		private var miniHint:TextField;
 		
 		public function BinAgent(rootObject:DisplayObject)
 		{
@@ -34,6 +37,7 @@ package axl.utils.binAgent
 			hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
 			hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);
 			userRoot = rootObject;
+			makeMiniHint();
 			super(rootObject);
 			this.addChild(hintContainer);
 			curRootProps = new Vector.<XMLList>();
@@ -44,9 +48,45 @@ package axl.utils.binAgent
 			rootFinder =new RootFinder(rootObject, this);
 			assist = new Asist();
 			curRoot = userRoot;
-			
 		}
 		
+		private function makeMiniHint():void
+		{
+			miniHint = new TextField();
+			miniHint.border = true;
+			miniHint.background = true;
+			miniHint.backgroundColor = 0xEECD8C;
+			miniHint.height = 17;
+			miniHint.selectable = false;
+			miniHint.mouseEnabled = false;
+			miniHint.tabEnabled = false;
+		}
+		
+		private function showMiniHint(v:XML, fname:String):void
+		{
+			trace("SHOWING MINIHINT\n" + v.toXMLString());	
+			
+			var adds:String  = fname + '(';
+			var params:XMLList = v.parameter;
+			for(var i:int = 0, l:int = params.length(); i < l; i++)
+			{
+				adds += String(params[i].@type) + ', ';
+				trace("ads", adds);
+			}
+			
+			adds = adds.substr(0,-2) + ')';
+			miniHint.text=  adds;
+			miniHint.width= miniHint.textWidth + 5;
+			miniHint.x = inputWidth - miniHint.width>>1;
+			if(!contains(miniHint))
+				addChild(miniHint);
+		}
+		
+		private function hideMinihint():void
+		{
+			if(this.contains(miniHint))
+				removeChild(miniHint);
+		}
 		protected function hintTouchMove(e:MouseEvent):void
 		{
 			if(numHints == 0 || !e.buttonDown) return;
@@ -93,6 +133,7 @@ package axl.utils.binAgent
 			Hint.hintWidth = inputWidth;
 			maxHints = Math.floor((console.height / Hint.hintHeight) *.75);
 			alignHints();
+			miniHint.y = input.y - miniHint.height;
 		}
 		
 		override protected function KEY_UP(e:KeyboardEvent):void
@@ -108,6 +149,7 @@ package axl.utils.binAgent
 					if(Hint.numHints > 0 && selectedHint != null) 
 						chooseHighlightedHint();
 					else super.enterConsoleText();
+					removeHints();
 					break;
 				case Keyboard.TAB:
 					if(Hint.numHints > 0) 
@@ -124,7 +166,7 @@ package axl.utils.binAgent
 		}
 		override protected function PARSE_INPUT(s:String):Object
 		{
-			return rootFinder.find(s);
+			return rootFinder.parseInput(s);
 		}
 		
 		private function chooseHighlightedHint():void
@@ -160,23 +202,39 @@ package axl.utils.binAgent
 		
 		protected function asYouType():void
 		{
+			//////// ---------------- prev ------------- /////////
 			if(selectedHint != null)
 				selectedHint.selected = false;
 			selectedHint = null;
 			var t:String = input.text;
 			//if(prevText == t) return;
 			var tl:int = t.length;
-			removeHints(); //this need to verify root change
+			removeHints();
 			numHints = 0;
-			if(tl < 1) return;
-			var newRoot:Object = findCurRoot();
+			//if(tl < 1) return;
 			trace('=========== as you type ===========');
-			trace("is it new root? c:", curRoot, 'n:', newRoot)
+			
+			///////// ------------- define -------------------- ///////
+			var result:Object = findCurRoot();
+			var chain:Array;
+			var textual:Array;
+			if(result == null || !result.hasOwnProperty('chain'))
+			{
+				trace("no root find", result);
+				return;
+			}
+			else
+			{
+				chain = result.chain;
+				textual = result.text;
+			}
+			var newRoot:Object = chain.pop();
+			var newName:String = textual.pop();
 			
 			curRootCarete = t.lastIndexOf('.', input.caretIndex);
 			if(curRootCarete < 0)
 				curRootCarete = 0;
-			if(newRoot != curRoot)
+			if(true || newRoot != curRoot)
 			{
 				trace('setting new root');
 				curRoot = newRoot;
@@ -185,11 +243,28 @@ package axl.utils.binAgent
 			if(input.caretIndex == 0)
 				curRoot = userRoot;
 			
+			
+			///////// ------------------ desc --------------------- ///////// 
 			t = t.substring(curRootCarete > 0 ? curRootCarete+1 : 0);
 			tl = t.length;
-			trace('### to match' , t, '('+tl+') for: ', curRoot);
 			//if(tl == 0) return;
 			rootDesc = describeType(curRoot);
+			//trace(rootDesc.toXMLString());
+			
+			if(curRoot is Function)
+			{
+				if(chain.length > 0)
+				{
+					showMiniHint(describeType(chain[chain.length - 1]).method.(@name == newName)[0], newName);
+				}
+				else
+				{
+					showMiniHint(rootDesc, newName);
+				}
+				
+			}
+			else
+				hideMinihint();
 			var additions:XMLList = assist.check(curRoot);
 			if(additions is XMLList)
 				for each (var x:XML in additions)
@@ -218,11 +293,7 @@ package axl.utils.binAgent
 		
 		private function findCurRoot():Object
 		{
-			var carete:int = input.caretIndex;
-			var result:* = rootFinder.find(input.text);
-			
-			trace("CONSOLE",  rootFinder.userInputRoot);
-			return rootFinder.userInputRoot;
+			return rootFinder.findCareteContext(input.text, input.caretIndex);
 		}
 	}
 }
