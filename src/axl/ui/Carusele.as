@@ -1,7 +1,5 @@
-package Utils
+﻿package axl.ui
 {	
-	
-
 	/**
 	 * [axldns free coding 2015]
 	 * 
@@ -12,6 +10,7 @@ package Utils
 	 */
 	
 	import flash.display.DisplayObject;
+	import flash.display.Shape;
 	import flash.display.Sprite;
 	
 	public class Carusele extends Sprite
@@ -34,7 +33,10 @@ package Utils
 		private var _sortEvery:Number=200;
 		private var _resetAxle:Boolean;
 		private var railPivot:Number;
+		private var roffset:Number;
 		
+		private var dbg:Shape;
+		private var radius:Number = 100;
 		public function Carusele()
 		{
 			super();
@@ -43,6 +45,26 @@ package Utils
 			rail = new Sprite();
 			this.addChild(rail);
 			this.isHORIZONTAL = false;
+			drawDebug();
+		}
+		
+		private function drawDebug():void
+		{
+			dbg = new Shape();
+			this.addChild(dbg);
+		}
+		
+		private function updateDebug():void
+		{
+			dbg.graphics.clear();
+			dbg.graphics.lineStyle(1, 0x00FF00);
+			dbg.graphics.drawRect(.5, .5, rail.width-1, rail.height-1);
+			dbg.graphics.moveTo(0,0);
+			dbg.graphics.lineTo(dbg.width, dbg.height);
+			dbg.graphics.moveTo(dbg.width, 0);
+			dbg.graphics.lineTo(0, dbg.height);
+			dbg.x = rail.x;
+			dbg.y = rail.y;
 		}
 		
 		public function set isHORIZONTAL(v:Boolean):void
@@ -64,8 +86,7 @@ package Utils
 		
 		private function resetAxle():void
 		{
-			trace('axle shot now', mod.a, 'is', rail[mod.a]);
-			trace('axle shot now', modA.a, 'is', rail[modA.a]);
+			
 			var sum:Number = 0;
 			// was x now is y
 			var offset:Number = rail[modA.a]; // prev x loc
@@ -77,7 +98,7 @@ package Utils
 				sum += lastChild[mod.d]+GAP;
 			}
 			rail[mod.a] = rail[modA.a]; //temporary as need to be seemles
-			rail[modA.a] = -rail[modA.d]>>1;
+			rail[modA.a] = -rail[modA.d]/2;
 			
 		}
 		
@@ -100,7 +121,7 @@ package Utils
 			if(!seemles)
 				rail[mod.a] -= lastChild[mod.d]>>1;
 			railDim = rail[mod.d];
-			railPivot = railDim>>1;
+			railPivot = railDim/2;
 		}
 		
 		public function removeFromRail(displayObject:DisplayObject):void
@@ -144,6 +165,8 @@ package Utils
 			{
 				// jest mniejsze niz max offset wiec tylko przesun calosc o delte
 				rail[mod.a] += delta; // that's it!
+				//updateDebug();
+				roffset = rail[mod.d]/2 + rail[mod.a];
 				return;
 			}
 			var firstChildIndex:int=0;		// if vector is positive first is 0 last is last. if Δ is negative - oposite
@@ -171,9 +194,11 @@ package Utils
 			//newV = rail[mod.a] + railPivot + delta; - disassembly now
 			rail[mod.a] = -railPivot + newV * shift;
 			rearange();
+			//updateDebug();
+			roffset = rail[mod.d]/2 + rail[mod.a];
 		}
+		
 		/**
-		 * 
 		 * rearranges rail children. use it after setting all properties, or changed axle of carusele
 		 */
 		public function rearange():void
@@ -194,10 +219,11 @@ package Utils
 		 */
 		public function getChildClosestToCenter():Array
 		{
-			var n:Number=0;
+			var n:Number=rail.getChildAt(0)[mod.a];
 			var an:Number=0;
 			var positive:Number = (rail[mod.a] > 0) ? 1 : -1;
-			var h:Number = rail[mod.p] + (positive? -rail[mod.a] : rail[mod.a]) ;
+			var h:Number = rail[mod.d]/2;
+				h +=  ((h + rail[mod.a]) * (positive ? -1 : 1));
 			
 			var i:int = 0;
 			while(n < h)
@@ -206,11 +232,11 @@ package Utils
 			firstChild = rail.getChildAt(i);
 			n += (firstChild[mod.a] * positive);
 			lastChild = rail.getChildAt(i-1);
-			an = h - lastChild[mod.a]  - (lastChild[mod.d]>>1);
+			an = h - lastChild[mod.a]  - (lastChild[mod.d]/2);
 			
 			return (Math.abs(an) < Math.abs(n)) ? [lastChild, an] : [firstChild, n];
 		}
-
+		
 		/**
 		 * Determines what offset is acceptable for <i>rail</i> to have 
 		 * before paralax check.
@@ -221,7 +247,6 @@ package Utils
 		public function set sortEvery(value:Number):void { _sortEvery = value }
 		
 		
-
 		public function clearRail():void
 		{
 			gap = 0;
