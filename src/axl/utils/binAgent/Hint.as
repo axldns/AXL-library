@@ -22,7 +22,7 @@ package axl.utils.binAgent
 			if(hWidth == v) return;
 			hWidth = v;
 			for(var i:int = nHints; i-->0;)
-				liveHints[i].setWidth(v);
+				liveHints[i].width = v;
 		}
 		public static function get hintHeight():Number { return hHeight }
 		public static function set hintHeight(v:Number):void
@@ -30,7 +30,7 @@ package axl.utils.binAgent
 			if(hHeight == v) return;
 			hHeight = v;
 			for(var i:int = nHints; i-->0;)
-				liveHints[i].setHeight(v);
+				liveHints[i].height = v;
 		}
 		public static function atIndex(v:int):Hint { return liveHints[v] }
 		public static function getHint(v:XML):Hint
@@ -61,7 +61,6 @@ package axl.utils.binAgent
 		private var isSelected:Boolean;
 		private var xdef:XML;
 		private var parameters:XMLList;
-		private var type:String;
 		private var hname:String;
 		private var htype:String;
 		private var hvalue:String;
