@@ -10,30 +10,69 @@ package axl.ui
 		public static var defaultOverValue:Object='.75';
 		public static var defaultUpValue:Object='1';
 		private var vProperty:String;
-		private var vUp:Object;
+		private var vIdle:Object;
 		private var vOver:Object;
 		private var isEnabled:Boolean;
+		private var texture:DisplayObject;
+
 		private var userClickHandler:Function;
 		
-		public function Buttonizer(upstate:DisplayObject, clickHandler:Function, property:String='default', valueUp:Object='default', valueOver:Object='default')
+		public function get enabled():Boolean {	return isEnabled }
+		public function set enabled(value:Boolean):void
 		{
-			
+			isEnabled = value;
+			if(isEnabled)
+			{
+				this.addEventListener(MouseEvent.CLICK, clickHandler);
+				this.addEventListener(MouseEvent.ROLL_OVER, onOver);
+				this.addEventListener(MouseEvent.ROLL_OUT, onOut);
+			}
+			else
+			{
+				this.removeEventListener(MouseEvent.CLICK, clickHandler);
+				this.removeEventListener(MouseEvent.ROLL_OVER, onOver);
+				this.removeEventListener(MouseEvent.ROLL_OUT, onOut);
+			}
+		}
+		
+		public function get upstate():DisplayObject { return texture }
+		public function set upstate(v:DisplayObject):void
+		{
+			if(texture != null && contains(texture) && texture != v)
+				this.removeChild(texture);
+			texture = v;
+			if(upstate !=null)
+				this.addChild(texture);
+		}
+		
+		public function Buttonizer(upstateChild:DisplayObject, clickHandler:Function, property:String='default', valueUp:Object='default', valueOver:Object='default')
+		{
 			if(property == 'default')
 				vProperty = defaultOverProperty;
 			if(valueUp == 'default')
-				vUp = defaultUpValue;
+				vIdle = defaultUpValue;
 			if(valueOver == 'default')
 				vOver = defaultOverValue;
 			userClickHandler = clickHandler;
-			this.addChild(upstate);
+			upstate = upstateChild;
 			this.buttonMode = true;
 			this.useHandCursor = true;
 			enabled = true;
 		}
 		
-		protected function onOut(e:MouseEvent):void{ this[vProperty] = vUp }
+		
+		public function set rollOverValue(v:Object):void { vOver = v }
+		public function get idleValue():Object { return vProperty }
+		public function set idleValue(v:Object):void { vIdle = v }
+		
+		public function get rollOverProperty():String {	return vProperty }
+		public function set rollOverProperty(value:String):void	{ vProperty = value }
+		public function get rollOverValue():Object { return vOver }
+		
+		
+		protected function onOut(e:MouseEvent):void{ this[vProperty] = vIdle }
 		protected function onOver(e:MouseEvent):void { this[vProperty] = vOver	}
-		protected function onClick(e:MouseEvent):void
+		protected function clickHandler(e:MouseEvent):void
 		{
 			if(userClickHandler != null) 
 			{
@@ -44,22 +83,8 @@ package axl.ui
 			}
 		}
 		
-		public function get enabled():Boolean {	return isEnabled }
-		public function set enabled(value:Boolean):void
-		{
-			isEnabled = value;
-			if(isEnabled)
-			{
-				this.addEventListener(MouseEvent.CLICK, onClick);
-				this.addEventListener(MouseEvent.ROLL_OVER, onOver);
-				this.addEventListener(MouseEvent.ROLL_OUT, onOut);
-			}
-			else
-			{
-				this.removeEventListener(MouseEvent.CLICK, onClick);
-				this.removeEventListener(MouseEvent.ROLL_OVER, onOver);
-				this.removeEventListener(MouseEvent.ROLL_OUT, onOut);
-			}
-		}
+		public function get onClick():Function { return userClickHandler }
+		public function set onClick(v:Function):void { userClickHandler = v	}
+		
 	}
 }
