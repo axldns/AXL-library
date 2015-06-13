@@ -3,6 +3,7 @@
  */
 package  axl.utils
 {
+	import flash.display.Bitmap;
 	import flash.display.Loader;
 	import flash.display.LoaderInfo;
 	import flash.events.Event;
@@ -516,6 +517,8 @@ package  axl.utils
 			}
 			else if(asset != null)
 			{
+				if(asset is Bitmap)
+					asset.smoothing = true;
 				objects[filename] = asset;
 				element_loaded();
 			}
