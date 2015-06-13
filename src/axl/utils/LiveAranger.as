@@ -165,8 +165,9 @@ package axl.utils
 		{
 			if(c)
 				trace('<' + c.toString(),'name="' + c.name + '" x="' + c.x + '" y="' + c.y 
-					+ '" width="' + c.width + '" height="' + c.height + '" />'
-					+ (c.hasOwnProperty('numChildren') ? "children:" + c['numChildren'] : ''));
+					+ '" width="' + c.width + '" height="' + c.height + '" scaleX="' + c.scaleX + '" scaleY="' + c.scaleY + '" />'
+					+ '\njson:' + '{"x":' + c.x + ',"y":' + c.y + ',"width":' + c.width + ',"height":' + c.height + ',"alpha":' 
+					+ c.alpha + ',"scaleX":' + c.scaleX + ',"scaleY":' + c.scaleY + '}');
 		}
 		
 		protected function md(e:MouseEvent):void
