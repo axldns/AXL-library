@@ -16,8 +16,9 @@ package axl.utils
 	import flash.geom.Matrix;
 	import flash.geom.Rectangle;
 	import flash.system.Capabilities;
-	import axl.utils.binAgent.BinAgent;
+	
 	import axl.ui.Messages;
+	import axl.utils.binAgent.BinAgent;
 	/**
 	 * Geometric utilty, handy tool, stage setter, quick refference. 
 	 */
@@ -30,6 +31,7 @@ package axl.utils
 		/**indicates if stage is in full screen interactive mode or not<br>
 		 * indicates if <code>U.REC</code> is based on <i>stage.fullScreen*W/H*</i> or <i>stage.stage*W/H*</i>
 		 * <br>According to on playerType.match: <i> /^(StandAlone|ActiveX|PlugIn)/i </i>*/
+		public static var onStageAvailable:Function;
 		public static function get ISWEB():Boolean { return isWeb }
 		private static var isWeb:Boolean = (Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i) != null);
 		
@@ -318,6 +320,14 @@ package axl.utils
 			bmd.draw(IBitmapDrawable(source));
 			return bmd;
 		}
+		
+		/** Draws any flash.display.DisplayObject to BitmapData*/
+		public static function getBitmap(source:Object):Bitmap
+		{
+			var bmd:BitmapData = new BitmapData(Math.ceil(source.width), Math.ceil(source.height), true, 0x00000000);
+			bmd.draw(IBitmapDrawable(source));
+			return new Bitmap(bmd, 'auto', true);;
+		}
 		/** Draws any flash.display.DisplayObject to BitmapData @param clip - limits source to
 		 * specific slice - any object that has x,y,width,height*/
 		public static function getBitmaDatapSlice(source:IBitmapDrawable, clip:Object):BitmapData
@@ -341,6 +351,26 @@ package axl.utils
 		 *  @param clip - limits source to  specific slice - any object that has x,y,width,height*/
 		public static function getBitmapSlice(source:IBitmapDrawable, clip:Object):Bitmap {
 			return new Bitmap(getBitmaDatapSlice(source, clip));
+		}
+		
+		/** Draws any flash.display.DisplayObject to BitmapData to fit specific area (toFit) and centers return bitmap within that area*/
+		public function getBitmapFit(source:DisplayObject, toFit:Object):Bitmap
+		{
+				var ascale:Number = 1;
+				var bitmap:Bitmap = new Bitmap(null,'auto',true);
+				var bMatrix:Matrix = new Matrix();
+				var skel:Rectangle = new Rectangle();
+				
+				skel.setTo(0,0,source.width, source.height);
+				resolveSize(source, toFit);
+				ascale = skel.width / source.width;
+				bMatrix.scale(ascale, ascale);
+				
+				bitmap.bitmapData = new BitmapData(source.width * ascale + 2, source.height * ascale + 2,true, 0x00000000);
+				bitmap.bitmapData.draw(source as DisplayObject,bMatrix,null,null,null,true);
+				bitmap.x =  toFit.width - bitmap.width >>1;
+				bitmap.y = toFit.height - bitmap.height >> 1;
+				return bitmap;
 		}
 		
 		/** Displays or hides flash stage splash if both splash and stage are instantiated.
@@ -380,6 +410,7 @@ package axl.utils
 			}
 			uSplash = v;
 		}
+		
 		
 		/**
 		 * Instantiates whole app and runs the flow if supplied. If you're using Starling, 
@@ -432,6 +463,8 @@ package axl.utils
 				setStageProperties();
 				setGeometry();
 				if(bin != null) bin.resize(rec.width);
+				if(onStageAvailable != null)
+					onStageAvailable();
 				if(flow != null)
 				{
 					flow.addEventListener(Event.COMPLETE, flowComplete);
