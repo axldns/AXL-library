@@ -3,7 +3,9 @@ package axl.utils
 {
 	import flash.display.Stage;
 	import flash.events.Event;
+	import flash.utils.clearTimeout;
 	import flash.utils.getTimer;
+	import flash.utils.setTimeout;
 
 	public class AO {
 		//general
@@ -64,6 +66,7 @@ package axl.utils
 		private var uProps:Object;
 		private var uSeconds:Number;
 		private var uEasing:Function = defaultEasing;
+		private var uDelay:Number;
 		
 		// live copy 
 		private var incremental:Boolean=false;
@@ -71,10 +74,13 @@ package axl.utils
 		private var precalculateFrameValues:Boolean;
 		private var props:Object;
 		private var easing:Function;
+		private var delayID:uint;
 		
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
 			//# U.log('[AO][destroy]'+ subject);
+			clearTimeout(delayID)
+			delayID = 0;
 			removeFromPool();
 			numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
 			propStartValues = propEndValues = propDifferences = remains =  prevs = null;
@@ -362,16 +368,28 @@ package axl.utils
 		public function get isAnimating():Boolean { return isPlaying }
 		public function start():void
 		{
-			//# U.log('[AO][Start]'+ subject);
+			if(!isSetup)
+				setUp();
+			if(delay > 0)
+				delayID = flash.utils.setTimeout(perform, delay * 1000);
+			else
+				perform();
+		}
+		
+		private function perform():void 
+		{ 
+			clearTimeout(delayID);
+			delayID = 0;
 			if(!isPlaying)
 			{
 				AO.animObjects[numObjects++] = this;
 				isPlaying = true;
 				if(onStart is Function) onStart.apply(null, onStartArgs);
-				if(!isSetup)
-					setUp();
 			}
 		}
+		
+		
+		
 		public function resume():void { start() };
 		public function pause():void { removeFromPool() };
 		/** @param goToDirection: negative - start position, 0 - stays still, positive - end position */
@@ -417,6 +435,9 @@ package axl.utils
 		
 		public function get nEasing():Function { return easing }
 		public function set nEasing(v:Function):void { uEasing = v }
+		
+		public function get delay():Number { return uDelay }
+		public function set delay(v:Number):void { uDelay = v }
 		
 		// -----------------------  PUBLIC STATIC ------------------- //
 		public static function get easing():Easings { return easings };
@@ -472,7 +493,7 @@ package axl.utils
 		}
 		
 		public static function animate(subject:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
-											   easingType:Function=null, incremental:Boolean=false,frameBased:Boolean=true):AO
+											   easingType:Object=null, incremental:Boolean=false,frameBased:Boolean=true):AO
 		{
 			if(STG == null)
 				throw new Error("[AO]Stage not set");
@@ -480,7 +501,7 @@ package axl.utils
 			ao.onComplete = onComplete || ao.onComplete;
 			ao.cycles = cycles;
 			ao.yoyo = yoyo;
-			ao.nEasing = easingType;
+			ao.nEasing = (easing.hasOwnProperty(easingType)) ?  easing[easingType] : easingType as Function ;
 			ao.nIncremental = incremental;
 			ao.nFrameBased = frameBased;
 			ao.start();
