@@ -49,14 +49,19 @@ package axl.ui
 				
 		private function redraw():void
 		{
-			bar.graphics.clear();
-			bar.graphics.beginFill(BAR_COLOR);
-			bar.graphics.drawRect(0,0,BAR_WIDTH,BAR_HEIGHT);
-			bar.scaleX = 0;
-			
-			frame.graphics.clear();
-			frame.graphics.lineStyle(FRAME_WID,FRAME_COLOR,1,true);
-			frame.graphics.drawRect(FRAME_WID/2,FRAME_WID/2, BAR_WIDTH-FRAME_WID, BAR_HEIGHT-FRAME_WID);
+			if(bar)
+			{
+				bar.graphics.clear();
+				bar.graphics.beginFill(BAR_COLOR);
+				bar.graphics.drawRect(0,0,BAR_WIDTH,BAR_HEIGHT);
+				bar.scaleX = 0;
+			}
+			if(frame)
+			{
+				frame.graphics.clear();
+				frame.graphics.lineStyle(FRAME_WID,FRAME_COLOR,1,true);
+				frame.graphics.drawRect(FRAME_WID/2,FRAME_WID/2, BAR_WIDTH-FRAME_WID, BAR_HEIGHT-FRAME_WID);
+			}
 		}
 
 		public function get BAR_COLOR():uint { return _BAR_COLOR }
