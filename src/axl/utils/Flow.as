@@ -19,6 +19,7 @@ package axl.utils
 		 * @see axl.utls.Ldr#load*/
 		public var filesToLoad:Object;
 		public var onAllDone:Function;
+		public var onConfigLoaded:Function;
 		
 		private var flowName:String;
 		private var progBar:IprogBar;
@@ -122,6 +123,8 @@ package axl.utils
 		protected function afterConfigLoaded():void
 		{
 			U.log('[Flow][configLoaded]');
+			if(onConfigLoaded != null)
+				onConfigLoaded()
 			if(webflow) 
 				return loadFiles();
 			else if(mobileflow)
@@ -240,7 +243,7 @@ package axl.utils
 					NetworkSettings.gatewayPath = cfg.gateway;
 				if(cfg.files != null)
 					configDefinedFiles = cfg;
-				U.log('[Flow][configReaded]');
+				U.log('[Flow][configReaded] version:', U.CONFIG.date);
 				setDefaultLoadingPaths();
 				return true;
 			}
