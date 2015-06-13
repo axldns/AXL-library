@@ -66,6 +66,7 @@ package  axl.utils
 		private static var objects:Object = {};
 		private static var loaders:Object = {};
 		private static var requests:Vector.<Req> = new Vector.<Req>();
+		public static var displayStateBreakDown:Boolean;
 		
 		Req.loaders = loaders;
 		Req.objects = objects;
@@ -193,6 +194,17 @@ package  axl.utils
 		/** @param v - name of Bitmap e.g. 'image.jpg' @return <code>Bitmap</code> 
 		 * or <code>null</code> if name doesn't match any loaded object */
 		public static function getBitmap(v:String):Bitmap { return getAny(v) as Bitmap }
+		
+		/** Use it when you're re-using bitmap. Unlike getBitmap - this creates
+		 * new object in memory(!), leaving original untouched. 
+		 * @param v - name of Bitmap e.g. 'image.jpg' @return <code>Bitmap</code> 
+		 * or <code>null</code> if name doesn't match any loaded object */
+		public static function getBitmapCopy(v:String):Bitmap { 
+			var b:Bitmap =  getAny(v) as Bitmap;
+			if(b != null)
+				return new Bitmap(b.bitmapData, 'auto', true)
+			return null;
+		}
 		
 		/** @param v - name of XML e.g. 'image.xml' @return <code>XML</code> 
 		 * or <code>null</code> if name doesn't match any loaded object */
@@ -519,6 +531,7 @@ package  axl.utils
 		/** returns info with counters of all queues and current queue */
 		public static function get state():String
 		{
+			if(!displayStateBreakDown) return '';
 			var s:String = String('-' + 
 			'\n isLoading:' + isLoading + 
 			'\n numQueues:' + numQueues + 
