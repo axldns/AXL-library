@@ -30,6 +30,7 @@ package axl.utils.binAgent
 		private var maxHints:int = 10;
 		private var prevText:String;
 		private var miniHint:TextField;
+		public var disableAsYouType:Boolean=true;
 		
 		public function BinAgent(rootObject:DisplayObject)
 		{
@@ -171,7 +172,6 @@ package axl.utils.binAgent
 		
 		private function chooseHighlightedHint():void
 		{
-			trace("SELECTING HIGH");
 			//input.text += selectedHint.text;
 			if(curRootCarete == 0)
 				input.text =selectedHint.text;
@@ -202,6 +202,8 @@ package axl.utils.binAgent
 		
 		protected function asYouType():void
 		{
+			if(disableAsYouType)
+				return
 			//////// ---------------- prev ------------- /////////
 			if(selectedHint != null)
 				selectedHint.selected = false;
@@ -212,7 +214,7 @@ package axl.utils.binAgent
 			removeHints();
 			numHints = 0;
 			//if(tl < 1) return;
-			trace('=========== as you type ===========');
+			//trace('=========== as you type ===========');
 			
 			///////// ------------- define -------------------- ///////
 			var result:Object = findCurRoot();
@@ -220,7 +222,7 @@ package axl.utils.binAgent
 			var textual:Array;
 			if(result == null || !result.hasOwnProperty('chain'))
 			{
-				trace("no root find", result);
+				//trace("no root find", result);
 				return;
 			}
 			else
@@ -236,10 +238,8 @@ package axl.utils.binAgent
 				curRootCarete = 0;
 			if(true || newRoot != curRoot)
 			{
-				trace('setting new root');
 				curRoot = newRoot;
 			}
-			trace('midle time root', curRoot);
 			if(input.caretIndex == 0)
 				curRoot = userRoot;
 			
