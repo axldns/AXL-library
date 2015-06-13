@@ -37,6 +37,8 @@
 		
 		private var dbg:Shape;
 		private var radius:Number = 100;
+		
+		public var debug:Boolean;
 		public function Carusele()
 		{
 			super();
@@ -45,17 +47,20 @@
 			rail = new Sprite();
 			this.addChild(rail);
 			this.isHORIZONTAL = false;
-			drawDebug();
 		}
 		
-		private function drawDebug():void
-		{
-			dbg = new Shape();
-			this.addChild(dbg);
-		}
-		
+		public function get numRailChildren():int {	return railNumChildren }
+		/** container where all rail elements are displayed. Improper use can cause unpredictable effects */
+		public function get railElementsContainer():Sprite { return rail }
+
 		private function updateDebug():void
 		{
+			if(!debug) return;
+			if(!dbg)
+			{
+				dbg = new Shape();
+				this.addChild(dbg);
+			}
 			dbg.graphics.clear();
 			dbg.graphics.lineStyle(1, 0x00FF00);
 			dbg.graphics.drawRect(.5, .5, rail.width-1, rail.height-1);
@@ -86,7 +91,6 @@
 		
 		private function resetAxle():void
 		{
-			
 			var sum:Number = 0;
 			// was x now is y
 			var offset:Number = rail[modA.a]; // prev x loc
@@ -99,7 +103,6 @@
 			}
 			rail[mod.a] = rail[modA.a]; //temporary as need to be seemles
 			rail[modA.a] = -rail[modA.d]/2;
-			
 		}
 		
 		public function get isHORIZONTAL():Boolean { return HOR }
@@ -122,6 +125,7 @@
 				rail[mod.a] -= lastChild[mod.d]>>1;
 			railDim = rail[mod.d];
 			railPivot = railDim/2;
+			movementBit(0);
 		}
 		
 		public function removeFromRail(displayObject:DisplayObject):void
@@ -165,7 +169,7 @@
 			{
 				// jest mniejsze niz max offset wiec tylko przesun calosc o delte
 				rail[mod.a] += delta; // that's it!
-				//updateDebug();
+				updateDebug();
 				roffset = rail[mod.d]/2 + rail[mod.a];
 				return;
 			}
@@ -194,7 +198,8 @@
 			//newV = rail[mod.a] + railPivot + delta; - disassembly now
 			rail[mod.a] = -railPivot + newV * shift;
 			rearange();
-			//updateDebug();
+			
+			updateDebug();
 			roffset = rail[mod.d]/2 + rail[mod.a];
 		}
 		
@@ -224,12 +229,13 @@
 			var positive:Number = (rail[mod.a] > 0) ? 1 : -1;
 			var h:Number = rail[mod.d]/2;
 				h +=  ((h + rail[mod.a]) * (positive ? -1 : 1));
-			
 			var i:int = 0;
-			while(n < h)
-				n = rail.getChildAt(++i)[mod.a];
+			while(n <= h)
+			{
+				firstChild = rail.getChildAt(++i);
+				n = firstChild[mod.a] + firstChild[mod.d]/2;
+			}
 			
-			firstChild = rail.getChildAt(i);
 			n += (firstChild[mod.a] * positive);
 			lastChild = rail.getChildAt(i-1);
 			an = h - lastChild[mod.a]  - (lastChild[mod.d]/2);
@@ -245,7 +251,6 @@
 		 */
 		public function get sortEvery():Number { return _sortEvery }
 		public function set sortEvery(value:Number):void { _sortEvery = value }
-		
 		
 		public function clearRail():void
 		{
