@@ -10,6 +10,7 @@ package axl.ui.controllers
 	import flash.events.MouseEvent;
 	import flash.geom.Point;
 	import flash.geom.Rectangle;
+	
 	import axl.utils.U;
 	
 	public class BoundBox  extends EventDispatcher
@@ -115,12 +116,16 @@ package axl.ui.controllers
 		
 		private function updateFrames():void
 		{
-			rmovable.setTo(bx.x, bx.y, bx.width, bx.height);
-			rstatic.setTo(bnd.x, bnd.y, bnd.width, bnd.height);
+			if(bx != null)
+				rmovable.setTo(bx.x, bx.y, bx.width, bx.height);
+			if(bnd != null)
+				rstatic.setTo(bnd.x, bnd.y, bnd.width, bnd.height);
 		}
 	
 		private function validateAndUpdate(a:String):void
 		{
+			if(box == null)
+				throw new Error("Undefined box - can't move anything");
 			calculateMinMax(mods[a]);
 			if(rmovable[a] < min[a])
 				rmovable[a] = min[a];
@@ -196,6 +201,8 @@ package axl.ui.controllers
 				behIdx[axle] = i;
 			mmax[axle] = mapf[behIdx[axle]];
 		}
+		
+		// -------------------------------- PUBLIC API ---------------------------------- //
 		
 		/** object which limits area where <code>box</code> can be moved around according to <code>horizontalBehavior</code> 
 		 * and <code>verticalBehavior</code> rules. @see #horizontalBehavior @see #verticalBehavior @see #box */
@@ -277,5 +284,9 @@ package axl.ui.controllers
 		/** maximum y value which box can take to follow <code>verticalBehavior</code> defined rule</code> @see #verticalBehavior */
 		public function get maxY():Number { return max.y };
 		
+		public function dispatchChange():void
+		{
+			this.dispatchEvent(eventChange);
+		}
 	}
 }
