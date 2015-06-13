@@ -16,8 +16,7 @@ package axl.utils
 	import flash.utils.setTimeout;
 	
 	/**
-	 * Quick and light class to communicate with your backend/server.
-	 * It takes care of all event listeners and error handling allowing you to focus only on callbacks.
+	 * Quick and light class to communicate with your backend/server. 
 	 * For most of the cases all you need is to use <code>sendData</code> method and <code>destroy</code> once you're done.
 	 * <br><br>It also provides extra options like controlled order of requests (queue) and storing unsent requests on disc,
 	 * but make sure you're understand its behaviour first (especially callbacks executions), 
@@ -40,6 +39,7 @@ package axl.utils
 		private var _onProgress:Function;
 		private var currentObject:Object;
 		private var storeObject:Object;
+		private var httpStatus:int;
 		
 		/** Clears currently queued elements @see #queueMember @see #storeUnsent */
 		public static function clearQueue():void { queue.length = 0 }
@@ -147,9 +147,8 @@ package axl.utils
 		}
 		
 		/** Sends POST request to <code>defaultAddress</code> or <code>address</code>.
-		 * @param urlVarObject - if null - request  will be of GET type,
-		 * else object will be <code>JSON.stringify</code>, processed with <code>encryption</code> if specified
-		 * and sent to <code>address</code> as <code>variable</code> specified in constructor (POST)
+		 * @param urlVarObject - object will be <code>JSON.stringify</code>, processed with <code>encryption</code> if specified
+		 * and sent to <code>address</code> as <code>variable</code> specified in constructor.
 		 * @param onComplete - function to execute once request is complete. 
 		 * Should accept one argument: loaded data <code>Object</code> (JSON strings are parsed autumatically) or <code>Error</code> 
 		 * if request was unsuccessful.
@@ -203,6 +202,36 @@ package axl.utils
 			}
 		}
 		
+		public function sendFromPredefined(uloader:URLLoader, ureq:URLRequest, onComplete:Function, onProgress:Function=null):void
+		{
+			
+			this.loader = uloader;
+			this.urlreq = ureq;
+			
+			_onComplete = onComplete || _onComplete;
+			_onProgress = onProgress || _onProgress;
+			encryption = encryption || NetworkSettings.outputProcessor;
+			decryption = decryption || NetworkSettings.inputProcessor;
+			timeout = timeout || NetworkSettings.defaultTimeout;
+			
+			storeObject = { 
+				v : null, 
+				a : urlreq.url, 
+				c : urlreq.data, 
+				t : timeout, 
+				oc : _onComplete, 
+				op : _onProgress,
+				s : false 
+			};
+			
+			currentObject = storeObject;	
+			addListeners(loader);
+			if(timeout>0)
+				requestTimeout = setTimeout(timeoutPassed, timeout);
+			U.log("[PHP][Send]>>>>>>>>>>",uloader, '[timeout:', timeout + 'ms]\n');
+			send();
+		}
+		
 		private function completeHandler(e:Object):void 
 		{
 			U.log("[PHP][Complete]<<<<<<<<< response",urlreq.url);
@@ -227,7 +256,7 @@ package axl.utils
 			if(i>-1||j>-1)
 				jsonIndex = (i>-1&&i<j) ? i : j;
 			U.log("[PHP][Complete]decrypted:\n", decrypted.substr(0, limitLogResponeses) 
-				+ (decrypted.length > limitLogResponeses ? '[...]' : ''),'jsonIndex:', jsonIndex, i,j );
+				+ (decrypted.length > limitLogResponeses ? '[...]' : ''),'jsonIndex:', jsonIndex);
 			if(jsonIndex < 0)
 			{
 				if(currentObject.oc is Function)
@@ -235,14 +264,16 @@ package axl.utils
 			}
 			else	
 			{
+				U.log('[PHP][Complete]type recognition: JSON');
 				try { unjsoned = JSON.parse(decrypted.substr(jsonIndex)) }
 				catch(e:Object)
 				{
 					U.log('[PHP][Complete] JSON PARSE ERROR, returning raw\n');
 					currentObject.oc(decrypted);
 				}
-				if((unjsoned != null) && currentObject.oc is Function)
+				if((unjsoned != null) && currentObject.oc != null)
 					currentObject.oc(unjsoned);
+				
 			}
 			removeFromCookie(currentObject);
 			if(queueMember)
@@ -379,7 +410,8 @@ package axl.utils
 			if(currentObject.op is Function) currentObject.op(e.bytesLoaded, e.bytesTotal)
 		}
 		private function httpStatusHandler(event:HTTPStatusEvent):void {
-			U.log("[PHP] httpStatusHandler: " + event);
+			httpStatus = event.status;
+			U.log("[PHP] httpStatusHandler: " + httpStatus);
 		}
 		
 		private function addListeners(dispatcher:IEventDispatcher):void 
@@ -411,6 +443,8 @@ package axl.utils
 			removeQueueElement(storeObject);
 			storeObject = null;		
 		}
+		
+		public function get lastHttpStatus():int { return httpStatus }
 
 		/** Removes internal and external listeners, removes it from queue and storage,
 		 * clears loaded/sent data. It uses <code>cancel</code> too.
