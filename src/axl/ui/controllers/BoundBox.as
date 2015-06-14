@@ -11,6 +11,7 @@ package axl.ui.controllers
 	import flash.geom.Point;
 	import flash.geom.Rectangle;
 	
+	import axl.utils.AO;
 	import axl.utils.U;
 	
 	public class BoundBox  extends EventDispatcher
@@ -45,10 +46,14 @@ package axl.ui.controllers
 		private var percentage:Object = { x : 0, y : 0 };
 		
 		/** determines if any horizontal movement of any methods and events is applied */
-		public var horizontalAllowed:Boolean;
+		public var horizontal:Boolean;
 		/** determines if any horizontal movement of any methods and events is applied */
-		public var verticalAllowed:Boolean;
+		public var vertical:Boolean;
 		private var down:Boolean;
+		
+		private var ao:Object = { x  : null, y : null };
+		private var aop:Object = { x : {x:0}, y : {y:0}};
+		private var animTime:Number=0;
 		
 		/**
 		 * <h3>Decorator style coordinates controller</h3>
@@ -63,6 +68,8 @@ package axl.ui.controllers
 		public function BoundBox()
 		{
 			super();
+			ao.x = new AO(null, animTime, { x : 0 });
+			ao.y = new AO(null, animTime, { y : 0 });
 		}
 		
 		private function minMaxInscribed(mod:Object):void
@@ -107,6 +114,7 @@ package axl.ui.controllers
 	
 		private function setPercentage(v:Number, mod:Object):Number
 		{
+			trace('setPercentage');
 			var a:String = mod.a;
 			updateFrames();
 			rmovable[a] = min[a] + (max[a] - min[a]) * v;
@@ -131,8 +139,21 @@ package axl.ui.controllers
 				rmovable[a] = min[a];
 			if(rmovable[a] > max[a])
 				rmovable[a] = max[a];
+			if(box[a] == rmovable[a])
+				return;
 			updatePercentage(a);
-			box[a] = rmovable[a];
+			if(animTime > 0)
+			{
+				var aoo:AO = ao[a];
+				aoo.subject = box;
+				aoo.cycles = 1;
+				aoo.nSeconds = animTime;
+				aop[a][a] = rmovable[a];
+				aoo.nProperties = aop[a];
+				aoo.restart(0,true);
+			}
+			else
+				box[a] = rmovable[a];
 		}
 		
 		private function updatePercentage(axle:String):void
@@ -169,9 +190,9 @@ package axl.ui.controllers
 			if(e.buttonDown && down)
 			{
 				updateFrames();
-				if(horizontalAllowed)
+				if(horizontal)
 					updateAbsolute(modH, boxStart.x + (U.STG.mouseX - startMouse.x));					
-				if(verticalAllowed)
+				if(vertical)
 					updateAbsolute(modV, boxStart.y + (U.STG.mouseY - startMouse.y));			
 				this.dispatchEvent(eventChange);
 			}
@@ -255,9 +276,9 @@ package axl.ui.controllers
 		{
 			if(box == null || bnd == null)
 				return;
-			if(horizontalAllowed)
+			if(horizontal)
 				movementHor(0);
-			if(verticalAllowed)
+			if(vertical)
 				movementVer(0);
 		}
 		
@@ -273,6 +294,10 @@ package axl.ui.controllers
 		/** determines vertical position of the <code>box<code> between its minY and maxY values  @see #minY @see #maxY */
 		public function set percentageVertical(v:Number):void { setPercentage(v, modV) }
 		public function get percentageVertical():Number { return percentage.y }
+		
+		/** movement can be smoothed by optimized animation. @default 0 */
+		public function get animationTime():Number { return animTime }
+		public function set animationTime(v:Number):void { animTime = v }
 		
 		
 		/** minimum x value which box can take to follow <code>horizontalBehavior</code> defined rule</code> @see #horizontalBehavior */
