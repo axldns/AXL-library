@@ -44,16 +44,6 @@ package axl.ui
 			addListeners();
 		}
 		
-		public function get scrollVertical():Boolean { return ctrl.verticalAllowed }
-		public function set scrollVertical(v:Boolean):void { ctrl.verticalAllowed = v }
-		public function get scrollHorizontal():Boolean { return ctrl.horizontalAllowed }
-		public function set scrollHorizontal(v:Boolean):void { ctrl.horizontalAllowed = v }
-		
-		
-		public function get behaviorVert():String { return ctrl.verticalBehavior }
-		public function set behaviorVert(v:String):void { ctrl.verticalBehavior = v }
-		public function get behaviorHor():String { return ctrl.horizontalBehavior }
-		public function set behaviorHor(v:String):void { ctrl.horizontalBehavior = v }
 
 		private function addListeners():void { this.addEventListener(MouseEvent.MOUSE_WHEEL, wheelEvent) }
 		
@@ -111,6 +101,6 @@ package axl.ui
 		public function set deltaMultiplier(value:int):void	{ deltaMultiply = value }
 		
 		/** returns controller */
-		public function get controler():BoundBox { return ctrl }
+		public function get controller():BoundBox { return ctrl }
 	}
 }
