@@ -57,7 +57,7 @@ package axl.utils
 		public var onYoyoHalf:Function;
 		public var onCycle:Function;
 		public var onComplete:Function;
-		public var destroyOnComplete:Boolean = true;
+		public var destroyOnComplete:Boolean = false;
 		
 		// applying only before start
 		private var uIncremental:Boolean=false;
@@ -388,8 +388,6 @@ package axl.utils
 			}
 		}
 		
-		
-		
 		public function resume():void { start() };
 		public function pause():void { removeFromPool() };
 		/** @param goToDirection: negative - start position, 0 - stays still, positive - end position */
@@ -504,6 +502,7 @@ package axl.utils
 			ao.nEasing = (easing.hasOwnProperty(easingType)) ?  easing[easingType] : easingType as Function ;
 			ao.nIncremental = incremental;
 			ao.nFrameBased = frameBased;
+			ao.destroyOnComplete=true;
 			ao.start();
 			return ao;
 		}
