@@ -24,6 +24,9 @@ package axl.utils
 	 */
 	public class U
 	{
+		private static var ver:Number = 0.9;
+		public static function get version():Number { return ver}
+		
 		Ldr.verbose = log;
 		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
