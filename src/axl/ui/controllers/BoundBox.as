@@ -114,7 +114,6 @@ package axl.ui.controllers
 	
 		private function setPercentage(v:Number, mod:Object):Number
 		{
-			trace('setPercentage');
 			var a:String = mod.a;
 			updateFrames();
 			rmovable[a] = min[a] + (max[a] - min[a]) * v;
