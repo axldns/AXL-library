@@ -319,6 +319,8 @@ package axl.utils
 		/** Draws any flash.display.DisplayObject to BitmapData*/
 		public static function getBitmapData(source:Object):BitmapData
 		{
+			if(source == null)
+				return null;
 			var bmd:BitmapData = new BitmapData(Math.ceil(source.width), Math.ceil(source.height), true, 0x00000000);
 			bmd.draw(IBitmapDrawable(source));
 			return bmd;
