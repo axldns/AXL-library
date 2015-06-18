@@ -44,9 +44,6 @@ package  axl.utils
 		private static function log(...args):void { if(verbose is Function) verbose.apply(null,args) }
 		public static var verbose:Function;
 		
-		public static var loaders:Object;
-		public static var objects:Object;
-		
 		public static var networkOverPrefixes:Boolean = true;
 		private static var _numAllRemaining:int=0; // ++ every item added, -- every item loaded and/or skipped. 0 on all queues done
 		private static var _numAllQueued:int=0; //  ++ every item queued. 0 on all queues done
@@ -106,7 +103,7 @@ package  axl.utils
 		private var benchmarkTimer:int;
 		private var loadFilter:Function;
 		
-		private var _context:LoaderContext;
+		public static var _context:LoaderContext;
 		
 		private var eventComplete:Event = new Event(Event.COMPLETE);
 		private var eventProgress:Event = new Event(Event.CHANGE);
@@ -495,7 +492,8 @@ package  axl.utils
 		private function onLoaderComplete(event:Object):void
 		{
 			urlLoader.data.clear();
-			loaders[filename] = loaderInfo.loader;
+			Ldr.loaders[filename] = loaderInfo.loader;
+			Ldr.loaderInfos[filename] = loaderInfo;
 			bothLoadersComplete(event.target.content);
 		}
 		
@@ -519,7 +517,7 @@ package  axl.utils
 			{
 				if(asset is Bitmap)
 					asset.smoothing = true;
-				objects[filename] = asset;
+				Ldr.objects[filename] = asset;
 				element_loaded();
 			}
 			else element_skipped();
@@ -579,7 +577,7 @@ package  axl.utils
 		
 		private function get conflictsResolved():Boolean
 		{
-			if(objects[filename] || loaders[filename])
+			if(Ldr.objects[filename] || Ldr.loaders[filename])
 				return loadFilter();
 			else return true;
 		}
@@ -604,7 +602,7 @@ package  axl.utils
 			catch(e:*) { filename = null}
 			if(filename == null)
 				return false;
-			else if(objects[filename] || loaders[filename])
+			else if(Ldr.objects[filename] || Ldr.loaders[filename])
 			{
 				Ldr.unload(filename);
 				return true;

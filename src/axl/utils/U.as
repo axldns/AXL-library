@@ -56,6 +56,7 @@ package axl.utils
 		
 		private static var ubin:BinAgent;
 		private static var uconfig:Object;
+		public static var fullScreen:Boolean;
 		
 		public static function get CONFIG():Object { return uconfig }
 		public static function set CONFIG(v:Object):void { uconfig = v}
@@ -490,7 +491,7 @@ package axl.utils
 	
 		private static function setGeometry(e:Event=null):void
 		{
-			if(ISWEB)
+			if(!fullScreen)
 				rec.setTo(0,0, STG.stageWidth, STG.stageHeight);
 			else
 				rec.setTo(0,0, STG.fullScreenWidth, STG.fullScreenHeight);
@@ -515,13 +516,14 @@ package axl.utils
 			}
 			if(U.bin)
 				bin.resize(U.rec.width);
+			Messages.resize();
 		}
 		
 		private static function setStageProperties():void
 		{
 			uSTG.align = StageAlign.TOP_LEFT;
 			uSTG.scaleMode = StageScaleMode.NO_SCALE;
-			if(!ISWEB)
+			if(fullScreen)
 				uSTG.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
 			uSTG = uSTG;
 		}

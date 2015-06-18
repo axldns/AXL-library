@@ -57,19 +57,22 @@ package  axl.utils
 	public class Ldr
 	{
 		private static var externalProgressListeners:Vector.<Function> = new Vector.<Function>();
+
+		public static function get loaders():Object	{return uloaders}
+		public static function get loaderInfos():Object	{return linfos}
+		public static function get objects():Object {return uobjects}
+
 		public static function log(...args):void { if(_verbose is Function) _verbose.apply(null,args) }
 		public static function set verbose(func:Function):void { _verbose = func = Req.verbose = func }
 		private static var _verbose:Function;
 		public static const defaultValue:String = ":default";
 		
 		public static const behaviours:Behaviors = new Behaviors();
-		private static var objects:Object = {};
-		private static var loaders:Object = {};
+		private static var uobjects:Object = {};
+		private static var uloaders:Object = {};
+		private static var linfos:Object = {};
 		private static var requests:Vector.<Req> = new Vector.<Req>();
 		public static var displayStateBreakDown:Boolean;
-		
-		Req.loaders = loaders;
-		Req.objects = objects;
 		
 		private static var IS_LOADING:Boolean;
 		public static var policyFileCheck:Boolean;
@@ -615,8 +618,10 @@ package  axl.utils
 			o =null, l = null;
 			objects[filename] = null;
 			loaders[filename] = null;
+			linfos[filename]= null;
 			delete loaders[filename];
 			delete objects[filename];
+			delete linfos[filename];
 			log('[Ldr][Unload]['+filename+'] ' + (found ? 'UNLOADED!' : 'not found..'));
 		}
 	}

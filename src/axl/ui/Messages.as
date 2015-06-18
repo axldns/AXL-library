@@ -81,5 +81,10 @@ package axl.ui
 						outsideTap();
 			}
 		}	
+		
+		public static function resize():void
+		{
+			tf.width = U.REC.width;
+		}
 	}
 }
