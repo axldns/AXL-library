@@ -624,5 +624,11 @@ package  axl.utils
 			delete linfos[filename];
 			log('[Ldr][Unload]['+filename+'] ' + (found ? 'UNLOADED!' : 'not found..'));
 		}
+		
+		public static function unloadAll():void
+		{
+			for(var s:String in objects)
+				unloadSingle(s);
+		}
 	}
 }
