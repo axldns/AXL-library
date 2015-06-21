@@ -18,11 +18,11 @@
 		private static const modH:Object = { a : 'x', d : 'width', p: 'pivotX', s: 'scaleX'};
 		private static const modV:Object = { a : 'y', d : 'height', p: 'pivotY', s: 'scaleY'};
 		
+		protected var mod:Object;
+		protected var modA:Object;
 		private var rail:Sprite;
 		private var HOR:Boolean;
 		private var VER:Boolean;
-		private var mod:Object;
-		private var modA:Object;
 		
 		private var gap:Number;
 		private var railNumChildren:int;
@@ -111,7 +111,7 @@
 		public function get GAP():Number { return  gap}
 		public function set GAP(v:Number):void { gap=v, rearange()}
 		
-		public function addToRail(displayObject:DisplayObject, seemles:Boolean=true):void
+		public function addToRail(displayObject:DisplayObject, seemles:Boolean=false):void
 		{
 			if(!firstChild)
 				firstChild = displayObject;
