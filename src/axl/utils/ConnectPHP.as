@@ -59,6 +59,7 @@ package axl.utils
 			clearQueue();
 			clearStored();
 		}
+		public  static var globalTimeout:int;
 		
 		/** Long responses can eat your log output. Limit it to *any* int to output only first *any* chars of it @default 200*/
 		public static var limitLogResponeses:int = 200;
@@ -109,6 +110,7 @@ package axl.utils
 		 * become queue member on next app launch this way (if this was unsuccessful). Be careful and:
 		 * @see #storeUnsent  @default false */
 		public var queueMember:Boolean=false;
+		
 		
 		public function ConnectPHP(variable:String='data') { requestVariable = variable }
 		
@@ -163,7 +165,7 @@ package axl.utils
 			encryption = encryption || NetworkSettings.outputProcessor;
 			decryption = decryption || NetworkSettings.inputProcessor;
 			address = address || NetworkSettings.availableGatewayAddress();
-			timeout = timeout || NetworkSettings.defaultTimeout;
+			timeout = timeout || globalTimeout || NetworkSettings.defaultTimeout;
 			
 			var jsoned:String;
 			var encrypted:String
