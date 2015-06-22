@@ -9,6 +9,7 @@ package  axl.utils
 {
 	import flash.display.Bitmap;
 	import flash.display.Loader;
+	import flash.display.LoaderInfo;
 	import flash.events.Event;
 	import flash.media.Sound;
 	import flash.system.System;
@@ -590,6 +591,7 @@ package  axl.utils
 		{
 			var o:Object = objects[filename];
 			var l:Loader =loaders[filename];
+			var li:LoaderInfo = linfos[filename];
 			var found:Boolean;
 			if(o is Object)
 			{
@@ -617,6 +619,8 @@ package  axl.utils
 				l.unloadAndStop();
 				found = true;
 			}
+			if(li != null && li.bytes != null)
+				li.bytes.clear();
 			o =null, l = null;
 			objects[filename] = null;
 			loaders[filename] = null;

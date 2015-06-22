@@ -12,6 +12,7 @@ package  axl.utils
 	import flash.events.IOErrorEvent;
 	import flash.events.ProgressEvent;
 	import flash.events.SecurityErrorEvent;
+	import flash.events.UncaughtErrorEvent;
 	import flash.media.Sound;
 	import flash.net.URLLoader;
 	import flash.net.URLLoaderDataFormat;
@@ -26,9 +27,6 @@ package  axl.utils
 	import flash.utils.getQualifiedClassName;
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
-	
-	import axl.utils.Ldr;
-	import axl.utils.Req;
 	
 	/**
 	 * This class represents each <b> queue </b> (not a single asset)
@@ -627,10 +625,17 @@ package  axl.utils
 		{
 			var loader:Loader = new Loader();
 			var loaderInfo:LoaderInfo = loader.contentLoaderInfo;
+			loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, handleUncaughtErrors);
 			loaderInfo.addEventListener(IOErrorEvent.IO_ERROR, onIoError);
 			loaderInfo.addEventListener(Event.COMPLETE, onLoaderComplete);
 			loader.loadBytes(bytes, context);
 			return loaderInfo;
+		}
+		
+		protected function handleUncaughtErrors(e:UncaughtErrorEvent):void
+		{
+			U.log('uncought error',  e);
+			onError(e);
 		}
 		
 		private function instantiateSound(bytes:ByteArray):Sound

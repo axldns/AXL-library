@@ -165,6 +165,7 @@ package axl.utils.binAgent
 			else
 				message = e.error.toString();
 			trrace('[BinAgent][you] uncaught error: ', message, '(', e.error, e.text, e.toString(), e.type, e.target, ')');
+			e.preventDefault();
 		}
 		//-------------------------------------  END OF ROOT SETUP  ------------------------------------------  //
 		//-------

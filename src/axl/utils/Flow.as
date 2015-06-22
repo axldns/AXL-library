@@ -4,6 +4,7 @@ package axl.utils
 	import flash.events.ErrorEvent;
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
+	import flash.utils.ByteArray;
 	import flash.utils.setTimeout;
 	
 	import axl.ui.IprogBar;
@@ -229,21 +230,21 @@ package axl.utils
 		{
 			//either json or xml
 			var cfg:Object = Ldr.getAny(configToLoad);
-			if(cfg != null)
+			if((cfg is XML || cfg is Object) && !(cfg is ByteArray))
 			{
 				U.CONFIG = cfg;
-				if(cfg.remote != null)
+				if(cfg.hasOwnProperty('remote') && cfg.remote != null)
 				{
 					var newRemotes:Array = [];
 					for each (var o:Object in cfg.remote)
 						newRemotes.push(o);
 					NetworkSettings.appRemoteAddresses = newRemotes;
 				}
-				if(cfg.gateway != null)
+				if(cfg.hasOwnProperty('gateway') && cfg.gateway != null)
 					NetworkSettings.gatewayPath = cfg.gateway;
-				if(cfg.files != null)
+				if(cfg.hasOwnProperty('files') && cfg.files != null)
 					configDefinedFiles = cfg;
-				U.log('[Flow][configReaded] version:', U.CONFIG.date);
+				U.log('[Flow][configReaded] version:', cfg.hasOwnProperty('date') ? cfg.date : null);
 				setDefaultLoadingPaths();
 				return true;
 			}
