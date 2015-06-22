@@ -29,6 +29,7 @@ package axl.utils.binAgent
 		private var sliderIsDown:Boolean;
 		
 		// internall
+		private static var _instance:Console;
 		private var stg:Stage;
 		private var rootObj:DisplayObject;
 		private var _pool:Object = {};
@@ -48,12 +49,36 @@ package axl.utils.binAgent
 		
 		public function Console(rootObject:DisplayObject)
 		{
-			super();
-			rootObj = rootObject;
-			build();
-			rootSetup();
-			trrace("==== BIN AGENT ====");
+			if(instance != null)
+			{
+				bConsole = instance.bConsole;
+				bInput = instance.bInput;
+				bSlider = instance.bSlider;
+				past = instance.past;
+				pastIndex = instance.pastIndex;
+				sliderIsDown = instance.sliderIsDown;
+				stg = instance.stg;
+				rootObj = instance.rootObj;
+				bIsEnabled = instance.bIsEnabled;
+				bIsOpen = instance.bIsOpen;
+				bAllowGestureOpen = instance.bAllowGestureOpen;
+				bAllowKeyboardOpen = instance.bAllowKeyboardOpen;
+				bExternalTrace = instance.bExternalTrace;
+				regularTraceToo = instance.regularTraceToo;
+				nonKarea = instance.nonKarea;
+				nonRepsIndicator = instance.nonRepsIndicator;
+			}
+			else
+			{
+				super();
+				_instance = this;
+				rootObj = rootObject;
+				build();
+				rootSetup();
+				trrace("==== BIN AGENT ====");
+			}
 		}
+		public static function get instance():Console { return _instance }
 		
 		private function build():void
 		{

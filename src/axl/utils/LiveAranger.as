@@ -34,22 +34,51 @@ package axl.utils
 		private var cbounds:Rectangle = new Rectangle()
 		private var ci:int;
 		private var isOn:Boolean=false;
+		private static var instance:LiveAranger;
 		public function LiveAranger()
 		{
-			miniHint = new TextField();
-			miniHint.border = true;
-			miniHint.background = true;
-			miniHint.backgroundColor = 0xEECD8C;
-			miniHint.height = 19;
-			miniHint.selectable = false;
-			miniHint.mouseEnabled = false;
-			miniHint.tabEnabled = false;
-			U.STG.addEventListener(MouseEvent.MOUSE_MOVE, mm);
-			U.STG.addEventListener(MouseEvent.MOUSE_DOWN, md);
-			U.STG.addEventListener(MouseEvent.MOUSE_UP, mu);
-			U.STG.addEventListener(KeyboardEvent.KEY_UP, ku);
-			U.STG.addEventListener(KeyboardEvent.KEY_DOWN, kd);
-			outline = new Shape();
+			if(instance == null)
+			{
+				miniHint = new TextField();
+				miniHint.border = true;
+				miniHint.background = true;
+				miniHint.backgroundColor = 0xEECD8C;
+				miniHint.height = 19;
+				miniHint.selectable = false;
+				miniHint.mouseEnabled = false;
+				miniHint.tabEnabled = false;
+				U.STG.addEventListener(MouseEvent.MOUSE_MOVE, mm);
+				U.STG.addEventListener(MouseEvent.MOUSE_DOWN, md);
+				U.STG.addEventListener(MouseEvent.MOUSE_UP, mu);
+				U.STG.addEventListener(KeyboardEvent.KEY_UP, ku);
+				U.STG.addEventListener(KeyboardEvent.KEY_DOWN, kd);
+				outline = new Shape();
+				instance = this;
+			}
+			else
+			{
+				miniHint = instance.miniHint;
+				
+				added = instance.added;
+				c = instance.c;
+				cbounds = instance.cbounds;
+				ci = instance.ci;
+				cp = instance.cp;
+				cpi = instance.cpi;
+				go = instance.go;
+				isOn = instance.isOn;
+				moving = instance.moving;
+				oap = instance.oap;
+				oapi = instance.oapi;
+				objectMouse = instance.objectMouse;
+				outline = instance.outline;
+				resizeHhint = instance.resizeHhint;
+				resizeVhint = instance.resizeVhint;
+				resizingH = instance.resizingH;
+				resizingV = instance.resizingV;
+				startMouse = instance.startMouse;
+				startObject = instance.startObject;
+			}
 		}
 		
 		protected function kd(e:KeyboardEvent):void
@@ -69,11 +98,11 @@ package axl.utils
 					break;
 				case Keyboard.UP:
 					mod = 'y';
-					dir = 1;
+					dir = -1;
 					break;
 				case Keyboard.DOWN:
 					mod = 'y';
-					dir = -1;
+					dir = 1;
 					break;
 			}
 			if(mod == null) return;

@@ -11,6 +11,7 @@ package axl.utils.binAgent
 
 	public class BinAgent extends Console
 	{
+		private static var _instance:BinAgent;
 		private var tfSyntax:TextFormat = new TextFormat('Lucida Console', 15,0xff0000,true);
 		private var hintContainer:Sprite;
 		private var selectedHint:Hint
@@ -31,25 +32,40 @@ package axl.utils.binAgent
 		private var prevText:String;
 		private var miniHint:TextField;
 		public var disableAsYouType:Boolean=true;
-		
 		public function BinAgent(rootObject:DisplayObject)
 		{
-			hintContainer = new Sprite();
-			hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
-			hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);
-			userRoot = rootObject;
-			makeMiniHint();
-			super(rootObject);
-			this.addChild(hintContainer);
-			curRootProps = new Vector.<XMLList>();
-			hintIndex = 0;
-			hintTextFormat = input.defaultTextFormat;
-			Hint.hintWidth = 100;//input.width;
-			Hint.hintHeight = 15;//hHeight;
-			rootFinder =new RootFinder(rootObject, this);
-			assist = new Asist();
-			curRoot = userRoot;
+				if(instance != null)
+				{
+					hintContainer = instance.hintContainer;
+					userRoot = instance.userRoot;
+					miniHint = instance.miniHint;
+					hintContainer = instance.hintContainer;
+					curRootProps = instance.curRootProps;
+					rootFinder = instance.rootFinder;
+					assist = instance.assist;
+					curRoot = instance.curRoot;
+				}
+				else
+				{
+					hintContainer = new Sprite();
+					hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
+					hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);
+					userRoot = rootObject;
+					makeMiniHint();
+					super(rootObject);
+					this.addChild(hintContainer);
+					curRootProps = new Vector.<XMLList>();
+					hintIndex = 0;
+					hintTextFormat = input.defaultTextFormat;
+					Hint.hintWidth = 100;//input.width;
+					Hint.hintHeight = 15;//hHeight;
+					rootFinder =new RootFinder(rootObject, this);
+					assist = new Asist();
+					curRoot = userRoot;
+				}
 		}
+		
+		public static function get instance():BinAgent { return _instance }
 		
 		private function makeMiniHint():void
 		{
