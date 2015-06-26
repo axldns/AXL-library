@@ -47,6 +47,7 @@ package axl.utils.binAgent
 				}
 				else
 				{
+					_instance = this;
 					hintContainer = new Sprite();
 					hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
 					hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);

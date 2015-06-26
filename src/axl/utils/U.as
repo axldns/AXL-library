@@ -448,7 +448,7 @@ package axl.utils
 				flashRoot.addChild(uSplash);
 			
 			if(DEBUG)
-				ubin = new BinAgent(flashRoot);
+				ubin = ((BinAgent.instance != null) ? BinAgent.instance : new BinAgent(flashRoot));
 			
 			udesignedForWidth = designedForWidth;
 			udesignedForHeight = designedForHeight;
