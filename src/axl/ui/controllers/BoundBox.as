@@ -167,7 +167,7 @@ package axl.ui.controllers
 		
 		protected function md(e:MouseEvent):void
 		{
-			U.STG.addEventListener(flash.events.MouseEvent.MOUSE_MOVE, mmove);
+			bx.stage.addEventListener(flash.events.MouseEvent.MOUSE_MOVE, mmove);
 			boxStart.x = bx.x;
 			boxStart.y = bx.y;
 			startMouse.x = U.STG.mouseX;
@@ -198,7 +198,7 @@ package axl.ui.controllers
 			else
 			{
 				down = false;
-				U.STG.removeEventListener(flash.events.MouseEvent.MOUSE_MOVE, mmove);
+				bx.stage.removeEventListener(flash.events.MouseEvent.MOUSE_MOVE, mmove);
 			}
 		}
 		

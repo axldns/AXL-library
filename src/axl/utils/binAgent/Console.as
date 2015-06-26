@@ -15,6 +15,9 @@ package axl.utils.binAgent
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
 	
+	import axl.ui.controllers.BoundBox;
+	import axl.utils.AO;
+	
 	public class Console extends Sprite
 	{
 		//window
@@ -46,6 +49,7 @@ package axl.utils.binAgent
 		private var nonKarea:Rectangle= new Rectangle(60,0,100,60);
 		private var gestureRepetitions:int = 0;
 		private var nonRepsIndicator:int = 4;
+		private var boundBox:BoundBox;
 		
 		public function Console(rootObject:DisplayObject)
 		{
@@ -88,6 +92,19 @@ package axl.utils.binAgent
 			align();
 		}
 		
+		private function buildControler():void
+		{
+			boundBox = new BoundBox();
+			boundBox.horizontal = false;
+			boundBox.vertical = true;
+			boundBox.verticalBehavior  = BoundBox.inscribed;
+			boundBox.bound = bConsole;
+			boundBox.box = bSlider;
+			boundBox.addEventListener(Event.CHANGE, sliderEvent);
+			
+		}
+		
+		
 		private function build_console():void
 		{
 			bConsole = new TextField();
@@ -101,8 +118,11 @@ package axl.utils.binAgent
 			bConsole.backgroundColor = 0x333333;
 			bConsole.type = 'dynamic';
 			bConsole.selectable = true;
+			bConsole.addEventListener(Event.SCROLL, scrollEvent);
 			this.addChild(bConsole);
 		}
+		
+		
 		
 		private function build_input():void
 		{
@@ -155,14 +175,12 @@ package axl.utils.binAgent
 		private function ats(e:Event):void 
 		{
 			stg.focus= this.bInput;
-			stg.addEventListener(MouseEvent.MOUSE_MOVE, localMovement);
-			this.addEventListener(MouseEvent.MOUSE_DOWN, localMouseDown);
+		
 			bIsOpen = true;
 		}
 		private function rfs(e:Event):void
 		{
-			stg.removeEventListener(MouseEvent.MOUSE_MOVE, localMovement);
-			this.removeEventListener(MouseEvent.MOUSE_DOWN, localMouseDown);
+		
 			bIsOpen = false;
 		}
 		
@@ -171,6 +189,8 @@ package axl.utils.binAgent
 		{
 			if(stg != null) return;
 			stg = stage;
+			AO.stage = stage;
+			buildControler();
 			// slider needs to know, gesture uses it as well
 			stg.addEventListener(MouseEvent.MOUSE_UP, mu);
 			// dirty refresh
@@ -197,7 +217,7 @@ package axl.utils.binAgent
 		// ------------------------------------- WINDOW CONTROLL ------------------------------------- //
 		protected function localMovement(e:MouseEvent=null):void
 		{
-			if(e != null && !this.sliderIsDown)
+			/*if(e != null && !this.sliderIsDown)
 				return;
 			var newy:Number = bConsole.mouseY;
 			
@@ -211,9 +231,18 @@ package axl.utils.binAgent
 			
 			var sy:Number = p * bConsole.height;
 			sy -= (p*bSlider.height);
-			bSlider.y = sy;
+			bSlider.y = sy;*/
 		}
 		
+		protected function sliderEvent(event:Event):void
+		{
+			bConsole.scrollV = this.boundBox.percentageVertical * bConsole.maxScrollV;
+		}
+		
+		protected function scrollEvent(e:Event):void
+		{
+			this.boundBox.percentageVertical = bConsole.scrollV /  bConsole.maxScrollV;
+		}
 		protected function stageMouseDown(e:MouseEvent):void
 		{
 			if((e.stageY > nonKarea.height) || (e.stageX  > nonKarea.x))
@@ -227,7 +256,7 @@ package axl.utils.binAgent
 				stg.focus = bInput;
 			if(e.shiftKey)
 				this.startDrag();
-			sliderIsDown = (e.target == bSlider);
+			//sliderIsDown = (e.target == bSlider);
 		}
 		
 		public function mu(e:MouseEvent):void
@@ -235,7 +264,7 @@ package axl.utils.binAgent
 			if(stg != null)
 			{
 				this.stopDrag()
-				sliderIsDown = false;
+				//sliderIsDown = false;
 			}
 			if(allowGestureOpen)
 			{
@@ -341,7 +370,8 @@ package axl.utils.binAgent
 				bExternalTrace(s);
 			
 			bConsole.scrollV = bConsole.maxScrollV;
-			bSlider.y = bConsole.height-bSlider.height;
+			if(boundBox != null)
+				boundBox.percentageVertical = 1;
 			if(this.parent)
 				this.parent.setChildIndex(this, this.parent.numChildren-1);
 			v=null;
