@@ -3,6 +3,7 @@ package axl.utils
 	import flash.display.DisplayObject;
 	import flash.display.DisplayObjectContainer;
 	import flash.display.Shape;
+	import flash.display.Stage;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
 	import flash.geom.Point;
@@ -12,6 +13,7 @@ package axl.utils
 
 	public class LiveAranger
 	{
+		public static var instance:LiveAranger;
 		private var miniHint:TextField;
 		private var c:DisplayObject;
 		private var cp:DisplayObjectContainer;
@@ -34,11 +36,12 @@ package axl.utils
 		private var cbounds:Rectangle = new Rectangle()
 		private var ci:int;
 		private var isOn:Boolean=false;
-		private static var instance:LiveAranger;
+		
 		public function LiveAranger()
 		{
 			if(instance == null)
 			{
+				instance = this;
 				miniHint = new TextField();
 				miniHint.border = true;
 				miniHint.background = true;
@@ -53,7 +56,7 @@ package axl.utils
 				U.STG.addEventListener(KeyboardEvent.KEY_UP, ku);
 				U.STG.addEventListener(KeyboardEvent.KEY_DOWN, kd);
 				outline = new Shape();
-				instance = this;
+				super();
 			}
 			else
 			{
@@ -246,12 +249,13 @@ package axl.utils
 				resizeHhint=true;
 			if(U.STG.mouseY - (go.y + c.y + c.height)  > -10)
 				resizeVhint=true;
-			if(moving)
+			
+			if(moving && !(c is Stage))
 			{
 				c.x = startObject.x + (U.STG.mouseX - startMouse.x);
 				c.y = startObject.y + (U.STG.mouseY - startMouse.y);
 			}
-			else
+			else if(!(c is Stage))
 			{
 				var hval:Number = U.STG.mouseX - go.x - c.x;
 				var vval:Number = U.STG.mouseY - go.y - c.y;
