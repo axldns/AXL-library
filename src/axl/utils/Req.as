@@ -634,7 +634,9 @@ package  axl.utils
 		
 		protected function handleUncaughtErrors(e:UncaughtErrorEvent):void
 		{
-			U.log('uncought error',  e);
+			U.log('[Ldr][Req][uncought error]',  e.error, e.error ? Error(e.error).message : '');
+			if(e.error is Error)
+				U.log(Error(e.error).getStackTrace());
 			onError(e);
 		}
 		
