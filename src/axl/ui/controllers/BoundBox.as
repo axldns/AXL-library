@@ -5,6 +5,7 @@ package axl.ui.controllers
 	 */
 	
 	import flash.display.DisplayObject;
+	import flash.display.Stage;
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
 	import flash.events.MouseEvent;
@@ -54,6 +55,7 @@ package axl.ui.controllers
 		private var ao:Object = { x  : null, y : null };
 		private var aop:Object = { x : {x:0}, y : {y:0}};
 		private var animTime:Number=0;
+		private var boxStage:Stage;
 		
 		/**
 		 * <h3>Decorator style coordinates controller</h3>
@@ -162,12 +164,39 @@ package axl.ui.controllers
 
 		private function addListeners(bx:DisplayObject):void
 		{
-			bx.addEventListener(flash.events.MouseEvent.MOUSE_DOWN, md);
+			if(boxStage == null)
+			{
+				if(box.stage != null)
+					boxOnStage();
+				else
+					box.addEventListener(Event.ADDED_TO_STAGE, boxOnStage);
+			}
+		}
+		
+		protected function boxOnStage(e:Event=null):void
+		{
+			if(boxStage == null)
+			{
+				bx.addEventListener(MouseEvent.MOUSE_DOWN, md);
+				bx.addEventListener(Event.REMOVED_FROM_STAGE, boxOffStage);
+			}
+			boxStage = box.stage;
+		}
+		
+		protected function boxOffStage(event:Event):void
+		{
+			finishMovement();
+		}
+		
+		protected function finishMovement():void
+		{
+			boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, mmove);
+			down = false
 		}
 		
 		protected function md(e:MouseEvent):void
 		{
-			bx.stage.addEventListener(flash.events.MouseEvent.MOUSE_MOVE, mmove);
+			bx.stage.addEventListener(MouseEvent.MOUSE_MOVE, mmove);
 			boxStart.x = bx.x;
 			boxStart.y = bx.y;
 			startMouse.x = U.STG.mouseX;
@@ -197,8 +226,7 @@ package axl.ui.controllers
 			}
 			else
 			{
-				down = false;
-				bx.stage.removeEventListener(flash.events.MouseEvent.MOUSE_MOVE, mmove);
+				finishMovement();
 			}
 		}
 		
