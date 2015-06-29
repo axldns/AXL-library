@@ -35,6 +35,7 @@ package axl.utils
 		 * indicates if <code>U.REC</code> is based on <i>stage.fullScreen*W/H*</i> or <i>stage.stage*W/H*</i>
 		 * <br>According to on playerType.match: <i> /^(StandAlone|ActiveX|PlugIn)/i </i>*/
 		public static var onStageAvailable:Function;
+		public static var onResize:Function;
 		public static function get ISWEB():Boolean { return isWeb }
 		private static var isWeb:Boolean = (Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i) != null);
 		
@@ -508,7 +509,6 @@ package axl.utils
 		
 		private static function selfResize():void
 		{
-			trace("SELF RESIZE", U.rec);
 			if(uSplash != null)
 			{
 				U.resolveSize(uSplash, U.REC, true);
@@ -517,6 +517,8 @@ package axl.utils
 			if(U.bin)
 				bin.resize(U.rec.width);
 			Messages.resize();
+			if(onResize != null)
+				onResize();
 		}
 		
 		private static function setStageProperties():void
