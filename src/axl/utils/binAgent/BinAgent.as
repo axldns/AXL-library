@@ -82,7 +82,6 @@ package axl.utils.binAgent
 		
 		private function showMiniHint(v:XML, fname:String):void
 		{
-			trace("SHOWING MINIHINT\n" + v.toXMLString());	
 			
 			var adds:String  = fname + '(';
 			var params:XMLList = v.parameter;
