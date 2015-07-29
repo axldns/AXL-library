@@ -103,6 +103,8 @@ package axl.utils
 				throw new Error("[AO]Stage not set up!");
 			uSeconds = seconds;
 			uProps = properties;
+			if(uProps.hasOwnProperty('delay'))
+				delay = uProps.delay;
 			this.subject = subject;
 		}
 		
@@ -368,8 +370,6 @@ package axl.utils
 		public function get isAnimating():Boolean { return isPlaying }
 		public function start():void
 		{
-			if(!isSetup)
-				setUp();
 			if(delay > 0)
 				delayID = flash.utils.setTimeout(perform, delay * 1000);
 			else
@@ -380,6 +380,8 @@ package axl.utils
 		{ 
 			clearTimeout(delayID);
 			delayID = 0;
+			if(!isSetup)
+				setUp();
 			if(!isPlaying)
 			{
 				AO.animObjects[numObjects++] = this;
