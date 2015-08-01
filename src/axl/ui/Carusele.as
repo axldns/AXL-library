@@ -120,11 +120,11 @@
 			lastChild = displayObject;
 			lastChild[mod.a] = railDim + (railNumChildren>0?GAP:0);
 			rail.addChild(lastChild);
+			railDim = rail[mod.d];
+			railPivot = railDim>>1;
 			railNumChildren++;
 			if(!seemles)
-				rail[mod.a] -= lastChild[mod.d]>>1;
-			railDim = rail[mod.d];
-			railPivot = railDim/2;
+				rail[mod.a] = -railPivot;
 			movementBit(0);
 		}
 		
@@ -140,6 +140,11 @@
 			}
 		}
 		
+		private function get railCenter():Number
+		{
+			return rail[mod.a] + (rail[mod.d] /2);
+		}
+		
 		/**
 		 * Pass delta of momentary movement (e.g. on touch move event, or animation tick update) to move
 		 * elements added by <code>addToRail</code> function  in infinite paralax mode. children are being sorted (indexes) 
@@ -149,58 +154,67 @@
 		 */
 		public function movementBit(delta:Number):void
 		{
-			if(railNumChildren < 2)
-				return;
-			var r:Number; 					// ratio delta vs rail
-			var newV:Number; 				// final rail position
-			var shift:Number = (delta < 0) ? -1 : 1; // determines positve or negative result of operations
-			//delta normalization
-			r = delta / railDim;
-			//trace('delta ratio', r, delta);
-			if(Math.abs(r)>1)
+			if(railNumChildren < 1)
+				return
+			firstChild =  rail.getChildAt(0);
+			lastChild = rail.getChildAt(railNumChildren-1);
+			
+			var lastDim:Number = lastChild[mod.d] + gap;
+			var firstDim:Number  =firstChild[mod.d] + gap;
+			
+			var rearangeNeeded:Boolean;
+			
+			var nOffset:Number = railCenter + delta;
+			var nOffsetA:Number = Math.abs(nOffset);
+			var nra:Number = rail[mod.a] + delta;
+			var sortEveryTemp:Number = _sortEvery;
+			if(nOffsetA > sortEveryTemp)
 			{
-				r = r - (r>0?Math.floor(r) : Math.ceil(r));
-				delta = railDim * r * shift;
+				if(nOffset<0)
+				{
+					while(nOffsetA > 0)
+					{
+						nOffsetA -= firstDim;
+						nOffset += firstDim;
+						nra += lastDim;
+						firstToLast();
+						lastDim = lastChild[mod.d] + gap;
+						firstDim =firstChild[mod.d] + gap;
+						rearangeNeeded = true;
+					}
+				}
+				else if(nOffset>0)
+				{
+					while(nOffsetA > 0)
+					{
+						nOffsetA -= lastDim;
+						nOffset -= lastDim;
+						nra -= lastDim;
+						lastToFirst();
+						lastDim = lastChild[mod.d] + gap;
+						firstDim =firstChild[mod.d] + gap;
+						rearangeNeeded = true
+					}
+				}
 			}
 			
-			newV = rail[mod.a] + railPivot + delta;
-			newV = Math.abs(newV) //since we got shift to make sign
-			if(newV < _sortEvery)
-			{
-				// jest mniejsze niz max offset wiec tylko przesun calosc o delte
-				rail[mod.a] += delta; // that's it!
-				updateDebug();
-				roffset = rail[mod.d]/2 + rail[mod.a];
-				return;
-			}
-			var firstChildIndex:int=0;		// if vector is positive first is 0 last is last. if Δ is negative - oposite
-			var lastChildIndex:int = railNumChildren-1;
-			if(delta < 0)
-			{
-				firstChildIndex = railNumChildren-1;
-				lastChildIndex =0;
-			}
-			firstChild = rail.getChildAt(firstChildIndex);
-			lastChild = rail.getChildAt(lastChildIndex);
-			
-			//sorting indexes and summing rail offset
-			// wracaj offsetem do 0! jedz az do zmiany znaku
-			// moj offset to wciaz y + p
-			// delta sie nie liczy 
-			while (newV >0)
-			{
-				newV -= (lastChild[mod.d]+gap);
-				rail.setChildIndex(lastChild,firstChildIndex);
-				firstChild = rail.getChildAt(firstChildIndex);
-				lastChild = rail.getChildAt(lastChildIndex);
-			}
-			//rearrange and apply remaining
-			//newV = rail[mod.a] + railPivot + delta; - disassembly now
-			rail[mod.a] = -railPivot + newV * shift;
-			rearange();
-			
-			updateDebug();
-			roffset = rail[mod.d]/2 + rail[mod.a];
+			rail[mod.a] = nra;
+			if(rearangeNeeded)
+				rearange();
+		}
+		
+		private function lastToFirst():void
+		{
+			lastChild = rail.getChildAt(railNumChildren-1);
+			rail.setChildIndex(lastChild, 0);
+			lastChild = rail.getChildAt(railNumChildren-1);
+		}
+		
+		private function firstToLast():void
+		{
+			firstChild = rail.getChildAt(0);
+			rail.setChildIndex(firstChild, railNumChildren-1);
+			firstChild = rail.getChildAt(0);
 		}
 		
 		/**
