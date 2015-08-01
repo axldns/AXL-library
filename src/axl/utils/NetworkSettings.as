@@ -28,20 +28,21 @@ package axl.utils
 		 *  @default 5000*/
 		public static var defaultTimeout:int = 5000;
 		
-		/** Sets the general address for the app. E.g. http://yourapp.com 
-		 * <br>Based on this, other elements are being formed:
+		/** 
+		 * Sets the general address for the app. E.g. "http://yourapp.com" <br>
+		 * Based on this, other elements are being formed:
 		 * <ul><li>
 		 *  <code>appRemoteAddress + gatewayPath</code> 
 		 * - main address for ConncectPHP class to make POST requests to</li>
 		 * <li><code>appRemoteAddress + configPath</code> - app config - file loaded, parsed 
 		 * and assigned to U.CONFIG as a very first element of the app (Flow class flow) </li>
 		 * <li>Its being added to <code>Ldr.defaultPathPrefixes</code> if standard Flow class is used</li></ul>
-		 * <br<br>Approach of passing an array of addresses follows general concept of alternative directories.
+		 * <br><br>Approach of passing an array of addresses follows general concept of alternative directories.
 		 * For more information about it see Ldr.load method description
 		 * @param v - array of String(s)
 		 * @see ConnectPHP
 		 * @see Ldr#load
-		 * */
+		*/
 		public static function get appRemoteAddresses():Array {	return uAppRemoteAddresses	}
 		public static function set appRemoteAddresses(v:Array):void
 		{
@@ -61,10 +62,11 @@ package axl.utils
 		 * that loaded config will be available as <code>U.CONFIG</code>, parsing config reads
 		 * five main properties: 
 		 * <ul>
-		 * <li><code>files</code> - files specified in config will be added to flow load list.
-		 * <li><code>date</code> - indicates when config/files has been updated last time. This 
+		 * <li><code>files</code> - files specified in config will be added to flow load list.</li>
+		 * <li><code>date</code> - indicates when config/files has been updated last time. This is to be set manually.</li>
 		 * <li><code>gatway</code> - updates remote gateway address - updates default ConnectPHP address</li>
-		 * <li><code>remote</code> - updates remote app address used for Ldr & ConnectPHP</li>
+		 * <li><code>remote</code> - updates remote app address used for Ldr and ConnectPHP classes fields</li>
+		 * </ul>
 		 * value will be updated and config will get re-saved on disc (air) if flow's update point is there.
 		 * If it's not set, flow goes to next step which is files loading.
 		 * it should be either full path or (preferable) sub-path similar to <code>/assets/config.cfg</code>

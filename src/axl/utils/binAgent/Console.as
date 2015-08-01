@@ -250,7 +250,7 @@ package axl.utils.binAgent
 				gestureRepetitions = 0;
 		}
 		
-		public function localMouseDown(e:MouseEvent):void
+		private function localMouseDown(e:MouseEvent):void
 		{
 			// some software may still focus e.g. Feathers
 			if(e.target == bInput && stg.focus != bInput)
@@ -260,7 +260,7 @@ package axl.utils.binAgent
 			//sliderIsDown = (e.target == bSlider);
 		}
 		
-		public function mu(e:MouseEvent):void
+		private function mu(e:MouseEvent):void
 		{
 			if(stg != null)
 			{
@@ -441,7 +441,7 @@ package axl.utils.binAgent
 		
 		/** Lists classes available in current ApplicationDomain. Does not include flash sdk classes*/
 		public function get listClasses():String { 
-			return structureToString(ApplicationDomain.currentDomain.getQualifiedDefinitionNames())
+			return structureToString(ApplicationDomain.currentDomain['getQualifiedDefinitionNames']())
 		}
 		/** Reads structure of nested arrays vectors and objects and returns it as a well formated string*/
 		public function structureToString(input:Object, deep:String=''):String

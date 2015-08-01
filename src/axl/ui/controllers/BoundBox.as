@@ -314,11 +314,11 @@ package axl.ui.controllers
 		/** Attempts to move box by delta, still follows <code>verticalBehavior</code> rule @see #verticalBehavior */
 		public function movementHor(delta:Number):void { movement(delta, modH) }
 		
-		/** determines horizontal position of the <code>box<code> between its minX and maxX values @see #minX @see #maxX */
+		/** determines horizontal position of the <code>box</code> between its minX and maxX values @see #minX @see #maxX */
 		public function get percentageHorizontal():Number { return percentage.x }
 		public function set percentageHorizontal(v:Number):void { setPercentage(v, modH) }
 		
-		/** determines vertical position of the <code>box<code> between its minY and maxY values  @see #minY @see #maxY */
+		/** determines vertical position of the <code>box</code> between its minY and maxY values  @see #minY @see #maxY */
 		public function set percentageVertical(v:Number):void { setPercentage(v, modV) }
 		public function get percentageVertical():Number { return percentage.y }
 		
@@ -327,13 +327,13 @@ package axl.ui.controllers
 		public function set animationTime(v:Number):void { animTime = v }
 		
 		
-		/** minimum x value which box can take to follow <code>horizontalBehavior</code> defined rule</code> @see #horizontalBehavior */
+		/** Minimum x value which box can take to follow <code>horizontalBehavior</code> defined rule. @see #horizontalBehavior */
 		public function get minX():Number { return min.x };
-		/** maximum x value which box can take to follow <code>horizontalBehavior</code> defined rule</code> @see #horizontalBehavior */
+		/** maximum x value which box can take to follow <code>horizontalBehavior</code> defined rule @see #horizontalBehavior */
 		public function get maxX():Number { return max.x };
-		/** minimum y value which box can take to follow <code>verticalBehavior</code> defined rule</code> @see #verticalBehavior */
+		/** minimum y value which box can take to follow <code>verticalBehavior</code> defined rule @see #verticalBehavior */
 		public function get minY():Number { return min.y };
-		/** maximum y value which box can take to follow <code>verticalBehavior</code> defined rule</code> @see #verticalBehavior */
+		/** maximum y value which box can take to follow <code>verticalBehavior</code> defined rule @see #verticalBehavior */
 		public function get maxY():Number { return max.y };
 		
 		public function dispatchChange():void

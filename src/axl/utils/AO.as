@@ -1,4 +1,3 @@
-
 package axl.utils
 {
 	import flash.display.Stage;

@@ -32,8 +32,8 @@ package axl.utils
 		public static var DEBUG:Boolean = true;
 		
 		/**indicates if stage is in full screen interactive mode or not<br>
-		 * indicates if <code>U.REC</code> is based on <i>stage.fullScreen*W/H*</i> or <i>stage.stage*W/H*</i>
-		 * <br>According to on playerType.match: <i> /^(StandAlone|ActiveX|PlugIn)/i </i>*/
+		 * indicates if <code>U.REC</code> is based on stage.fullScreen*W/H* or stage.stage*W/H*
+		 * <br>According to on playerType.match: /^(StandAlone|ActiveX|PlugIn)/i */
 		public static var onStageAvailable:Function;
 		public static var onResize:Function;
 		public static function get ISWEB():Boolean { return isWeb }
@@ -186,13 +186,13 @@ package axl.utils
 		}
 		/** Distributes container members based on their width, height and gap between them.<br>
 		 * Container member can be any object which has x,y,width,height properites.
-		 * Container itself can be any vector, array or other enum, OR object with methods numChildren & getchildAt. 
+		 * Container itself can be any vector, array or other enum, OR object with methods numChildren and getchildAt. 
 		 * Members are being distributed accodring to their indexes.
 		 * @param cont - enum or DisplayObjectContainer
 		 * @param gap - Number or enum of Numbers. If e.g. gap=[50,100]: m1-m2 gap:50, m2-m3g:100, m3-m4:50, etc.
 		 * @param offset, member0 initial value.
 		 * @param scaleGapAndOffset - more as a reminder here but fully working. It uses U.scalar value
-		 * */
+		 */
 		public static function distributePattern(cont:Object, gap:Object=0, horizontal:Boolean=true, 
 												 offset:Number=0, scaleGapAndOffset:Boolean=false):Number
 		{
@@ -255,9 +255,9 @@ package axl.utils
 		}
 		/**
 		 * Resolves size of <code>movable</code> by comparing its aspect ratio to <code>static</code> aspect ratio TO FIT STATIC object dimensions.
-		 * @param movable: object to resize (any type of object which consist properties of <code>width & height</code>)
+		 * @param movable: object to resize (any type of object which consist properties of <code>width and height</code>)
 		 * @param static: object to fit <code>movable</code> into. static object wont be resized. (<b>any</b> type of object which 
-		 * consist properties of <code>width & height</code>)
+		 * consist properties of <code>width and height</code>)
 		 * @param outsidefit: if <code>true</code> movable is <strong>inscribed</strong> into static. if <code>false</code> movable 
 		 * is <strong>circumscribed around</strong> static
 		 */
@@ -431,7 +431,7 @@ package axl.utils
 		 * and following elements will still remain unavailable:
 		 * <ul>
 		 * <li>all scalar^ values</li> - used in some geometric functions of this class.
-		 * <li><code>U.splash</code>
+		 * <li><code>U.splash</code></li>
 		 * <li><code>Flow.progressBar</code></li>
 		 * <li><code>U.msg</code> as well as <code>Messages.msg</code></li>
 		 * </ul>

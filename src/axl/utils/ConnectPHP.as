@@ -68,7 +68,7 @@ package axl.utils
 		 * If<code>null</code> then <code>NetworkSettings.inputProcessor</code> will be used. If both are <code>null</code>
 		 * then plain jsoned string will be sent.<br><code>sendRaw</code> does not use encryption/decryption*/
 		public var encryption:Function;
-		/** Function to process input/response data with. </code>
+		/** Function to process input/response data with.
 		 * If <code>null</code> then <code>NetworkSettings.inputProcessor</code> will be used. If both are <code>null</code>
 		 * then plain response or JSON parsed plain response will be passed to <code>onComplete</code>
 		 * <br><code>sendRaw</code> does not use encryption/decryption*/
@@ -99,7 +99,7 @@ package axl.utils
 		 * <br><b>No go</b>: login, receive server settings.
 		 * <br>Number of unsent requests available to store is limited to according to ActionScript
 		 * <code>SharedObject</code> class rules.
-		 * <br>Use <code>ConnectPHP.clearUnsent()</CODE> to remove all unsent requests. @default <code>false</code> 
+		 * <br>Use <code>ConnectPHP.clearUnsent()</code> to remove all unsent requests. @default <code>false</code> 
 		 * @see #queueMember @default false */
 		public var storeUnsent:Boolean=false;
 		/** Determines if call is queued and will be executed <b>after</b> currently proceeding/unsent calls (<code>true</code>
@@ -118,8 +118,8 @@ package axl.utils
 		
 		/** Sends binary POST request to <code>defaultAddress</code> or <code>address</code>. Upload files this way to 
 		 * your prepared backend receiver.
-		 * @param content - binary data e.g.: encoded JPG or MP3. Preferably <code>ByteArray</code>
-		 * Should accept one argument: server response <code>Object</code> (JSON strings are parsed autumatically) or <code>Error</code> 
+		 * @param content binary data e.g.: encoded JPG or MP3. Preferably <code>ByteArray</code>
+		 * @param onComplete function - must accept one argument: server response <code>Object</code> (JSON strings are parsed autumatically) or <code>Error</code> 
 		 * if request was unsuccessful. Asign your own <code>onProgress</code> if you need to.
 		 * @param GETParameters - parameters to attach to address. Object will be JSON.parse and encrypyted if specified, attached to 
 		 * address as <code>variable</code> specified in constructor. e.g: <code>http://domain.com/receiver.php?<i>data</i>=<i>jsonParsedAndEncrypytedString</i></code>

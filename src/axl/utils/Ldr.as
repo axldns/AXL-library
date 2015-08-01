@@ -1,10 +1,3 @@
-internal class Behaviors 
-{
-	public const loadOverwrite:int=0;
-	public const loadSkip:int=1;
-	public const downloadOnly:int=2;
-	public function Behaviors(){}
-}
 package  axl.utils
 {
 	import flash.display.Bitmap;
@@ -38,16 +31,18 @@ package  axl.utils
 	 * 
 	 * <br><br> XML may contain two types of nodes: files and file. file nodes should hold only filename or sub-path. files nodes should be a list of file nodes. files also can have 
 	 * an attribute <code>dir</code> Such an attribute will be a prefix to all its sub-nodes.
+	 * <br>
 	 * <pre>
-	 * < files dir="/assets">
-	 * 	< file>/sounds/one.mp3< /file>
-	 *  	< files dir="images">
-	 * 		< file>two.png< /file>
-	 * 		< file>two.jpg< /file>
-	 * 	< /files>
-	 * < /files>
-	 * < file>/config/workflow/init.xml< /file>
+	 * &lt;files dir="/assets"&gt;<br>
+	 * 	&lt;file&gt;/sounds/one.mp3&lt;/file&gt;<br>
+	 * 	&lt;files dir="images"&gt;<br>
+	 * 		&lt;file&gt;two.png&lt;/file&gt;<br>
+	 * 		&lt;file&gt;two.jpg&lt;/file&gt;<br>
+	 * 	&lt;/files&gt;<br>
+	 * &lt;/files&gt;<br>
+	 * &lt;file&gt;/config/workflow/init.xml&lt;/file&gt;
 	 * </pre>
+	 *
 	 * This would queue:
 	 * <br>/assets/sounds/one.mp3
 	 * <br>/asset/images/two.png
@@ -284,8 +279,8 @@ package  axl.utils
 		 * 
 		 * @param onProgress : function which should accept two arguments:
 		 * <ul>
-		 * 	<li><code>Number</code> - bytesLoaded / bytesTotal of current asset
-		 * 	<li><code>String</code> - name of currently loaded element
+		 * 	<li><code>Number</code> - bytesLoaded / bytesTotal of current asset</li>
+		 * 	<li><code>String</code> - name of currently loaded element</li>
 		 * </ul>
 		 * To get detailed info of queue(s) status, whenever you need it query <code>Ldr.num^</code> getters
 		 * Don't worry - there are no calculations on query time - values are being updated only when queue(s) status changes.
@@ -301,7 +296,7 @@ package  axl.utils
 		 * <ul>
 		 * 	<li><code>resource</code> -  Object is parsed simmilar way as <code>resources</code> argument is but: 
 		 * 		<br><b>1</b> pathPrefixes must not point to files (directories only)
-		 * 		<br><b>2</b> directories are not scanned recursively (simple hook)
+		 * 		<br><b>2</b> directories are not scanned recursively (simple hook)</li>
 		 * 	<li><code>null</code> will match pathList only (empty prefix adds itself)</li>
 		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultPathPrefixes</u></li>
 		 * </ul>
@@ -309,13 +304,13 @@ package  axl.utils
 		 * @param loadBehaviour:
 		 * <ul>
 		 * <li><code>Ldr.behaviors.loadOverwrite</code> - any previously loaded elements of the same name as particular element
-		 * (requested to load) will be unloaded and removed from memory. All loaded elements will be instantiated.
+		 * (requested to load) will be unloaded and removed from memory. All loaded elements will be instantiated.</li>
 		 * <li><code>Ldr.behaviors.loadSkip</code> - any previously loaded elements of the same name 
 		 * will cause to <b>skip</b> loading queue element. onIndividualComplete will get executed, counters updated,
 		 * queue will continue as usual.</li>
-		 * <li><code>Ldr.downloadOnly</code> (AIR) - none of loaded elements will be instantiated. 
+		 * <li><code>Ldr.downloadOnly</code> (AIR) - none of loaded elements will be instantiated.
 		 * Saving files on disc will proceed according to storingBehavior</li>
-		 * <li><code>function(colidingFilename:String):String</code></li> - custom filter allows <u>you</u> to define what to do
+		 * <li><code>function(colidingFilename:String):String</code> - custom filter allows <u>you</u> to define what to do
 		 * 		<u>if</u> name of element requested to load colides with already loaded resources.
 		 * 		<br>return <code>null</code> to <b>skip</b> loading the file.
 		 * 		<br>return <code>String</code> to assign either new or the same name. Any name colision  after this point will cause 
@@ -325,12 +320,12 @@ package  axl.utils
 		 * 
 		 *  @param storingBehavior (AIR):
 		 * 	<ul>
-		 * <li><code>Ldr.Behaviors.default</code> will perform using <u>Ldr.defaultStoringBehavior</u> values.
+		 * <li><code>Ldr.Behaviors.default</code> will perform using <u>Ldr.defaultStoringBehavior</u> values.</li>
 		 * 	<li><code>RegExp</code> particular resource will be stored in <code>storeDirectory</code>
 		 *  	if its URL matches your your RegExp. Good scenario to store network updated files only by 
 		 * 		passing <code>/^(http:|https:|ftp:|ftps:)/i</code> or to filter storing by extensions. 
 		 * 		<br>Pass /./ to store/overwrite all files from this queue.
-		 * 		<br>Define storeDirectory as <code>null</code> to disable storing files from this queue.
+		 * 		<br>Define storeDirectory as <code>null</code> to disable storing files from this queue.</li>
 		 *  <li><code>Date</code> or <code>Number</code> where number is unix timestamp. This stores files if 
 		 *		<br> a) file does not exist in storeDirectory yet
 		 *		<br> b) your date is greater than existing file modification date.</li>
@@ -343,6 +338,7 @@ package  axl.utils
 		 * 		but you may want to use them as your criteria. 
 		 * 		<br>Closure excepts a pointer to file in any storable directory as an output. 
 		 * 		<br><code>null</code> or incorrect values will withold this file from storing. Performance is on you in this case.
+		 * </li>
 		 * </ul>
 		 * @param storeDirectory (AIR): 
 		 * Defines where to store loaded files if <code>storingBehavior</code> allows to do so.
@@ -354,8 +350,8 @@ package  axl.utils
 		 * <br>would save: app-storage:/assets/image.png
 		 * <ul>
 		 * 	<li><code>Ldr.defaultValue</code> uses <u>Ldr.defaultStoreDirectory</u></li>
-		 * 	<li><code>String</code> tries to resolve path
-		 * 	<li><code>File</code> tries to resolve path
+		 * 	<li><code>String</code> tries to resolve path</li>
+		 * 	<li><code>File</code> tries to resolve path</li>
 		 * 	<li><code>null</code> and/or other incorrect values - disables storing</li>
 		 * </ul> 
 		 * @param timeOutMS: Defines time (ms) after which particular element request will move to the next
