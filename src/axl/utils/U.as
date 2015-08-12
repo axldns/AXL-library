@@ -493,9 +493,19 @@ package axl.utils
 		private static function setGeometry(e:Event=null):void
 		{
 			if(!fullScreen)
-				rec.setTo(0,0, STG.stageWidth, STG.stageHeight);
+			{
+				rec.width = STG.stageWidth;
+				rec.height = STG.stageHeight;
+				//fp 11+
+				//rec.setTo(0,0, STG.stageWidth, STG.stageHeight);
+			}
 			else
-				rec.setTo(0,0, STG.fullScreenWidth, STG.fullScreenHeight);
+			{
+				rec.width = STG.fullScreenWidth;
+				rec.height = STG.fullScreenHeight;
+				//fp 11+
+				//rec.setTo(0,0, STG.fullScreenWidth, STG.fullScreenHeight);
+			}
 			
 			uscalarX = rec.width / designedForWidth;
 			uscalarY = rec.height / designedForHeight;
