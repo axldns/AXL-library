@@ -126,9 +126,23 @@ package axl.ui.controllers
 		private function updateFrames():void
 		{
 			if(bx != null)
-				rmovable.setTo(bx.x, bx.y, bx.width, bx.height);
+			{
+				rmovable.x = bx.x;
+				rmovable.y = bx.y;
+				rmovable.width = bx.width;
+				rmovable.height = bx.height;
+				//fp 11+
+				//rmovable.setTo(bx.x, bx.y, bx.width, bx.height);
+			}
 			if(bnd != null)
-				rstatic.setTo(bnd.x, bnd.y, bnd.width, bnd.height);
+			{
+				rstatic.x = bnd.x;
+				rstatic.y = bnd.y;
+				rstatic.width = bnd.width;
+				rstatic.height = bnd.height;
+				//fp 11+
+				//rstatic.setTo(bnd.x, bnd.y, bnd.width, bnd.height);
+			}
 		}
 	
 		private function validateAndUpdate(a:String):void
