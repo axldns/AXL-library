@@ -101,12 +101,13 @@ package  axl.utils
 		private var benchmarkTimer:int;
 		private var loadFilter:Function;
 		
-		public static var _context:LoaderContext;
+		public var _context:LoaderContext;
 		
 		private var eventComplete:Event = new Event(Event.COMPLETE);
 		private var eventProgress:Event = new Event(Event.CHANGE);
 		private var eventCancel:Event = new Event(Event.CANCEL);
 		public var id:Number;
+		public var separateDomain:Boolean;
 		
 		public function Req()
 		{
@@ -467,6 +468,7 @@ package  axl.utils
 					loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete);
 					break;
 				case "swf":
+					U.log("SWF LOADING");
 					try { loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete) }
 					catch(e:Error) { log(e), bothLoadersComplete(bytes) }
 					break;
@@ -694,9 +696,14 @@ package  axl.utils
 		private function get context():LoaderContext
 		{
 			if(!_context)
-				_context = new LoaderContext(Ldr.policyFileCheck);
-			_context.imageDecodingPolicy = ImageDecodingPolicy.ON_LOAD;
-			_context.allowCodeImport = true;// codeLoadAllowed;
+				_context = new LoaderContext(Ldr.policyFileCheck, separateDomain ? new ApplicationDomain(null) : null);
+			else
+				U.log('[Req]Context already exist');
+			if(_context.hasOwnProperty('imageDecodingPolicy'))
+				_context.imageDecodingPolicy = ImageDecodingPolicy.ON_LOAD;
+			if(_context.hasOwnProperty('allowCodeImport'))
+				_context.allowCodeImport = true;// codeLoadAllowed;
+			U.log("CONTEXT DOMAIN", _context.applicationDomain);
 			return _context;
 		}
 	}

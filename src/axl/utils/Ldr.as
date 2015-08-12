@@ -5,6 +5,7 @@ package  axl.utils
 	import flash.display.LoaderInfo;
 	import flash.events.Event;
 	import flash.media.Sound;
+	import flash.system.LoaderContext;
 	import flash.system.System;
 	import flash.utils.ByteArray;
 	
@@ -358,7 +359,7 @@ package  axl.utils
 		 * path prefix (if specifed) or to the next element in queue IF server does not response at all.
 		 * If your server is down, response may not come immediately but after browser defined timeout or (AIR) urlRequest.idleTimeout value.
 		 * Use this parameter to shorten your response awaiting time. This limits OPEN time, not loading time.
-		 * 
+		 * @param separateDomain
 		 * @return 
 		 * <ul>
 		 * <li><code>-2</code> if there are no resources specified and no queues to start</li>
@@ -367,7 +368,7 @@ package  axl.utils
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
 												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
 												 loadBehavior:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue,
-												 storeDirectory:Object=Ldr.defaultValue, timeOutMS:int=0):int
+												 storeDirectory:Object=Ldr.defaultValue, timeOutMS:int=0,differentContext:LoaderContext=null):int
 		{
 			log("[Ldr] request load.");
 			var req:Req;
@@ -382,6 +383,7 @@ package  axl.utils
 			{
 				req = new Req();
 				req.id = new Date().time + len;
+				req._context = differentContext;
 				requests[len] = req;
 			}
 			
