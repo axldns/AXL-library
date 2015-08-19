@@ -30,6 +30,7 @@ package axl.utils
 		Ldr.verbose = log;
 		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
+		public static var autoStageManaement:Boolean=true;
 		
 		/**indicates if stage is in full screen interactive mode or not<br>
 		 * indicates if <code>U.REC</code> is based on stage.fullScreen*W/H* or stage.stage*W/H*
@@ -58,6 +59,7 @@ package axl.utils
 		private static var ubin:BinAgent;
 		private static var uconfig:Object;
 		public static var fullScreen:Boolean;
+		
 		
 		public static function get CONFIG():Object { return uconfig }
 		public static function set CONFIG(v:Object):void { uconfig = v}
@@ -533,6 +535,8 @@ package axl.utils
 		
 		private static function setStageProperties():void
 		{
+			if(autoStageManaement==false)
+				return
 			uSTG.align = StageAlign.TOP_LEFT;
 			uSTG.scaleMode = StageScaleMode.NO_SCALE;
 			if(fullScreen)
