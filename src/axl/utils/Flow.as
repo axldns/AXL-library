@@ -124,8 +124,8 @@ package axl.utils
 		protected function afterConfigLoaded():void
 		{
 			U.log('[Flow][configLoaded]');
-			if(onConfigLoaded != null)
-				onConfigLoaded()
+			/*if(onConfigLoaded != null)
+				onConfigLoaded()*/
 			if(webflow) 
 				return loadFiles();
 			else if(mobileflow)
@@ -232,6 +232,13 @@ package axl.utils
 			var cfg:Object = Ldr.getAny(configToLoad);
 			if((cfg is XML || cfg is Object) && !(cfg is ByteArray))
 			{
+				if(onConfigLoaded != null)
+				{
+					if(onConfigLoaded.length > 0)
+						onConfigLoaded(cfg);
+					else
+						onConfigLoaded();
+				}
 				U.CONFIG = cfg;
 				if(cfg.hasOwnProperty('remote') && cfg.remote != null)
 				{
