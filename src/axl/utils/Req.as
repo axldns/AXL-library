@@ -703,7 +703,6 @@ package  axl.utils
 				_context.imageDecodingPolicy = ImageDecodingPolicy.ON_LOAD;
 			if(_context.hasOwnProperty('allowCodeImport'))
 				_context.allowCodeImport = true;// codeLoadAllowed;
-			U.log("CONTEXT DOMAIN", _context.applicationDomain);
 			return _context;
 		}
 	}

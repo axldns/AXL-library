@@ -66,20 +66,19 @@ package axl.ui
 		
 		private static function MD(e:MouseEvent=null):void
 		{
-			if(U.STG == null) return;
-			U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
-			if(tf != null && U.STG.contains(tf))
-				U.STG.removeChild(tf);
+			
+			if(tf != null && (tf.parent != null))
+				tf.parent.removeChild(tf);
 			if(e != null)
 			{
 				if(e.target == tf)
-				{
 					if(insideTap != null) insideTap();
-				}
 				else 
 					if(outsideTap != null)
 						outsideTap();
 			}
+			if(U.STG != null)
+				U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
 		}	
 		
 		public static function resize():void
