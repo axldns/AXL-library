@@ -318,6 +318,7 @@ package axl.utils
 		//-------------------- controll ------------------//
 		private function finish(dispatchComplete:Boolean):void { 
 			//# U.log('[Easing][finish]',subject);
+			clearTimeout(delayID);
 			if(destroyOnComplete)
 				destroy(dispatchComplete);
 			else
