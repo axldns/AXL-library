@@ -16,6 +16,9 @@ package axl.ui
 	{
 		private var vWid:Number=1;
 		private var vHeight:Number=1;
+		private var vX:Number=0;
+		private var vY:Number=0;
+		
 		private var shapeMask:Shape;
 		private var maskObject:DisplayObject;
 		
@@ -23,6 +26,7 @@ package axl.ui
 		private var eventChange:Event = new Event(Event.CHANGE);
 		private var ctrl:BoundBox;
 		private var deltaMultiply:int=1;
+		
 		
 		public var container:Sprite;
 		public var wheelScrollAllowed:Boolean = true;
@@ -58,6 +62,8 @@ package axl.ui
 			shapeMask.graphics.clear();
 			shapeMask.graphics.beginFill(0);
 			shapeMask.graphics.drawRect(0,0,visibleWidth, visibleHeight);
+			shapeMask.x = vX;
+			shapeMask.y = vY;
 			container.mask =shapeMask;
 		}
 	
@@ -93,6 +99,20 @@ package axl.ui
 		public function set visibleWidth(value:Number):void
 		{
 			vWid = value;
+			redrawMask();
+		}
+		
+		public function get visibleX():Number { return vX }
+		public function set visibleX(v:Number):void
+		{
+			vX = v;
+			redrawMask();
+		}
+		
+		public function get visibleY():Number { return vY }
+		public function set visibleY(v:Number):void
+		{
+			vY = v;
 			redrawMask();
 		}
 		
