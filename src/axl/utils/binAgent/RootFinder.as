@@ -74,28 +74,28 @@ package axl.utils.binAgent
 	
 		public function parseInput(text:String):Object
 		{
-			trace('---input:',text);
+			//trace('---input:',text);
 			consoleRoot =userRoot;
 			hashedStrings.length= hashedSquares.length = hashedRounds.length = hashedCurl.length=  numStrings =0;
 			current = hashStrings(text);
-			trace('strings hashed:\n', current);
+			//trace('strings hashed:\n', current);
 			if(current is Error)
 				return current;
 			current = hashIs(current as String);
-			trace('is cleared:', current);
+			//trace('is cleared:', current);
 			current = hashBrackets(current as String);
-			trace('brackets hashed:\n', current);
+			//trace('brackets hashed:\n', current);
 			if(current is Error)
 				return current;
 			current = loop(current as String);
-			trace('---output:',current);//flash.utils.describeType(current));
+			//trace('---output:',current);//flash.utils.describeType(current));
 			currentResult = current;
 			return current;
 		}
 		
 		private function loop(cur:String):Object
 		{
-			trace('loop', cur);
+			//trace('loop', cur);
 			if(cur==null) return null;
 			return parseArguments(cur.split(','));
 		}
@@ -104,7 +104,7 @@ package axl.utils.binAgent
 		{
 			var len:int = main.length;
 			var result:Array = [];
-			trace('parseArguments ('+ len +'):', main);
+			//trace('parseArguments ('+ len +'):', main);
 			for(var i:int = 0; i < len; i++)
 			{
 				var help:* = parseArgument(main[i]);
@@ -113,7 +113,7 @@ package axl.utils.binAgent
 				else
 					result.push(help);
 			}
-			trace('allArgumentsParsed('+ len +'):', result);
+			//trace('allArgumentsParsed('+ len +'):', result);
 			if(len > 1)
 				return result
 			else
@@ -122,18 +122,18 @@ package axl.utils.binAgent
 		
 		private function parseArgument(arg:String, doParseOperations:Boolean=true):*
 		{
-			trace(doParseOperations ? '  arg' : '   dot', arg);
+			//trace(doParseOperations ? '  arg' : '   dot', arg);
 			var help:* = readyTypeCheck(arg);
 			if(help != null)
 			{
-				trace('  <readyType!:', help);
+				//trace('  <readyType!:', help);
 				if(help is String && help == S_NULL)
 					help = null;
 				return help;
 			}
 			else if(doParseOperations)
 			{
-				trace('  <not ready type. parsing Operations',arg);
+				//trace('  <not ready type. parsing Operations',arg);
 				help = parseOperations(arg);
 			}
 			return help;
@@ -141,7 +141,7 @@ package axl.utils.binAgent
 		
 		private function parseOperations(argument:String):*
 		{
-			trace('    ||||||parseOperations', argument);
+			//trace('    ||||||parseOperations', argument);
 			var rawElements:Array =[];
 			var liveElements:Array = [];
 			var numOperations:int;
@@ -155,32 +155,32 @@ package axl.utils.binAgent
 				{
 					mathOperIndex = opchars.indexOf(argument.charAt(charIndex++ + ++operatorLength));
 				}
-				trace('     ', mathOperIndex,'/', opchars.length, '|', char, "OPERATOR LEN", operatorLength);
+				//trace('     ', mathOperIndex,'/', opchars.length, '|', char, "OPERATOR LEN", operatorLength);
 				if(operatorLength >0)
 				{
 					numOperations++;
 					if(charIndex!=operatorLength)
 						rawElements.push( argument.substr(0, charIndex-operatorLength)); // bit before operation
 					var center:String=  argument.substr(charIndex-operatorLength,operatorLength);
-					trace('center', center, "("+center.length+")/pos", mathLevelDict[center]);
+					//trace('center', center, "("+center.length+")/pos", mathLevelDict[center]);
 					while(mathLevelDict[center] == null)
 					{
 						center = center.substr(0,-1); // cropping too long operators
 						if(--operatorLength < 1) return this.errorOperands;
 						charIndex--;
-						trace('new center', center, 'ol', operatorLength);
+						//trace('new center', center, 'ol', operatorLength);
 					}
 					rawElements.push(center); // operation bit itself
-					trace('arg before crop', argument, '||index', charIndex );//'i-ol', i-ol, 'charati+ol', arg.charAt(i-ol));
+					//trace('arg before crop', argument, '||index', charIndex );//'i-ol', i-ol, 'charati+ol', arg.charAt(i-ol));
 					argument = argument.substr(charIndex);
-					trace('arg after crop', argument);
+					//trace('arg after crop', argument);
 					charIndex=-1
 				}
 			}
-			trace("MY LIVE STUFF", rawElements);
+			//trace("MY LIVE STUFF", rawElements);
 			rawElements.push(argument); // leftovers
 			var len:int = rawElements.length;
-			trace('    Making elements live');
+			//trace('    Making elements live');
 			for(charIndex = 0; charIndex < len; charIndex++)
 			{
 				var help:*
@@ -190,7 +190,7 @@ package axl.utils.binAgent
 				{
 					if(opchars.indexOf(rawElements[charIndex].charAt(0)) > -1)
 					{
-						trace('skiping due to math', rawElements[charIndex]);
+						//trace('skiping due to math', rawElements[charIndex]);
 						liveElements[charIndex] = rawElements[charIndex];   /////////// placing [+][-]
 						continue;
 					}
@@ -206,13 +206,13 @@ package axl.utils.binAgent
 			}
 			if(numOperations == 0) // if there are no operations
 			{
-				trace('      no operations, return single live element, last of the chain');
+				//trace('      no operations, return single live element, last of the chain');
 				
-				trace('    level one:', help);//, '\n\n', describeType(help).toXMLString());
+				//trace('    level one:', help);//, '\n\n', describeType(help).toXMLString());
 				help = liveElements.pop();
 				if(!(help is Result))
 				{
-					trace('Error or NULL operations level 1', help);
+					//trace('Error or NULL operations level 1', help);
 					return help;
 				}
 				help =help.chain.pop();
@@ -221,7 +221,7 @@ package axl.utils.binAgent
 			}
 			else
 			{
-				trace('      ', numOperations, 'operations to validate and perform on', liveElements);
+				//trace('      ', numOperations, 'operations to validate and perform on', liveElements);
 				// this should fold to a single argument
 				help = performChainOperations(liveElements);
 				return help;
@@ -234,8 +234,8 @@ package axl.utils.binAgent
 			//perform one side operations
 			//rearange order according to math rules
 			// sumarize everything
-			trace(opchars);
-			trace("chain operations on ", liveElements.length, 'live elements:', liveElements);
+			//trace(opchars);
+			//trace("chain operations on ", liveElements.length, 'live elements:', liveElements);
 			var len:int = liveElements.length;
 			var help:*;
 			var shelp:*;
@@ -243,7 +243,7 @@ package axl.utils.binAgent
 			var breakNow:Boolean = false;
 			for(var ml:int=0; ml < numMathLevels; ml++)
 			{
-				trace("MATH level:::::::::: ", hierarchy[ml]);
+				//trace("MATH level:::::::::: ", hierarchy[ml]);
 				for(var i:int = 0; i < liveElements.length; i++)
 				{
 					
@@ -263,13 +263,13 @@ package axl.utils.binAgent
 						break;
 					}
 					i--;
-					trace("AFTER OPERATION CAN WE CUT?", liveElements.length);
+					//trace("AFTER OPERATION CAN WE CUT?", liveElements.length);
 				}
 				if(breakNow) break;
 			}
 				/*isOneSide = oneSiders.indexOf(ope);
 				isAsignment = asignments.indexOf(ope);*/
-			trace('at the end', liveElements);
+			//trace('at the end', liveElements);
 			if(liveElements.length > 1)
 				return errorOperands;
 			else
@@ -285,7 +285,7 @@ package axl.utils.binAgent
 		private function operate(liveElements:Array, i:int):*
 		{
 		
-			trace("OPERATE", i,'@', liveElements);
+			//trace("OPERATE", i,'@', liveElements);
 			var oper:String = liveElements[i];
 			var isAsignment:Boolean = asignments.indexOf(oper) > -1;
 			var deleteCount:int = (oneSiders.indexOf(oper) > -1) ? 1 : 2;
@@ -304,13 +304,13 @@ package axl.utils.binAgent
 				if(isAsignment)
 				{
 					var lastText:String = Result(left).text[left.text.length-1];
-					trace("ASIGNMENT TEXT", left.text);
+					//trace("ASIGNMENT TEXT", left.text);
 				}
 			}
 			var help:*;			
-			trace('left				is 			', left, left is Result ? left.chain : '');
-			trace('math				is			', oper);
-			trace('right				is			', right, right is Result ? right.chain : '');
+			//trace('left				is 			', left, left is Result ? left.chain : '');
+			//trace('math				is			', oper);
+			//trace('right				is			', right, right is Result ? right.chain : '');
 			switch(oper)
 			{
 				case '!': rc[rci] = !rc[rci]; break;
@@ -338,7 +338,7 @@ package axl.utils.binAgent
 				case '?': lc[lci] = getNextNext();  break;
 			}
 			liveElements.splice(i, deleteCount);
-			trace('leftover', liveElements, "("+liveElements.length+")");
+			//trace('leftover', liveElements, "("+liveElements.length+")");
 			function getNextNext():Object
 			{
 				if(liveElements.length > i +3)
@@ -368,17 +368,17 @@ package axl.utils.binAgent
 			var mwhlen:int;
 			var help:*;
 			var prev:*;
-			trace('   parseDots ('+ mlen +'):', main);
-			trace('   >dirty class check');
+			//trace('   parseDots ('+ mlen +'):', main);
+			//trace('   >dirty class check');
 			help = dirtyClassCheck(main);
 			if(help != null)
 			{
-				trace('dirty paid', help);
+				//trace('dirty paid', help);
 				main = main.slice(help.pop()+1);
 				mainWithHashes[0] = help.pop();
 				chain[0] = help.pop();
 				textual[0] = mainWithHashes[0];
-				trace("now main is ", main, 'and chain is ', chain);
+				//trace("now main is ", main, 'and chain is ', chain);
 			}
 			// ! REVERSING HASHES ! //
 			mlen =  main.length;
@@ -390,7 +390,7 @@ package axl.utils.binAgent
 				if(help != null) 
 					mainWithHashes.push(help);// leftovers
 			}
-			trace("     MAIN with hashes",mainWithHashes);
+			//trace("     MAIN with hashes",mainWithHashes);
 			var chainLen:int = chain.length;
 			mwhlen = mainWithHashes.length;
 			for(i = chainLen; i < mwhlen; i++)
@@ -405,23 +405,23 @@ package axl.utils.binAgent
 					}
 					prev = chain[i-1];
 					help = isHash(mainWithHashes[i]);
-					if(help is Error) return help;
-					trace('    >checking on prev of chain:', prev, '<-[' + help + ']-/',
-						mainWithHashes[i].length);
+					if(help is Error) 
+						return help;
+					//trace('    >checking on prev of chain:', prev, '<-[' + help + ']-/',mainWithHashes[i].length);
 					textual[i] = help;
 					if(prev is Function)
 					{
-						trace("   {} FUNCTION EXEC {}:", prev, 'ARGUMENTS(s)', help, help is Array ? '('+help.length+')' : '');
+						//trace("   {} FUNCTION EXEC {}:", prev, 'ARGUMENTS(s)', help, help is Array ? '('+help.length+')' : '');
 						try {
 							if(help is Array)
 							{
 								var shelp:*;
-								trace("MULTI ARG");
+								//trace("MULTI ARG");
 								try { shelp = prev.apply(null, help) } catch(e:*) { shelp = e}
 								if(shelp is Error)
 									try { shelp =prev(help) } catch (e:*) {shelp = e}
 								help = shelp
-								trace("DONE?", help);
+								//trace("DONE?", help);
 							}
 							else if(help == null)
 								help = prev();
@@ -433,19 +433,19 @@ package axl.utils.binAgent
 					}
 					else if(prev is Class)
 					{
-						trace("prev is class");
+						//trace("prev is class");
 						if(help is Array)
 							try { help = classMultiCast(prev, help) } catch(e:*) { help = e }
 						else if(help == null)
 						{
-							trace('help is null');
+							//trace('help is null');
 							if(mainWithHashes[i].charAt(0) == hRound)
 								try{help = prev()} catch(e:*) {help = e}
 							else
 								help = errorInvalidClassArgument;
 						}
 						else {
-							trace('help is either constructor argument or static method/property. arg:?');
+							//trace('help is either constructor argument or static method/property. arg:?');
 							if(mainWithHashes[i].charAt(0) == hRound)
 								try{help = prev(help)} catch(e:*) {help = e}
 							else
@@ -458,12 +458,12 @@ package axl.utils.binAgent
 					}
 					consoleRoot = prev;
 					if(help is Error) return help;
-					trace('prev class', prev, 'resolved as', help);
+					//trace('prev class', prev, 'resolved as', help);
 					chain[chainLen++] = help;
 				}
 				else // FIRST OF THE CHAIN  ! ! ! !
 				{// attention! live objects being passed to parseArguments?
-					trace('    ->checking as first of chain',  mainWithHashes[i], 'out of', mainWithHashes.length);
+					//trace('    ->checking as first of chain',  mainWithHashes[i], 'out of', mainWithHashes.length);
 					//as first it doesnt go as here, if its null, its an error?
 					help = isHash(mainWithHashes[i]);
 					textual[0] =help;
@@ -474,9 +474,9 @@ package axl.utils.binAgent
 					}
 					if(help == mainWithHashes[i])
 					{
-						trace("  ->->reparsing argument?");
+						//trace("  ->->reparsing argument?");
 						help = parseArgument(mainWithHashes[i],false);
-						trace("  <-<-", help, help is Error || help == null);
+						//trace("  <-<-", help, help is Error || help == null);
 						if(help is Error || help == null)
 						{
 							if(mlen > 1) consoleRoot = null;
@@ -487,10 +487,10 @@ package axl.utils.binAgent
 					else
 						chain[chainLen++] = help;
 					consoleRoot = chain[chainLen-1];
-					trace('    <-got it as', chain[chainLen-1]);
+					//trace('    <-got it as', chain[chainLen-1]);
 				}
 			}
-			trace("CHAIN OK", chain, 'while main with hashes', mainWithHashes,'\nTEXTUAL', textual);
+			//trace("CHAIN OK", chain, 'while main with hashes', mainWithHashes,'\nTEXTUAL', textual);
 			return  new Result(chain, textual);
 		}
 		
@@ -505,7 +505,7 @@ package axl.utils.binAgent
 			for(var i:int = 1;i<l;i++)
 			{
 				t += '.' + main[i];
-				trace("DIRTY CHECK:", t);
+				//trace("DIRTY CHECK:", t);
 				try { c= flash.utils.getDefinitionByName(t) as Class }
 				catch(e:*){ /* uuu! how dirty am I! */}
 				if(c is Class) return [c,t,i];
@@ -515,7 +515,7 @@ package axl.utils.binAgent
 		
 		private function classMultiCast(classObject:Class, args:Array):*
 		{
-			trace('classMultiCast');
+			//trace('classMultiCast');
 			var al:int = args.length;
 			if(al == 0) return classObject();
 			if(al == 1) return classObject(args[0]);
@@ -547,24 +547,24 @@ package axl.utils.binAgent
 			switch (symbol)
 			{
 				case hString:
-					trace("DE-HASH STRING");
+					//trace("DE-HASH STRING");
 					return hashedStrings[i];
 				case hCurl:
-					trace("DE-HASH OBJECT CREATION");
+					//trace("DE-HASH OBJECT CREATION");
 					return createObject(hashedCurl[i]);
 				case hRound:
-					trace("DE-HASH ( ) looping");
+					//trace("DE-HASH ( ) looping");
 					if(hashedRounds[i].length == 0) return null;
 					help = loop(hashedRounds[i]);
-					trace("DE-HASH () RESULT:", help);
+					//trace("DE-HASH () RESULT:", help);
 					return help;
 				case hSquare:
-					trace("DE-HASH [ ] looping");
+					//trace("DE-HASH [ ] looping");
 					help = createArray(hashedSquares[i]);
-					trace("DE-HASH [] RESULT:", help);
+					//trace("DE-HASH [] RESULT:", help);
 					return help;
 				default:
-					trace("UNINDENTIFIED HASH", bit);
+					//trace("UNINDENTIFIED HASH", bit);
 					return bit;
 					
 			}
@@ -572,7 +572,7 @@ package axl.utils.binAgent
 		
 		private function createArray(input:String):*
 		{
-			trace('creating array from', input);
+			//trace('creating array from', input);
 			var props:Array = input.split(',');
 			var plen:int = props.length;
 			var output:Array= [];
@@ -588,7 +588,7 @@ package axl.utils.binAgent
 		
 		private function createObject(input:String):*
 		{
-			trace('creating object from', input);
+			//trace('creating object from', input);
 			var props:Array = input.split(',');
 			var plen:int = props.length;
 			var output:Object = {};
@@ -608,7 +608,7 @@ package axl.utils.binAgent
 		
 		private function checkForHashes(chunk:String, resultsTo:Array):Object
 		{
-			trace(" <> incoming chunk <> ", chunk, '('+chunk.length+')');
+			//trace(" <> incoming chunk <> ", chunk, '('+chunk.length+')');
 			if(chunk.length < 1) return errorSyntax;
 			var hi:int, char:String, pair:int, left:String;
 			for(var i:int= 0; i < chunk.length; i++)
@@ -617,21 +617,21 @@ package axl.utils.binAgent
 				hi = hashSymbols.indexOf(char);
 				if(hi> -1)
 				{
-					trace('found hash', hashSymbols[hi], 'at', i);
+					//trace('found hash', hashSymbols[hi], 'at', i);
 					if(i > 0)
 					{
 						left = chunk.substr(0,i);
 						resultsTo.push(left);
 					}
 					chunk = chunk.substr(i);
-					trace('after crop:', chunk);
+					//trace('after crop:', chunk);
 					pair = chunk.indexOf(hashSymbols[hi], 1);
-					trace("pair", pair);
+					//trace("pair", pair);
 					if(pair < 0) return errorSyntax;
 					left = chunk.substr(0, pair+1);
 					resultsTo.push(left);
 					chunk = chunk.substr(pair+1);
-					trace('after 2 crop', chunk);
+					//trace('after 2 crop', chunk);
 					i=-1;
 				}
 			}
@@ -640,7 +640,7 @@ package axl.utils.binAgent
 		
 		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):Object
 		{
-			trace('[*]readyTypeCheck[*]', arg);
+			//trace('[*]readyTypeCheck[*]', arg);
 			if(!isNaN(Number(arg))) return Number(arg)
 			else if(arg == 'true' || arg == 'false') return (arg == 'true')
 			else if(arg == 'this') return userRoot;
@@ -654,7 +654,7 @@ package axl.utils.binAgent
 				if(help is Class) return help as Class;
 				else if(tryUserRoot)
 				{
-					trace("TRYING USER ROOT PROPERTY", userRoot,'?', help);
+					//trace("TRYING USER ROOT PROPERTY", userRoot,'?', help);
 					try { help = userRoot[arg] } catch (e:*) {}
 					return help;
 				}
@@ -690,7 +690,7 @@ package axl.utils.binAgent
 					if(toAdd-- <1)
 						break;
 			}
-			trace(o[i], 's:', startI, 'e:', endI, '/', l);
+			//trace(o[i], 's:', startI, 'e:', endI, '/', l);
 			if(endI >= l) return errorUnmatchedBrackets;
 			//hash
 			var left:String = text.substr(0,startI);
@@ -721,7 +721,7 @@ package axl.utils.binAgent
 			var j:int = text.indexOf(double);
 			var leading:String;
 			var startIndex:int = (j>-1)?(i>-1&&i<j?i:j):i;
-			trace("STRING IDS", i,j, startIndex);
+			//trace("STRING IDS", i,j, startIndex);
 			if(startIndex < 0) return text;
 			leading = (startIndex == i ? single : double);
 			var endIndex:int = text.indexOf(leading, startIndex+1);
@@ -745,13 +745,13 @@ package axl.utils.binAgent
 			var values:Array =cropped.split(sreg);
 			consoleResult.chain = [];
 			consoleResult.text = [];
-			trace("LIMITERS:", limiters);
-			trace("VALUES", values);
+			//trace("LIMITERS:", limiters);
+			//trace("VALUES", values);
 			var numValues:int = values.length;
 			var help:*;
 			consoleResult.chain[0] = readyTypeCheck(values[0],false) || userRoot;
 			consoleResult.text[0] = values[0];
-			trace("SCOPE 0:", consoleResult.chain[0]);
+			//trace("SCOPE 0:", consoleResult.chain[0]);
 			for(var i:int = 1; i < numValues; i++)
 			{
 				switch(values[i])
@@ -760,11 +760,11 @@ package axl.utils.binAgent
 					case '(': continue;
 						break;
 				}
-				trace('trying to match', consoleResult.chain[consoleResult.chain.length-1], '>>>>>>>>> ['+ values[i] + ']'); 
+				//trace('trying to match', consoleResult.chain[consoleResult.chain.length-1], '>>>>>>>>> ['+ values[i] + ']'); 
 				try {help = consoleResult.chain[consoleResult.chain.length-1][values[i]] } catch (e:*) { help =e}
 				if(help is Error)
 				{
-					trace('error', help, 'unknown context');
+					//trace('error', help, 'unknown context');
 					//return null
 				}
 				else
@@ -772,8 +772,8 @@ package axl.utils.binAgent
 					consoleResult.chain.push(help);
 					consoleResult.text.push(values[i]);
 				}
-				trace('consoleResult.chain',  consoleResult.chain);
-				trace('consoleResult.text',  consoleResult.text);
+				//trace('consoleResult.chain',  consoleResult.chain);
+				//trace('consoleResult.text',  consoleResult.text);
 			}
 			return consoleResult;
 			
