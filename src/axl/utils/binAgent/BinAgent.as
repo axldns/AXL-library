@@ -67,6 +67,7 @@ package axl.utils.binAgent
 		}
 		
 		public static function get instance():BinAgent { return _instance }
+		public function get parser():RootFinder { return rootFinder }
 		
 		private function makeMiniHint():void
 		{
