@@ -313,7 +313,8 @@ package axl.utils.binAgent
 		{
 			if(past.length < 1) return;
 			pastIndex += (kc == Keyboard.UP ? -1 : 1);
-			if(pastIndex < 0) pastIndex = past.length-1;
+			if(pastIndex < 0) 
+				pastIndex = past.length-1;
 			if((pastIndex >= past.length) || (pastIndex < 0))
 				pastIndex = 0;
 			bInput.text = past[pastIndex];	
@@ -337,8 +338,8 @@ package axl.utils.binAgent
 				bConsole.setTextFormat(console_textFormat, tstart +tlen);
 			if(past.indexOf(t) < 0)
 			{
-				past.push(t);
-				pastIndex = past.length;
+				past.splice(pastIndex,0,t);
+				pastIndex-=1;
 			}
 			bInput.text = '';
 		}
