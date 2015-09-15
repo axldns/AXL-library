@@ -29,6 +29,8 @@ package axl.utils
 		
 		private var objectMouse:Point = new Point();;
 		private var startObject:Point = new Point();
+		private var coffset:Point = new Point();
+		private var cGloToLo:Point = new Point();
 		private var startMouse:Point = new Point();
 		private var resizingH:Boolean;
 		private var resizingV:Boolean;
@@ -81,9 +83,11 @@ package axl.utils
 				resizingV = instance.resizingV;
 				startMouse = instance.startMouse;
 				startObject = instance.startObject;
+				cGloToLo = instance.cGloToLo;
+				coffset = instance.coffset;
 			}
 		}
-		
+		public function get cTarget():Object { return c}
 		protected function kd(e:KeyboardEvent):void
 		{
 			if(c == null) return
@@ -152,10 +156,7 @@ package axl.utils
 			}
 		}
 		
-		private function objectUp():void
-		{
-			newC(c.parent);
-		}
+		private function objectUp():void { newC(c.parent) }
 		
 		private function newC(v:DisplayObject):void
 		{
@@ -182,7 +183,7 @@ package axl.utils
 			updateStuff();
 		}
 		
-		protected function mu(event:MouseEvent):void
+		protected function mu(e:MouseEvent):void
 		{
 			descC();
 			c=null;
@@ -213,6 +214,8 @@ package axl.utils
 				objectMouse.y = c.mouseY;
 				startMouse.x = U.STG.mouseX;
 				startMouse.y = U.STG.mouseY;
+				coffset.x = c.mouseX;
+				coffset.y = c.mouseY;
 				resizingH = resizeHhint;
 				resizingV = resizeVhint;
 				moving = (!resizingH && !resizingV);
@@ -231,9 +234,7 @@ package axl.utils
 			{
 				var t:DisplayObject = e.target as DisplayObject;
 				if(c != t && !e.buttonDown)
-				{
 					newC(t);
-				}
 				updateStuff();
 			}
 			else
@@ -245,15 +246,20 @@ package axl.utils
 			if(c==null) return;
 			resizeVhint = false;
 			resizeHhint = false;
-			if(U.STG.mouseX - (go.x + c.x + c.width) > -10)
+			if(U.STG.mouseX - (cbounds.x + cbounds.width) > -10)
 				resizeHhint=true;
-			if(U.STG.mouseY - (go.y + c.y + c.height)  > -10)
+			if(U.STG.mouseY - ( cbounds.y + cbounds.height)  > -10)
 				resizeVhint=true;
+			if(c.parent)
+			{
+				cGloToLo.setTo(c.stage.mouseX, c.stage.mouseY);
+				cGloToLo = c.parent.globalToLocal(cGloToLo);
+			}
 			
 			if(moving && !(c is Stage))
 			{
-				c.x = startObject.x + (U.STG.mouseX - startMouse.x);
-				c.y = startObject.y + (U.STG.mouseY - startMouse.y);
+				c.x = cGloToLo.x- coffset.x;//startObject.x + (U.STG.mouseX - startMouse.x);
+				c.y = cGloToLo.y- coffset.y;//startObject.y + (U.STG.mouseY - startMouse.y);
 			}
 			else if(!(c is Stage))
 			{
@@ -294,7 +300,6 @@ package axl.utils
 				U.STG.removeChild(miniHint);
 			U.STG.removeChild(outline);
 			added = false;
-			
 		}
 		
 		private function addMiniHint(c:DisplayObject):void
@@ -304,30 +309,30 @@ package axl.utils
 			U.STG.addChild(outline);
 			added = true;
 			
-			if(cp)
-				cbounds = c.getBounds(cp)
-			else
-				cbounds.setTo(c.x, c.y,c.width,c.height);
+			cbounds = c.getBounds(c.stage);
 			miniHint.text = c.toString() + '[' + c.name +'] x:' + c.x + ' y:' + c.y + ' w:' + c.width + ' h:' + c.height;
 			miniHint.width = miniHint.textWidth + 5;
-			miniHint.x = go.x + cbounds.x;
-			miniHint.y = go.y + cbounds.y;
+			
 			
 			outline.graphics.clear();
 			outline.graphics.lineStyle(1,0x00ff00,.8);
-			outline.graphics.drawRect(0,0, c.width, c.height);
+			if(false)
+				outline.graphics.beginFill(0,0.2);
+			outline.graphics.drawRect(0.5,0.5, cbounds.width-1, cbounds.height-1);
 			if(resizeHhint || resizingH)
 			{
 				outline.graphics.lineStyle(1,0x0ff000,.8);
-				outline.graphics.drawRect(c.width-10, 0,10, c.height);
+				outline.graphics.drawRect(cbounds.width-11, 0.5,10, cbounds.height-1);
 			}
 			if(resizeVhint || resizingV)
 			{
 				outline.graphics.lineStyle(1,0x0ff000,.8);
-				outline.graphics.drawRect(0, c.height-10,c.width, 10);
+				outline.graphics.drawRect(0.5, cbounds.height-11,cbounds.width-1, 10);
 			}
-			outline.x = miniHint.x;
-			outline.y = miniHint.y;
+			outline.x = cbounds.x;
+			outline.y = cbounds.y;
+			miniHint.x =  cbounds.x;
+			miniHint.y =  cbounds.y;
 		}
 		
 		private function globalOffsetFind(dob:DisplayObject):void
