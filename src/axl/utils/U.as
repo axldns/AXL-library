@@ -363,7 +363,7 @@ package axl.utils
 		}
 		
 		/** Draws any flash.display.DisplayObject to BitmapData to fit specific area (toFit) and centers return bitmap within that area*/
-		public function getBitmapFit(source:DisplayObject, toFit:Object):Bitmap
+		public static function getBitmapFit(source:DisplayObject, toFit:Object):Bitmap
 		{
 				var ascale:Number = 1;
 				var bitmap:Bitmap = new Bitmap(null,'auto',true);
