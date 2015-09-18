@@ -155,7 +155,6 @@ package axl.utils.binAgent
 			bSlider.x = bConsole.x + bConsole.width - bSlider.width;
 			bSlider.y = bConsole.y + bConsole.height - bSlider.height;
 			bInput.y = bConsole.height;
-			localMovement();
 		}
 		
 		//-------
@@ -210,30 +209,14 @@ package axl.utils.binAgent
 			else
 				message = e.error.toString();
 			trrace('[BinAgent][UNHANDLED-ERROR] uncaught error: ', message, '(', e.error, e.text, e.toString(), e.type, e.target, ')');
-			trrace(Error(e.error).getStackTrace());
+			var et:Error = e.error as Error;
+			if(et)
+				trrace(et.getStackTrace());
 			e.preventDefault();
 		}
 		//-------------------------------------  END OF ROOT SETUP  ------------------------------------------  //
 		//-------
 		// ------------------------------------- WINDOW CONTROLL ------------------------------------- //
-		protected function localMovement(e:MouseEvent=null):void
-		{
-			/*if(e != null && !this.sliderIsDown)
-				return;
-			var newy:Number = bConsole.mouseY;
-			
-			if(newy < 0)
-				newy = 0
-			if(newy > bConsole.height)
-				newy = bConsole.height;
-			
-			var p:Number = newy / bConsole.height;
-			bConsole.scrollV = p * bConsole.maxScrollV;
-			
-			var sy:Number = p * bConsole.height;
-			sy -= (p*bSlider.height);
-			bSlider.y = sy;*/
-		}
 		
 		protected function sliderEvent(event:Event):void
 		{
@@ -242,7 +225,8 @@ package axl.utils.binAgent
 		
 		protected function scrollEvent(e:Event):void
 		{
-			this.boundBox.percentageVertical = bConsole.scrollV /  bConsole.maxScrollV;
+			if(boundBox)
+				boundBox.percentageVertical = bConsole.scrollV /  bConsole.maxScrollV;
 		}
 		protected function stageMouseDown(e:MouseEvent):void
 		{
