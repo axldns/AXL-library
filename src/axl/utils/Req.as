@@ -404,7 +404,7 @@ package  axl.utils
 			removeListeners()
 			urlLoader = null;
 			urlRequest = null;
-			this.dispatchEvent(eventComplete);
+			this.dispatchEvent(eventComplete ? eventComplete :  new Event(Event.COMPLETE));
 		}
 		
 		// -------events----------------------------- QUEUE PROCESSES
@@ -555,23 +555,45 @@ package  axl.utils
 				prefixIndex =numPrefixes;
 				return originalUrl;
 			}
-			if(fileInterfaceAvailable && prefix.match(/^(\.\.)/i))
+			if(fileInterfaceAvailable)
 			{ 
 				// workaround for inconsistency in traversing up directories on windows. 
 				// FP takes working dir, AIR doesn't.
-				var cp:String = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix; 
+				if(prefix.match(/^(\.\.)/i))
+					prefix = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix;
+				
+				resolveJoints();
+				
+				var cp:String = prefix + originalUrl; 
 				try {
 					var f:Object = new FileClass(cp) ;
-					return  f.resolvePath(f.url +FileClass.separator+ originalUrl).url;
+					f.resolvePath('.');
+					return  f.url;
 				} catch (e:*) { log("[Ldr][Queue]["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
 				} finally { f = null }
 			}
+			else
+			{
+				resolveJoints();
+			}
 			//fixes concat two styles an doubles. all go to "/" since this is default url style, ios supports that, windows can resolve
-			var joint:String = prefix.substr(-1) + originalUrl.charAt(0);
-			if(joint == '//' || joint == '\\')
-				prefix = prefix.substr(0,-1);
-			else if (!joint.match(/(\\|\/)/))
-				prefix += '/';
+			function resolveJoints():void
+			{
+				var joint:String = prefix.substr(-1) + originalUrl.charAt(0);
+				if(joint == '//' || joint == '\\')
+					prefix = prefix.substr(0,-1);
+				else if(joint.match(/(\\|\/)/i))
+				{
+					//all good
+				}
+				else
+				{
+					if(prefix.match(/\\/) || originalUrl.match(/\\/))
+						prefix += '\\'.substr(1);
+					else
+						prefix += '/';
+				}
+			}
 			return String(prefix + originalUrl).replace(/\\/gi, "/");
 		}
 		
