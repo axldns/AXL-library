@@ -33,6 +33,7 @@ package axl.utils
 		private var passedRelative:int=0;
 		private var direction:int=1;
 		private var cur:Number=0;
+		
 	
 		private var updateFunction:Function;
 		private var getValue:Function;
@@ -44,6 +45,8 @@ package axl.utils
 		public var yoyo:Boolean=false;
 		public var cycles:int=1;
 		public var subject:Object;
+		public var interval:int=0;
+		public var intervalRepetitions:int=1;
 		
 		public var onStartArgs:Array;
 		public var onUpdateArgs:Array;
@@ -74,6 +77,11 @@ package axl.utils
 		private var props:Object;
 		private var easing:Function;
 		private var delayID:uint;
+		private var intervalDuration:Number;
+		private var intervalRemaining:int;
+		private var ucycles:int=1;
+		private var intervalLock:Boolean;
+		
 		
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
@@ -117,6 +125,7 @@ package axl.utils
 			if(frameBased) prepareFrameBased();
 			else prepareTimeBased();
 			isSetup = true;
+			ucycles = cycles;
 		}
 		
 		private function prepareCommon():void
@@ -126,7 +135,7 @@ package axl.utils
 			if(propEndValues) propEndValues.length = 0; else propEndValues = new Vector.<Number>();
 			if(propDifferences) propDifferences.length = 0; else propDifferences = new Vector.<Number>();
 			
-			numProperties = duration = passedTotal = passedRelative = cur = 0;
+			numProperties = duration = passedTotal = passedRelative = cur = intervalDuration= intervalRemaining = 0;
 			
 			props = uProps;
 			easing = uEasing || defaultEasing;
@@ -142,6 +151,7 @@ package axl.utils
 					this[s] = props[s];
 				else throw new ArgumentError("[AO]" + subject + " Invalid property '"+s+"' or value: " + props[s]);  
 			}
+			
 		}
 		
 		// ----------------------------------------- PREPARE ----------------------------------- //
@@ -173,12 +183,13 @@ package axl.utils
 		
 		private function prepareTimeBased():void {
 			duration  =  (uSeconds * 1000); 
+			intervalDuration = intervalRemaining = (interval * 1000);
 			getValue = getValueLive;
 		}
 		private function prepareFrameBased():void
 		{
-			duration = Math.ceil(STG.frameRate * uSeconds) // no frames
-			
+			duration = Math.ceil(STG.frameRate * uSeconds); // no frames
+			intervalDuration = intervalRemaining = Math.ceil(STG.frameRate * interval);
 			if(!precalculateFrameValues)
 				getValue = getValueLive;
 			else 
@@ -202,16 +213,63 @@ package axl.utils
 			if(passedTotal >= duration) 
 			{
 				passedTotal = duration;
-				passedDuration();
+				if(intervalLock)
+					 resolveInterval(milsecs);
+				else
+				{
+					var continues:Boolean = passedDuration();
+					if(continues)
+						passedTotal = 0;
+					else
+						resolveInterval(milsecs);
+				}
+				
 			}
 			else
 			{
+				intervalLock = false;
 				updateFunction();
 				if(onUpdate is Function)
 					onUpdate.apply(null, onUpdateArgs);
 			}
 		}
-				
+		
+		private function resolveInterval(ms:uint):void
+		{
+			if(intervalPassed(ms))
+			{
+				intervalLock = false;
+				finish(true);
+			}
+			else
+			{
+				intervalLock = true;
+			}
+		}
+		private function intervalPassed(milsecs:int):Boolean
+		{
+			if(interval <= 0)
+				return true;
+			intervalRemaining -= frameBased ? 1 : milsecs;
+			if(intervalRemaining <= 0)
+			{
+				if(--intervalRepetitions < 0)
+					return true;
+				else
+				{
+					passedTotal = 0;
+					cycles = ucycles;
+					intervalLock  = false
+					intervalRemaining = intervalDuration;
+					return false
+				}
+			}
+			else
+			{
+				return false;
+			}
+		}		
+		
 		//absolute
 		private function updateAbsolute():void
 		{
@@ -226,8 +284,10 @@ package axl.utils
 			{
 				cur = getValue(i);
 				var add:Number = (cur - prevs[i]);
+				var bug:Number = subject[propNames[i]];
 				subject[propNames[i]] += add;
-				remains[i] += (-add * direction);
+				bug = (subject[propNames[i]] - add) - bug;
+				remains[i] += (-add * direction) - bug;
 				prevs[i] = cur;
 			}
 		}
@@ -242,12 +302,11 @@ package axl.utils
 			return easing(passedRelative, propStartValues[i], propDifferences[i], duration);
 		}
 		
-		private function passedDuration():void
+		private function passedDuration():Boolean
 		{
 			equalize();
 			if(onUpdate is Function) onUpdate.apply(null, onUpdateArgs);
-			passedTotal = 0;
-			resolveContinuation();
+			return resolveContinuation();
 		}
 		
 		private function equalize():void
@@ -283,21 +342,25 @@ package axl.utils
 				subject[propNames[i]] = v[i];
 		}
 		
-		private function resolveContinuation():void
+		private function resolveContinuation():Boolean
 		{
 			//# U.log("------resolveContinuation----------");
 			if(yoyo)
 			{
 				if(direction > 0)
+				{
 					direction = -1;
+					return true;
+				}
 				else
 				{
 					direction = 1;
 					completeYoyo();
-					cycled();
+					return cycled();
 				}
 			} 
-			else cycled();
+			else 
+				return cycled();
 		}
 		
 		private function completeYoyo():void
@@ -306,13 +369,14 @@ package axl.utils
 				onYoyoHalf.apply(null, onYoyoHalfArgs);
 		}
 		
-		private function cycled():void
+		private function cycled():Boolean
 		{
 			--cycles;
 			if(onCycle is Function) 
 				onCycle.apply(null, onCycleArgs);
 			if(cycles == 0)
-				finish(true);
+				return false;
+			return true
 		}
 		
 		//-------------------- controll ------------------//
