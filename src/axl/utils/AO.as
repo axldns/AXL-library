@@ -81,6 +81,10 @@ package axl.utils
 		private var intervalRemaining:int;
 		private var ucycles:int=1;
 		private var intervalLock:Boolean;
+		public var intervalMinusDuration:Boolean;
+		private var durationPassed:Boolean;
+		private var intervalPassed:Boolean;
+		private var intervalRepetitionsPassed:Boolean;
 		
 		
 		public function destroy(executeOnComplete:Boolean=false):void
@@ -210,33 +214,106 @@ package axl.utils
 		{
 			passedTotal += frameBased ? 1 : milsecs;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
-			if(passedTotal >= duration) 
+			durationPassed = passedTotal >= duration;
+			var continues:Boolean;
+			if(interval > 0)
 			{
-				passedTotal = duration;
-				if(intervalLock)
-					 resolveInterval(milsecs);
-				else
+				// ---------------- COMPUTING STATE -------------------- //
+				if(intervalMinusDuration)
 				{
-					var continues:Boolean = passedDuration();
-					if(continues)
-						passedTotal = 0;
-					else
-						resolveInterval(milsecs);
+					intervalRemaining -= frameBased ? 1 : milsecs;
 				}
+				else if(intervalLock)
+				{
+					intervalRemaining -= frameBased ? 1 : milsecs;
+				}
+				intervalPassed = (intervalRemaining <= 0);
+				if(intervalPassed)
+				{
+					intervalRepetitions--
+				}
+				intervalRepetitionsPassed = (intervalRepetitions <= 0);
 				
+				// ----------------  TAKING ACTIONS ---------------- //
+				if(intervalRepetitionsPassed)
+				{
+					intervalLock = false;
+					finish(true);
+					return;
+				}
+				else if(intervalPassed)
+				{
+					// need to know if contunues? 
+					//no! as this is being decided on end of regular period
+					// simply restarts the animation
+					passedTotal = 0;
+					cycles = ucycles;
+					intervalLock  = false
+					intervalRemaining = intervalDuration;
+					
+				}
+				else // interval not passed but set
+				{
+					
+					if(!intervalLock) // for the first time!	
+					{
+						// need to know if to ease
+						//first need to know if regular animation or interval waiting
+						if(durationPassed)
+						{
+							continues = passedDuration(); // determines if to go back or smth
+							if(continues)
+							{
+								passedTotal = 0; // waits for another tick (yoyo e.g.
+							}
+							else
+							{
+								intervalLock = true; // eased, closed
+							}
+						}
+						else //  interval set but not locked, duration not passed, - regular tick dispatch
+						{
+							updateFunction();
+							if(onUpdate is Function)
+								onUpdate.apply(null, onUpdateArgs);
+						}
+						
+						
+					}
+					else // already locked so probably eased and resolved continuation
+					{
+						// just tick
+					}
+					
+				}
 			}
-			else
+			else // THIS HAS NOTHING TO DO WITH INTERVALS
 			{
-				intervalLock = false;
-				updateFunction();
-				if(onUpdate is Function)
-					onUpdate.apply(null, onUpdateArgs);
+				if(durationPassed) // end of period
+				{
+					continues = passedDuration(); // determines if to go back or smth
+					if(continues)
+					{
+						passedTotal = 0; // waits for another tick (yoyo e.g.
+					}
+					else
+					{
+						finish(true); // ends an animation
+					}
+				}
+				else // regular tick dispatch
+				{
+					updateFunction();
+					if(onUpdate is Function)
+						onUpdate.apply(null, onUpdateArgs);
+				}
 			}
+			
 		}
 		
 		private function resolveInterval(ms:uint):void
 		{
-			if(intervalPassed(ms))
+			if(intervalPassedd(ms))
 			{
 				intervalLock = false;
 				finish(true);
@@ -246,7 +323,7 @@ package axl.utils
 				intervalLock = true;
 			}
 		}
-		private function intervalPassed(milsecs:int):Boolean
+		private function intervalPassedd(milsecs:int):Boolean
 		{
 			if(interval <= 0)
 				return true;
