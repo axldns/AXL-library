@@ -49,6 +49,7 @@
 			this.isHORIZONTAL = false;
 		}
 		
+		
 		public function get numRailChildren():int {	return railNumChildren }
 		/** container where all rail elements are displayed. Improper use can cause unpredictable effects */
 		public function get railElementsContainer():Sprite { return rail }
@@ -126,7 +127,10 @@
 			if(!seemles)
 				rail[mod.a] = -railPivot;
 			movementBit(0);
+			onRailElementAdded();
 		}
+		
+		protected function onRailElementAdded():void { }
 		
 		public function removeFromRail(displayObject:DisplayObject):void
 		{
@@ -238,6 +242,8 @@
 		 */
 		public function getChildClosestToCenter():Array
 		{
+			if(rail.numChildren < 1)
+				return null;
 			var n:Number=rail.getChildAt(0)[mod.a];
 			var an:Number=0;
 			var positive:Number = (rail[mod.a] > 0) ? 1 : -1;
