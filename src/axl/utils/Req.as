@@ -559,7 +559,7 @@ package  axl.utils
 			{ 
 				// workaround for inconsistency in traversing up directories on windows. 
 				// FP takes working dir, AIR doesn't.
-				if(prefix.match(/^(\.\.)/i))
+				if(prefix.match(/^(\.){1,2}/i))
 					prefix = FileClass.applicationDirectory.nativePath + FileClass.separator + prefix;
 				
 				resolveJoints();
