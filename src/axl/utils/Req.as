@@ -129,9 +129,10 @@ package  axl.utils
 			_context = null;
 			eventComplete = eventProgress = null;
 			onComplete = individualComplete = onProgress = storeFilter = loadFilter =  loadBehaviorCustom = null;
-			storePrefix = extension = filename = originalPath = concatenatedPath = null;;
+			storePrefix = extension = filename = originalPath = concatenatedPath = null;
 			storingBehaviorRegexp = null;
-			pathList = prefixList = null;;
+			pathList = prefixList = null;
+			clearTimeout(this.requestTimeOutID);
 		}
 		
 		// ----------------------------------------------- START OF INIT SETUP -----------------------------------------------//

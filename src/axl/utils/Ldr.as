@@ -633,6 +633,16 @@ package  axl.utils
 		{
 			for(var s:String in objects)
 				unloadSingle(s);
+			purgeAll();
+		}
+		
+		private static function purgeAll():void
+		{
+			U.log("[Ldr][purgeAll]");
+			while(requests.length)
+				 requests.pop().destroy();
+			Req.allQueuesDone();
+			IS_LOADING = false;
 		}
 	}
 }
