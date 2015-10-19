@@ -145,7 +145,7 @@ package axl.ui.controllers
 			}
 		}
 	
-		private function validateAndUpdate(a:String):void
+		private function validateAndUpdate(a:String,omitAnimation:Boolean=false):void
 		{
 			if(box == null)
 				throw new Error("Undefined box - can't move anything");
@@ -157,7 +157,7 @@ package axl.ui.controllers
 			if(box[a] == rmovable[a])
 				return;
 			updatePercentage(a);
-			if(animTime > 0)
+			if(animTime > 0 && !omitAnimation)
 			{
 				var aoo:AO = ao[a];
 				aoo.subject = box;
@@ -220,11 +220,11 @@ package axl.ui.controllers
 			down = true;
 		}
 		
-		private function movement(delta:Number, mod:Object):void
+		private function movement(delta:Number, mod:Object,omitAnimation:Boolean=false):void
 		{
 			updateFrames();
 			rmovable[mod.a] += delta;
-			validateAndUpdate(mod.a);
+			validateAndUpdate(mod.a,omitAnimation);
 		}
 		
 		private function mmove(e:MouseEvent):void
@@ -313,20 +313,20 @@ package axl.ui.controllers
 		
 		/** Re-checks <code>box</code> position within <code>bound</code> according to <code>horizontalBehavior</code> 
 		 * and <code>verticalBehavior</code> rules. @see #horizontalBehavior @see #verticalBehavior @see #box @see #bound */
-		public function refresh():void
+		public function refresh(omitAnimation:Boolean=false):void
 		{
 			if(box == null || bnd == null)
 				return;
 			if(horizontal)
-				movementHor(0);
+				movementHor(0,omitAnimation);
 			if(vertical)
-				movementVer(0);
+				movementVer(0,omitAnimation);
 		}
 		
 		/** Attempts to move box by delta, still follows <code>horizontalBehavior</code> rule @see #horizontalBehavior */
-		public function movementVer(delta:Number):void  { movement(delta, modV) }
+		public function movementVer(delta:Number,omitAnimation:Boolean=false):void  { movement(delta, modV,omitAnimation) }
 		/** Attempts to move box by delta, still follows <code>verticalBehavior</code> rule @see #verticalBehavior */
-		public function movementHor(delta:Number):void { movement(delta, modH) }
+		public function movementHor(delta:Number,omitAnimation:Boolean=false):void { movement(delta, modH,omitAnimation) }
 		
 		/** determines horizontal position of the <code>box</code> between its minX and maxX values @see #minX @see #maxX */
 		public function get percentageHorizontal():Number { return percentage.x }
