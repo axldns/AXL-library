@@ -226,7 +226,11 @@ package axl.utils.binAgent
 		protected function scrollEvent(e:Event):void
 		{
 			if(boundBox)
-				boundBox.percentageVertical = bConsole.scrollV /  bConsole.maxScrollV;
+			{
+				var n:Number = bConsole.scrollV /  bConsole.maxScrollV;
+				if(n != boundBox.percentageVertical)
+					boundBox.percentageVertical = n;
+			}
 		}
 		protected function stageMouseDown(e:MouseEvent):void
 		{
@@ -356,7 +360,7 @@ package axl.utils.binAgent
 				bExternalTrace(s);
 			
 			bConsole.scrollV = bConsole.maxScrollV;
-			if(boundBox != null)
+			if(boundBox != null && boundBox.percentageVertical != 1)
 				boundBox.percentageVertical = 1;
 			if(this.parent)
 				this.parent.setChildIndex(this, this.parent.numChildren-1);
