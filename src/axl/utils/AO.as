@@ -45,7 +45,7 @@ package axl.utils
 		public var yoyo:Boolean=false;
 		public var cycles:int=1;
 		public var subject:Object;
-		public var interval:int=0;
+		public var interval:Number=0;
 		public var intervalRepetitions:int=1;
 		
 		public var onStartArgs:Array;
