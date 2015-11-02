@@ -196,7 +196,10 @@ package axl.utils.binAgent
 					}
 					else
 					{
-						help = parseDots(rawElements[charIndex].split('.'),true); ////////// <<<<<<<<< PARSING DOTS
+						if(!isNaN(rawElements[charIndex]))
+							help = new Result([Number(rawElements[charIndex])], [rawElements[charIndex]]);
+						else
+							help = parseDots(rawElements[charIndex].split('.'),true); ////////// <<<<<<<<< PARSING DOTS
 						if(help is Error) return help;
 						if(help == null) 
 							return new Error("Undefined " + rawElements[charIndex] + " reference");
