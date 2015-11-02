@@ -556,7 +556,7 @@ package  axl.utils
 				prefixIndex =numPrefixes;
 				return originalUrl;
 			}
-			if(fileInterfaceAvailable)
+			if(fileInterfaceAvailable && !prefix.match(networkRegexp))
 			{ 
 				// workaround for inconsistency in traversing up directories on windows. 
 				// FP takes working dir, AIR doesn't.
