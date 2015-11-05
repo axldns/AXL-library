@@ -56,6 +56,7 @@ package axl.ui.controllers
 		private var aop:Object = { x : {x:0}, y : {y:0}};
 		private var animTime:Number=0;
 		private var boxStage:Stage;
+		private var inited:Boolean;
 		
 		/**
 		 * <h3>Decorator style coordinates controller</h3>
@@ -149,13 +150,16 @@ package axl.ui.controllers
 		{
 			if(box == null)
 				throw new Error("Undefined box - can't move anything");
+			
 			calculateMinMax(mods[a]);
+			
 			if(rmovable[a] < min[a])
 				rmovable[a] = min[a];
 			if(rmovable[a] > max[a])
 				rmovable[a] = max[a];
 			if(box[a] == rmovable[a])
 				return;
+			
 			updatePercentage(a);
 			if(animTime > 0 && !omitAnimation)
 			{
@@ -165,10 +169,17 @@ package axl.ui.controllers
 				aoo.nSeconds = animTime;
 				aop[a][a] = rmovable[a];
 				aoo.nProperties = aop[a];
-				aoo.restart(0,true);
+				if(inited)
+					aoo.restart(0,true);
+				else
+				{
+					aoo.start();
+					inited = true;
+				}
 			}
 			else
 				box[a] = rmovable[a];
+			
 		}
 		
 		private function updatePercentage(axle:String):void
@@ -327,6 +338,12 @@ package axl.ui.controllers
 		public function movementVer(delta:Number,omitAnimation:Boolean=false):void  { movement(delta, modV,omitAnimation) }
 		/** Attempts to move box by delta, still follows <code>verticalBehavior</code> rule @see #verticalBehavior */
 		public function movementHor(delta:Number,omitAnimation:Boolean=false):void { movement(delta, modH,omitAnimation) }
+		
+		
+		/** Attempts to set absolute box y, still follows <code>horizontalBehavior</code> rule @see #horizontalBehavior */
+		public function absoluteVer(absolute:Number,omitAnimation:Boolean=false):void  { movementVer(absolute - rmovable.y,omitAnimation) }
+		/** Attempts to  set absolute box x, still follows <code>verticalBehavior</code> rule @see #verticalBehavior */
+		public function absoluteHor(absolute:Number,omitAnimation:Boolean=false):void { movementHor(absolute - rmovable.x, omitAnimation) }
 		
 		/** determines horizontal position of the <code>box</code> between its minX and maxX values @see #minX @see #maxX */
 		public function get percentageHorizontal():Number { return percentage.x }
