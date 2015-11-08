@@ -47,7 +47,7 @@ package axl.utils.binAgent
 		public var currentResult:Object;
 		private var errorOperands:Error = new Error("Invalid logic operator");
 		private var consoleResult:Result = new Result();
-	
+		
 		
 		public function get userInputRoot():Object {  return consoleRoot }
 		
@@ -71,7 +71,7 @@ package axl.utils.binAgent
 				}
 			}
 		}
-	
+		
 		public function parseInput(text:String):Object
 		{
 			//trace('---input:',text);
@@ -288,7 +288,7 @@ package axl.utils.binAgent
 		
 		private function operate(liveElements:Array, i:int):*
 		{
-		
+			
 			//trace("OPERATE", i,'@', liveElements);
 			var oper:String = liveElements[i];
 			var isAsignment:Boolean = asignments.indexOf(oper) > -1;
@@ -378,7 +378,7 @@ package axl.utils.binAgent
 				main[0] = main[0].substr(1);
 			//trace('   parseDots ('+ mlen +'):', main);
 			//trace('   >dirty class check');
-		
+			
 			mlen =  main.length;
 			var bit:String;
 			for(var i:int = 0; i < mlen; i++)
@@ -773,49 +773,57 @@ package axl.utils.binAgent
 			return hashStrings(text);
 		}
 		
-		public function findCareteContext(text:String, caretIndex:int):Result
+		public function findCareteContext(text:String, caretIndex:int):Object
 		{
 			original = text.substr();
+			var schars:Array= [',','+', '-','=','*','\\','/','<','>','!','&','?',':', '%','"',"'",'|','(', '{','[',' '];
+			var pairs:Object = { '[' : ']', '(' : ')', '{' : '}' }
+			var sames:Array = ['"',"'"];
+			var char:String;
 			var cropped:String = text.substring(0, caretIndex);
-			//current = hashStrings(text);
-			var sreg:RegExp = /(\.|\".*\"|\'.*\'|,|\(|\)|\{|\{|\}|\[|\]|\s|\+|\-|\*|\/|\%|\=|\<|\>|\:|\||\&\&|\?|\:)/g;
-			var schars:Array= ['.', ',','+', '-', '*', '/', '%'];
-			var limiters:Array=  cropped.match(sreg);
-			var values:Array =cropped.split(sreg);
-			consoleResult.chain = [];
-			consoleResult.text = [];
-			//trace("LIMITERS:", limiters);
-			//trace("VALUES", values);
-			var numValues:int = values.length;
-			var help:*;
-			consoleResult.chain[0] = readyTypeCheck(values[0],false) || userRoot;
-			consoleResult.text[0] = values[0];
-			//trace("SCOPE 0:", consoleResult.chain[0]);
-			for(var i:int = 1; i < numValues; i++)
+			var key:String;
+			var lastIndex:int = -1;
+			var verseMatch:int = -1;
+			var li:int;
+			var help:*
+			var li2:int;
+			for(var i:int = schars.length; i-->0;)
 			{
-				switch(values[i])
+				li = cropped.lastIndexOf(schars[i]);
+				if(li > lastIndex)
 				{
-					case '.': 
-					case '(': continue;
-						break;
+					char = schars[i];
+					if(cropped.lastIndexOf(pairs[char]) < li)
+					{
+						
+						var ii:int = sames.indexOf(char);
+						if((ii > -1))
+						{
+							li2 = cropped.indexOf(sames[ii]);
+							if(li2 > -1 && li2 < li)
+							{
+								lastIndex = li2-1;
+								verseMatch = li2;
+							}
+						}
+						else
+						{
+							lastIndex = li;
+							verseMatch = -1;
+						}
+					}
 				}
-				//trace('trying to match', consoleResult.chain[consoleResult.chain.length-1], '>>>>>>>>> ['+ values[i] + ']'); 
-				try {help = consoleResult.chain[consoleResult.chain.length-1][values[i]] } catch (e:*) { help =e}
-				if(help is Error)
-				{
-					//trace('error', help, 'unknown context');
-					//return null
-				}
-				else
-				{
-					consoleResult.chain.push(help);
-					consoleResult.text.push(values[i]);
-				}
-				//trace('consoleResult.chain',  consoleResult.chain);
-				//trace('consoleResult.text',  consoleResult.text);
 			}
-			return consoleResult;
-			
+			cropped = cropped.substr(lastIndex+ (verseMatch > 0) ? 0 : 1);
+			li = cropped.lastIndexOf('.');
+			if(li > -1)
+			{
+				if(cropped.length > li)
+					key = cropped.substr(li+1);
+				cropped = cropped.substr(0,li)
+			}
+			help = this.parseInput(cropped);
+			return { r : help is Error ? null : help, k: key };
 		}
 	}
 }
