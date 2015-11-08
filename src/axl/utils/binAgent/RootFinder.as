@@ -1,9 +1,8 @@
 package axl.utils.binAgent
 {
 	import flash.display.DisplayObject;
-	import flash.utils.describeType;
 	import flash.utils.getDefinitionByName;
-
+	
 	public class RootFinder
 	{
 		private var opchars:Vector.<String> = new <String>['+','-','*','/','%','=','<','>','|','&','!','?',':', S_IS]
@@ -20,13 +19,14 @@ package axl.utils.binAgent
 		private var mathLevelDict:Object = {}
 		private var numMathLevels:int = hierarchy.length;
 		private var numAllOperations:int;
+		private var S_NEW:String = '®';
 		private var S_IS:String = '¬';
 		private var S_NULL:String = "•";
 		private var hString:String = 'µ';
 		private var hSquare:String = '‡';
 		private var hRound:String = '©';
 		private var hCurl:String = 'ƒ';
-		private var hashSymbols:Array = [S_IS, hString, hSquare, hRound, hCurl];
+		private var hashSymbols:Array = [S_IS,S_NEW, hString, hSquare, hRound, hCurl];
 		private var hashedStrings:Vector.<String> = new Vector.<String>();
 		private var hashedSquares:Vector.<String> = new Vector.<String>();
 		private var hashedRounds:Vector.<String> = new Vector.<String>();
@@ -82,6 +82,7 @@ package axl.utils.binAgent
 			if(current is Error)
 				return current;
 			current = hashIs(current as String);
+			current = hashNew(current as String);
 			//trace('is cleared:', current);
 			current = hashBrackets(current as String);
 			//trace('brackets hashed:\n', current);
@@ -270,8 +271,8 @@ package axl.utils.binAgent
 				}
 				if(breakNow) break;
 			}
-				/*isOneSide = oneSiders.indexOf(ope);
-				isAsignment = asignments.indexOf(ope);*/
+			/*isOneSide = oneSiders.indexOf(ope);
+			isAsignment = asignments.indexOf(ope);*/
 			//trace('at the end', liveElements);
 			if(liveElements.length > 1)
 				return errorOperands;
@@ -371,19 +372,13 @@ package axl.utils.binAgent
 			var mwhlen:int;
 			var help:*;
 			var prev:*;
+			
+			var isNewObject:Boolean = (main[0].charAt(0) == S_NEW);
+			if(isNewObject)
+				main[0] = main[0].substr(1);
 			//trace('   parseDots ('+ mlen +'):', main);
 			//trace('   >dirty class check');
-			help = dirtyClassCheck(main);
-			if(help != null)
-			{
-				//trace('dirty paid', help);
-				main = main.slice(help.pop()+1);
-				mainWithHashes[0] = help.pop();
-				chain[0] = help.pop();
-				textual[0] = mainWithHashes[0];
-				//trace("now main is ", main, 'and chain is ', chain);
-			}
-			// ! REVERSING HASHES ! //
+		
 			mlen =  main.length;
 			var bit:String;
 			for(var i:int = 0; i < mlen; i++)
@@ -394,6 +389,19 @@ package axl.utils.binAgent
 					mainWithHashes.push(help);// leftovers
 			}
 			//trace("     MAIN with hashes",mainWithHashes);
+			
+			help = dirtyClassCheck(mainWithHashes);
+			//trace("dirty classCheck result", help, 'from', main);
+			if(help != null)
+			{
+				//trace('dirty paid', help);
+				mainWithHashes = mainWithHashes.slice(help.pop());
+				mainWithHashes[0] = help.pop();
+				chain[0] = help.pop();
+				textual[0] = mainWithHashes[0];
+				//trace("now main is ", main, 'and chain is ', chain);
+			}
+			// ! REVERSING HASHES ! //
 			var chainLen:int = chain.length;
 			mwhlen = mainWithHashes.length;
 			for(i = chainLen; i < mwhlen; i++)
@@ -436,21 +444,21 @@ package axl.utils.binAgent
 					}
 					else if(prev is Class)
 					{
-						//trace("prev is class");
+						//trace("prev is class. prev prev?", i-2 >= 0 ? chain[i-2] : 'eee help?',help);
 						if(help is Array)
-							try { help = classMultiCast(prev, help) } catch(e:*) { help = e }
+							try { help = classMultiCast(prev, help,isNewObject) } catch(e:*) { help = e }
 						else if(help == null)
 						{
 							//trace('help is null');
 							if(mainWithHashes[i].charAt(0) == hRound)
-								try{help = prev()} catch(e:*) {help = e}
+								try{help = isNewObject ? new prev() : prev() } catch(e:*) {help = e}
 							else
 								help = errorInvalidClassArgument;
 						}
 						else {
 							//trace('help is either constructor argument or static method/property. arg:?');
 							if(mainWithHashes[i].charAt(0) == hRound)
-								try{help = prev(help)} catch(e:*) {help = e}
+								try{help = isNewObject ? new prev(help) : prev(help)} catch(e:*) {help = e}
 							else
 								try{help = prev[help]} catch(e:*) {help = e}
 						}
@@ -496,14 +504,14 @@ package axl.utils.binAgent
 			//trace("CHAIN OK", chain, 'while main with hashes', mainWithHashes,'\nTEXTUAL', textual);
 			return  new Result(chain, textual);
 		}
-		
+		/** returns either null or array [Class, packageString, index of last Keyword*/
 		private function dirtyClassCheck(main:Array):*
 		{
 			if(main == null || main.length == 0)
 				return new Error("Dirty class check should have at list one dot");
 			var c:Class;
 			var t:String = main[0]; // 
-			var l:int = main.length-1;
+			var l:int = main.length;
 			var success:Boolean;
 			for(var i:int = 1;i<l;i++)
 			{
@@ -516,21 +524,42 @@ package axl.utils.binAgent
 			return null;
 		}
 		
-		private function classMultiCast(classObject:Class, args:Array):*
+		private function classMultiCast(classObject:Class, args:Array, newObject:Boolean):*
 		{
 			//trace('classMultiCast');
 			var al:int = args.length;
-			if(al == 0) return classObject();
-			if(al == 1) return classObject(args[0]);
-			if(al == 2) return classObject(args[0],args[1]);
-			if(al == 3) return classObject(args[0],args[1],args[2]);
-			if(al == 4) return classObject(args[0],args[1],args[2],args[3]);
-			if(al == 5) return classObject(args[0],args[1],args[2],args[3],args[4]);
-			if(al == 6) return classObject(args[0],args[1],args[2],args[3],args[4],args[5]);
-			if(al == 7) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
-			if(al == 8) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7]);
-			if(al == 9) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8]);
-			if(al ==10) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9]);
+			if(newObject)
+			{
+				switch(al)
+				{
+					case 0 : return new classObject();
+					case 1 : return new classObject(args[0]);
+					case 2 : return new classObject(args[0],args[1]);
+					case 3 : return new classObject(args[0],args[1],args[2]);
+					case 4 : return new classObject(args[0],args[1],args[2],args[3]);
+					case 5 : return new classObject(args[0],args[1],args[2],args[3],args[4]);
+					case 6 : return new classObject(args[0],args[1],args[2],args[3],args[4],args[5]);
+					case 7 : return new classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+					case 8 : return new classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7]);
+					case 9 : return new classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8]);
+					case 10: return new classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9]);
+				}
+				
+			}
+			else
+			{
+				if(al == 0) return classObject();
+				if(al == 1) return classObject(args[0]);
+				if(al == 2) return classObject(args[0],args[1]);
+				if(al == 3) return classObject(args[0],args[1],args[2]);
+				if(al == 4) return classObject(args[0],args[1],args[2],args[3]);
+				if(al == 5) return classObject(args[0],args[1],args[2],args[3],args[4]);
+				if(al == 6) return classObject(args[0],args[1],args[2],args[3],args[4],args[5]);
+				if(al == 7) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6]);
+				if(al == 8) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7]);
+				if(al == 9) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8]);
+				if(al ==10) return classObject(args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7],args[8],args[9]);
+			}
 			return errorMaxClassArguments;
 		}
 		
@@ -643,7 +672,7 @@ package axl.utils.binAgent
 		
 		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):Object
 		{
-			//trace('[*]readyTypeCheck[*]', arg);
+			// trace('[*]readyTypeCheck[*]', arg);
 			if(!isNaN(Number(arg))) return Number(arg)
 			else if(arg == 'true' || arg == 'false') return (arg == 'true')
 			else if(arg == 'this') return userRoot;
@@ -711,6 +740,13 @@ package axl.utils.binAgent
 		{
 			/// replaces IS statement 
 			s = s.replace(/\sis\s/g, S_IS);
+			return s;
+		}
+		
+		private function hashNew(s:Object):Object
+		{
+			/// replaces IS statement 
+			s = s.replace(/(^|\s|=|\[|\(|\:)new\s/g, S_NEW);
 			/// clear space confusions
 			s = s.replace(/\s/g,"").replace(/;$/, "");
 			return s;
