@@ -89,7 +89,6 @@ package axl.utils.binAgent
 			for(var i:int = 0, l:int = params.length(); i < l; i++)
 			{
 				adds += String(params[i].@type) + ', ';
-				trace("ads", adds);
 			}
 			
 			adds = adds.substr(0,-2) + ')';
