@@ -20,6 +20,7 @@ package axl.utils.binAgent
 		private var mathLevelDict:Object = {}
 		private var numMathLevels:int = hierarchy.length;
 		private var numAllOperations:int;
+		private var S_NEW:String = '™';
 		private var S_IS:String = '¬';
 		private var S_NULL:String = "•";
 		private var hString:String = 'µ';
@@ -82,6 +83,7 @@ package axl.utils.binAgent
 			if(current is Error)
 				return current;
 			current = hashIs(current as String);
+			current = hashNew(current as String);
 			//trace('is cleared:', current);
 			current = hashBrackets(current as String);
 			//trace('brackets hashed:\n', current);
@@ -711,6 +713,14 @@ package axl.utils.binAgent
 		{
 			/// replaces IS statement 
 			s = s.replace(/\sis\s/g, S_IS);
+			/// clear space confusions
+			return s;
+		}
+		
+		private function hashNew(s:Object):Object
+		{
+			/// replaces IS statement 
+			s = s.replace(/(^|\s|\(|\[|\:)new\s/g, S_NEW);
 			/// clear space confusions
 			s = s.replace(/\s/g,"").replace(/;$/, "");
 			return s;

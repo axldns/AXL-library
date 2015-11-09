@@ -17,6 +17,7 @@ package axl.utils.binAgent
 	
 	import axl.ui.controllers.BoundBox;
 	import axl.utils.AO;
+	import axl.utils.U;
 	
 	public class Console extends Sprite
 	{
@@ -174,18 +175,18 @@ package axl.utils.binAgent
 		private function ats(e:Event):void 
 		{
 			stg.focus= this.bInput;
-		
 			bIsOpen = true;
 		}
 		private function rfs(e:Event):void
 		{
-		
 			bIsOpen = false;
 		}
 		
 		private function gotStage(event:Event=null):void { giveStage(rootObj.stage) }
 		private function giveStage(stage:Stage):void
 		{
+			axl.utils.U.log(this, "Stage given",stage);
+			rootObj.removeEventListener(Event.ADDED_TO_STAGE, gotStage);
 			if(stg != null) return;
 			stg = stage;
 			AO.stage = stage;
@@ -201,7 +202,6 @@ package axl.utils.binAgent
 		private function uncaughtError(e:UncaughtErrorEvent):void
 		{
 			var message:String;
-			
 			if (e.error is Error)
 				message = Error(e.error).message;
 			else if (e.error is ErrorEvent)
@@ -381,6 +381,7 @@ package axl.utils.binAgent
 		public function get allowGestureOpen():Boolean { return bAllowGestureOpen }
 		public function set allowGestureOpen(v:Boolean):void
 		{
+			U.log(this, 'allowKeyboardOpen',v);
 			bAllowGestureOpen = v;
 			if(stg != null)
 			{
@@ -393,6 +394,7 @@ package axl.utils.binAgent
 		public function get allowKeyboardOpen():Boolean { return bAllowKeyboardOpen }
 		public function set allowKeyboardOpen(v:Boolean):void
 		{
+			U.log(this, 'allowKeyboardOpen',v);
 			bAllowKeyboardOpen = v;
 			if(stg != null)
 			{

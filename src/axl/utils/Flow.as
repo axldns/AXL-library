@@ -131,9 +131,7 @@ package axl.utils
 			else if(mobileflow)
 			{
 				if(configToLoad != null && updateRequest != null)
-				{
 					performUpdateRequest();
-				}
 				else
 					loadFiles();
 			}
