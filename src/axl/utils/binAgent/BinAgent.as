@@ -4,7 +4,6 @@ package axl.utils.binAgent
 	import flash.display.Sprite;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
-	import flash.text.TextField;
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
@@ -30,15 +29,14 @@ package axl.utils.binAgent
 		private var assist:Asist;
 		private var maxHints:int = 10;
 		private var prevText:String;
-		private var miniHint:TextField;
-		public var disableAsYouType:Boolean=true;
+		public var hints:Boolean=true;
+		
 		public function BinAgent(rootObject:DisplayObject)
 		{
 				if(instance != null)
 				{
 					hintContainer = instance.hintContainer;
 					userRoot = instance.userRoot;
-					miniHint = instance.miniHint;
 					hintContainer = instance.hintContainer;
 					curRootProps = instance.curRootProps;
 					rootFinder = instance.rootFinder;
@@ -52,7 +50,6 @@ package axl.utils.binAgent
 					hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
 					hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);
 					userRoot = rootObject;
-					makeMiniHint();
 					super(rootObject);
 					this.addChild(hintContainer);
 					curRootProps = new Vector.<XMLList>();
@@ -69,41 +66,6 @@ package axl.utils.binAgent
 		public static function get instance():BinAgent { return _instance }
 		public function get parser():RootFinder { return rootFinder }
 		
-		private function makeMiniHint():void
-		{
-			miniHint = new TextField();
-			miniHint.border = true;
-			miniHint.background = true;
-			miniHint.backgroundColor = 0xEECD8C;
-			miniHint.height = 17;
-			miniHint.selectable = false;
-			miniHint.mouseEnabled = false;
-			miniHint.tabEnabled = false;
-		}
-		
-		private function showMiniHint(v:XML, fname:String):void
-		{
-			
-			var adds:String  = fname + '(';
-			var params:XMLList = v.parameter;
-			for(var i:int = 0, l:int = params.length(); i < l; i++)
-			{
-				adds += String(params[i].@type) + ', ';
-			}
-			
-			adds = adds.substr(0,-2) + ')';
-			miniHint.text=  adds;
-			miniHint.width= miniHint.textWidth + 5;
-			miniHint.x = inputWidth - miniHint.width>>1;
-			if(!contains(miniHint))
-				addChild(miniHint);
-		}
-		
-		private function hideMinihint():void
-		{
-			if(this.contains(miniHint))
-				removeChild(miniHint);
-		}
 		protected function hintTouchMove(e:MouseEvent):void
 		{
 			if(numHints == 0 || !e.buttonDown) return;
@@ -150,7 +112,6 @@ package axl.utils.binAgent
 			Hint.hintWidth = inputWidth;
 			maxHints = Math.floor((console.height / Hint.hintHeight) *.75);
 			alignHints();
-			miniHint.y = input.y - miniHint.height;
 		}
 		
 		override protected function KEY_UP(e:KeyboardEvent):void
@@ -189,11 +150,17 @@ package axl.utils.binAgent
 		private function chooseHighlightedHint():void
 		{
 			//input.text += selectedHint.text;
-			if(curRootCarete == 0)
-				input.text =selectedHint.text;
-			else
-				input.text = input.text.substr(0, curRootCarete+1) + selectedHint.text;
-			var itl:int = input.text.length;
+			
+			var lastDot:int = input.caretIndex;
+			while(lastDot-->0)
+				if(input.text.charAt(lastDot) == '.')
+					break;
+			var LEFT:String = input.text.substr(0, lastDot+1);
+			
+			var MID:String = selectedHint.text;
+			var RIGHT:String = input.text.substr(input.caretIndex);
+			input.text = LEFT + MID + RIGHT;
+			var itl:int = LEFT.length + MID.length;
 			input.setSelection( itl, itl);
 			removeHints();
 			asYouType();
@@ -216,9 +183,10 @@ package axl.utils.binAgent
 			selectedHint.selected = true;
 		}
 		
-		protected function asYouType():void
+		override protected function asYouType():void
 		{
-			if(disableAsYouType)
+			super.asYouType();
+			if(!hints)
 				return
 			//////// ---------------- prev ------------- /////////
 			if(selectedHint != null)
@@ -229,59 +197,22 @@ package axl.utils.binAgent
 			var tl:int = t.length;
 			removeHints();
 			numHints = 0;
-			//if(tl < 1) return;
+			if(tl < 1) return;
 			//trace('=========== as you type ===========');
 			
 			///////// ------------- define -------------------- ///////
 			var result:Object = findCurRoot();
-			var chain:Array;
-			var textual:Array;
-			if(result == null || !result.hasOwnProperty('chain'))
-			{
-				//trace("no root find", result);
-				return;
-			}
-			else
-			{
-				chain = result.chain;
-				textual = result.text;
-			}
-			var newRoot:Object = chain.pop();
-			var newName:String = textual.pop();
 			
-			curRootCarete = t.lastIndexOf('.', input.caretIndex);
-			if(curRootCarete < 0)
-				curRootCarete = 0;
-			if(true || newRoot != curRoot)
-			{
-				curRoot = newRoot;
-			}
-			if(input.caretIndex == 0)
-				curRoot = userRoot;
+			var newRoot:Object = result.r;
+			var key:String = result.k;
+			if(key == null || newRoot == null)
+				return
 			
 			
-			///////// ------------------ desc --------------------- ///////// 
-			t = t.substring(curRootCarete > 0 ? curRootCarete+1 : 0);
-			tl = t.length;
-			//if(tl == 0) return;
-			rootDesc = describeType(curRoot);
+			rootDesc = describeType(newRoot);
 			//trace(rootDesc.toXMLString());
 			
-			if(curRoot is Function)
-			{
-				if(chain.length > 0)
-				{
-					showMiniHint(describeType(chain[chain.length - 1]).method.(@name == newName)[0], newName);
-				}
-				else
-				{
-					showMiniHint(rootDesc, newName);
-				}
-				
-			}
-			else
-				hideMinihint();
-			var additions:XMLList = assist.check(curRoot);
+			var additions:XMLList = assist.check(newRoot);
 			if(additions is XMLList)
 				for each (var x:XML in additions)
 					rootDesc.appendChild(x);
@@ -290,13 +221,15 @@ package axl.utils.binAgent
 			curRootProps[1] = rootDesc.method;
 			curRootProps[2] = rootDesc.variable;
 			var n:String, i:int, l:int;
+			tl = key.length;
 			for(var a:int = 0; a < curRootProps.length; a++)
 			{
 				l =  curRootProps[a].length();
+				
 				for(i = 0; i < l; i++)
 				{
 					n = curRootProps[a][i].@name;
-					if(n.substr(0,tl) == t && tl < n.length)
+					if(n.substr(0,tl) == key)
 					{
 						addHint(curRootProps[a][i]);
 						if(++numHints > maxHints)break;
@@ -306,6 +239,7 @@ package axl.utils.binAgent
 			alignHints();
 			prevText = input.text;
 		}
+		
 		
 		private function findCurRoot():Object
 		{

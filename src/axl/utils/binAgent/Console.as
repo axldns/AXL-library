@@ -30,7 +30,6 @@ package axl.utils.binAgent
 		private var bSlider:Sprite;
 		private var past:Vector.<String> = new Vector.<String>();
 		private var pastIndex:int;
-		private var sliderIsDown:Boolean;
 		
 		// internall
 		private static var _instance:Console;
@@ -51,6 +50,11 @@ package axl.utils.binAgent
 		private var gestureRepetitions:int = 0;
 		private var nonRepsIndicator:int = 4;
 		private var boundBox:BoundBox;
+		protected var totalString:String='';
+		private var numChars:uint;
+		public var maxChars:uint = 100000;
+		private var lines:Array;
+		private var consoleSearched:Boolean;
 		
 		public function Console(rootObject:DisplayObject)
 		{
@@ -61,7 +65,6 @@ package axl.utils.binAgent
 				bSlider = instance.bSlider;
 				past = instance.past;
 				pastIndex = instance.pastIndex;
-				sliderIsDown = instance.sliderIsDown;
 				stg = instance.stg;
 				rootObj = instance.rootObj;
 				bIsEnabled = instance.bIsEnabled;
@@ -174,6 +177,7 @@ package axl.utils.binAgent
 		
 		private function ats(e:Event):void 
 		{
+			refreshWindow();
 			stg.focus= this.bInput;
 			bIsOpen = true;
 		}
@@ -293,6 +297,7 @@ package axl.utils.binAgent
 				case Keyboard.UP:
 				case Keyboard.DOWN: showPast(e.keyCode);
 					break;
+				default : asYouType();
 			}
 		}
 		
@@ -300,7 +305,7 @@ package axl.utils.binAgent
 		protected function showPast(kc:int):void
 		{
 			if(past.length < 1) return;
-			pastIndex += (kc == Keyboard.UP ? -1 : 1);
+			pastIndex += (kc == Keyboard.UP ? 1 : -1);
 			if(pastIndex < 0) 
 				pastIndex = past.length-1;
 			if((pastIndex >= past.length) || (pastIndex < 0))
@@ -325,10 +330,11 @@ package axl.utils.binAgent
 			if((tstart + tlen) < bConsole.text.length)
 				bConsole.setTextFormat(console_textFormat, tstart +tlen);
 			if(past.indexOf(t) < 0)
-			{
-				past.splice(pastIndex,0,t);
-				pastIndex-=1;
-			}
+				past.unshift(t);
+			else
+				past.unshift(past.splice(past.indexOf(t),1).pop());
+			pastIndex=-1;
+
 			bInput.text = '';
 		}
 		
@@ -355,17 +361,27 @@ package axl.utils.binAgent
 					s += ' ';
 			}
 			s += '\n';
-			bConsole.appendText(s);
+			totalString += s;
+			numChars = s.length;
+			if(maxChars > 0 && numChars > maxChars)
+				totalString.substr(numChars - maxChars);
+			if(this.stage != null)
+				refreshWindow();
 			if(bExternalTrace != null)
 				bExternalTrace(s);
 			
+			v=null;
+			return s.length;
+		}
+		
+		private function refreshWindow():void
+		{
+			bConsole.text = totalString;
 			bConsole.scrollV = bConsole.maxScrollV;
 			if(boundBox != null && boundBox.percentageVertical != 1)
 				boundBox.percentageVertical = 1;
 			if(this.parent)
 				this.parent.setChildIndex(this, this.parent.numChildren-1);
-			v=null;
-			return s.length;
 		}
 		
 		//-------------------------------------  	    PUBLIC API  ------------------------------------------  //
@@ -476,12 +492,36 @@ package axl.utils.binAgent
 		
 		//--- magic
 		
+		protected function asYouType():void
+		{
+			if(input.text.length > 0 && input.text.charAt(0) == ':')
+				return consoleSearch(input.text.substr(1));
+			else if(consoleSearched)
+			{
+				consoleSearched = false;
+				console.text = totalString;
+			}
+		}
+		
 		
 		protected function PARSE_INPUT(s:String):Object
 		{
 			// allows to keep console only
 			// BinAgent which only extends this class overrides this one
 			return null;
+		}
+		
+		protected function consoleSearch(v:String):void
+		{
+			lines = totalString.split('\n');
+			var out:String ='', s:String, i:int=0, l:int=lines.length, r:RegExp = new RegExp(v,'i');
+			while(i<l)
+			{
+				s = lines[i++]
+				out +=  (s.match(v)) ? s + '\n' : '';
+			}
+			console.text = out;
+			consoleSearched = true;
 		}
 	}
 }
