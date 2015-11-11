@@ -87,6 +87,11 @@ package axl.utils
 				coffset = instance.coffset;
 			}
 		}
+		public static function destroyInstance():void
+		{
+			if(instance != null)
+				instance.destroy();
+		}
 		public function get cTarget():Object { return c}
 		protected function kd(e:KeyboardEvent):void
 		{
@@ -342,6 +347,22 @@ package axl.utils
 			go.x += dob.x;
 			go.y += dob.y;
 			globalOffsetFind(dob.parent);
+		}
+		
+		public function destroy():void
+		{
+			U.STG.addEventListener(MouseEvent.MOUSE_MOVE, instance.mm);
+			U.STG.addEventListener(MouseEvent.MOUSE_DOWN, md);
+			U.STG.addEventListener(MouseEvent.MOUSE_UP, mu);
+			U.STG.addEventListener(KeyboardEvent.KEY_UP, ku);
+			U.STG.addEventListener(KeyboardEvent.KEY_DOWN, kd);
+			instance = null;
+			if(miniHint && miniHint.parent)
+				miniHint.parent.removeChild(miniHint);
+			miniHint =null;
+			
+			if(outline && outline.parent)
+				outline.parent.removeChild(outline);
 		}
 	}
 }
