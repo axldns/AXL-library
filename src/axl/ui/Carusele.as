@@ -20,23 +20,22 @@
 		
 		protected var mod:Object;
 		protected var modA:Object;
-		private var rail:Sprite;
+		protected var rail:Sprite;
 		private var HOR:Boolean;
 		private var VER:Boolean;
 		
-		private var gap:Number;
-		private var railNumChildren:int;
-		private var firstChild:DisplayObject;
-		private var lastChild:DisplayObject;
-		private var railDim:Number=0;
+		protected var gap:Number;
+		protected var railNumChildren:int;
+		protected var firstChild:DisplayObject;
+		protected var lastChild:DisplayObject;
+		protected var railDim:Number=0;
 		
-		private var _sortEvery:Number=200;
+		protected var _sortEvery:Number=200;
 		private var _resetAxle:Boolean;
 		private var railPivot:Number;
 		private var roffset:Number;
 		
 		private var dbg:Shape;
-		private var radius:Number = 100;
 		
 		public var debug:Boolean;
 		public function Carusele()
