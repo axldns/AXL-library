@@ -1,3 +1,12 @@
+/**
+ *
+ * AXL Library
+ * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ *
+ * This program is free software. You can redistribute and/or modify it
+ * in accordance with the terms of the accompanying license agreement.
+ *
+ */
 package axl.utils
 {
 	import flash.display.Stage;
@@ -506,17 +515,7 @@ package axl.utils
 				isPlaying = false;
 			}
 		}
-		
-		// ---------------------------------- public instance API------------------------------------------ //
-		public function get isAnimating():Boolean { return isPlaying }
-		public function start():void
-		{
-			if(delay > 0)
-				delayID = flash.utils.setTimeout(perform, delay * 1000);
-			else
-				perform();
-		}
-		
+
 		private function perform():void 
 		{ 
 			clearTimeout(delayID);
@@ -529,6 +528,17 @@ package axl.utils
 				isPlaying = true;
 				if(onStart is Function) onStart.apply(null, onStartArgs);
 			}
+		}
+		
+		
+		// ---------------------------------- public instance API------------------------------------------ //
+		public function get isAnimating():Boolean { return isPlaying }
+		public function start():void
+		{
+			if(delay > 0)
+				delayID = flash.utils.setTimeout(perform, delay * 1000);
+			else
+				perform();
 		}
 		
 		public function resume():void { start() };

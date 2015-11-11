@@ -1,8 +1,14 @@
+/**
+ *
+ * AXL Library
+ * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ *
+ * This program is free software. You can redistribute and/or modify it
+ * in accordance with the terms of the accompanying license agreement.
+ *
+ */
 package axl.utils
 {
-	/**
-	 * [axldns free coding 2015]
-	 */
 	import flash.display.Bitmap;
 	import flash.display.BitmapData;
 	import flash.display.DisplayObject;

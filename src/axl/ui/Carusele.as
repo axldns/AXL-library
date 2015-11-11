@@ -1,7 +1,15 @@
-﻿package axl.ui
+﻿/**
+ *
+ * AXL Library
+ * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ *
+ * This program is free software. You can redistribute and/or modify it
+ * in accordance with the terms of the accompanying license agreement.
+ *
+ */
+package axl.ui
 {	
 	/**
-	 * [axldns free coding 2015]
 	 * 
 	 * Class provides infinite paralax effect both horizontal and vertical. Supports gaps and allows to get "MIDDLE" child.
 	 * Ideal for scrollable lists galleries etc. Supports children of different dimensions. Due tu huge overhead and high precision
