@@ -471,7 +471,7 @@ package axl.utils
 				AO.stage = STG;
 				setStageProperties();
 				setGeometry();
-				if(bin != null) bin.resize(rec.width);
+				
 				if(onStageAvailable != null)
 					onStageAvailable();
 				if(flow != null)
@@ -526,8 +526,6 @@ package axl.utils
 				U.resolveSize(uSplash, U.REC, true);
 				U.center(uSplash, U.rec);
 			}
-			if(U.bin)
-				bin.resize(U.rec.width);
 			Messages.resize();
 			if(onResize != null)
 				onResize();

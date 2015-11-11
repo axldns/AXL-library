@@ -30,6 +30,8 @@ package axl.utils.binAgent
 		private var maxHints:int = 10;
 		private var prevText:String;
 		public var hints:Boolean=true;
+		private var consoleSearched:Boolean;
+		private var lines:Array;
 		
 		public function BinAgent(rootObject:DisplayObject)
 		{
@@ -120,7 +122,7 @@ package axl.utils.binAgent
 			{
 				case Keyboard.UP:
 				case Keyboard.DOWN:
-					if(Hint.numHints > 0) selectHint(e.keyCode);
+					if(Hint.numHints > 0) selectHint(e.keyCode == Keyboard.UP ? -1 : 1);
 					else super.showPast(e.keyCode);
 					break;
 				case Keyboard.ENTER:
@@ -133,7 +135,7 @@ package axl.utils.binAgent
 					if(Hint.numHints > 0) 
 					{
 						if(selectedHint == null)
-							selectHint(Keyboard.UP);
+							selectHint(-1);
 						else
 							chooseHighlightedHint();
 					}
@@ -166,10 +168,10 @@ package axl.utils.binAgent
 			asYouType();
 		}
 		
-		private function selectHint(keyCode:int):void
+		private function selectHint(dir:int):void
 		{
 			if(Hint.numHints == 0) return;
-			hintIndex += (keyCode == Keyboard.UP ? -1 : 1);
+			hintIndex += dir;
 			if(hintIndex < 0)
 				hintIndex = Hint.numHints-1;
 			if((hintIndex >= Hint.numHints) || (hintIndex < 0))
@@ -183,9 +185,16 @@ package axl.utils.binAgent
 			selectedHint.selected = true;
 		}
 		
-		override protected function asYouType():void
+		
+		protected function asYouType():void
 		{
-			super.asYouType();
+			if(input.text.length > 0 && input.text.charAt(0) == ':')
+				return consoleSearch(input.text.substr(1));
+			else if(consoleSearched)
+			{
+				consoleSearched = false;
+				console.text = totalString;
+			}
 			if(!hints)
 				return
 			//////// ---------------- prev ------------- /////////
@@ -237,9 +246,22 @@ package axl.utils.binAgent
 				}
 			}
 			alignHints();
+			if(Hint.numHints > 0) selectHint(-1);
 			prevText = input.text;
 		}
 		
+		protected function consoleSearch(v:String):void
+		{
+			lines = totalString.split('\n');
+			var out:String ='', s:String, i:int=0, l:int=lines.length, r:RegExp = new RegExp(v,'i');
+			while(i<l)
+			{
+				s = lines[i++]
+				out +=  (s.match(v)) ? s + '\n' : '';
+			}
+			console.text = out;
+			consoleSearched = true;
+		}
 		
 		private function findCurRoot():Object
 		{

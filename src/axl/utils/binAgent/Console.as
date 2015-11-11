@@ -51,10 +51,9 @@ package axl.utils.binAgent
 		private var nonRepsIndicator:int = 4;
 		private var boundBox:BoundBox;
 		protected var totalString:String='';
-		private var numChars:uint;
-		public var maxChars:uint = 100000;
-		private var lines:Array;
-		private var consoleSearched:Boolean;
+		public var maxChars:uint = 80000;
+		private var resizeListenerAdded:Boolean;
+		
 		
 		public function Console(rootObject:DisplayObject)
 		{
@@ -180,6 +179,17 @@ package axl.utils.binAgent
 			refreshWindow();
 			stg.focus= this.bInput;
 			bIsOpen = true;
+			if(!resizeListenerAdded)
+			{
+				stg.addEventListener(Event.RESIZE, stageResized);
+				resizeListenerAdded = true;
+			}
+		}
+		
+		protected function stageResized(event:Event):void
+		{
+			if(this.stage)
+				resize(stage.stageWidth, stage.stageHeight);
 		}
 		private function rfs(e:Event):void
 		{
@@ -297,7 +307,6 @@ package axl.utils.binAgent
 				case Keyboard.UP:
 				case Keyboard.DOWN: showPast(e.keyCode);
 					break;
-				default : asYouType();
 			}
 		}
 		
@@ -322,7 +331,9 @@ package axl.utils.binAgent
 			var tstart:int = bConsole.text.length;
 			var tlen:int = trrace(t);
 			if(tstart < bConsole.text.length)
+			{
 				bConsole.setTextFormat(consoleOutput_TextFormat, tstart, tstart +tlen);
+			}
 			bConsole.scrollV = bConsole.maxScrollV;
 			
 			try{ trrace(PARSE_INPUT(t))}
@@ -362,14 +373,13 @@ package axl.utils.binAgent
 			}
 			s += '\n';
 			totalString += s;
-			numChars = s.length;
+			var numChars:int = totalString.length;
 			if(maxChars > 0 && numChars > maxChars)
-				totalString.substr(numChars - maxChars);
+				totalString = totalString.substr(numChars - maxChars);
 			if(this.stage != null)
 				refreshWindow();
 			if(bExternalTrace != null)
 				bExternalTrace(s);
-			
 			v=null;
 			return s.length;
 		}
@@ -397,7 +407,6 @@ package axl.utils.binAgent
 		public function get allowGestureOpen():Boolean { return bAllowGestureOpen }
 		public function set allowGestureOpen(v:Boolean):void
 		{
-			U.log(this, 'allowKeyboardOpen',v);
 			bAllowGestureOpen = v;
 			if(stg != null)
 			{
@@ -410,7 +419,6 @@ package axl.utils.binAgent
 		public function get allowKeyboardOpen():Boolean { return bAllowKeyboardOpen }
 		public function set allowKeyboardOpen(v:Boolean):void
 		{
-			U.log(this, 'allowKeyboardOpen',v);
 			bAllowKeyboardOpen = v;
 			if(stg != null)
 			{
@@ -432,7 +440,7 @@ package axl.utils.binAgent
 		public function get externalTrace():Function { return bExternalTrace }
 		public function set externalTrace(value:Function):void { bExternalTrace = value }
 		/** clears entire console text */
-		public function clear():void { console.text = '' };
+		public function clear():void { console.text = totalString = '' };
 		/** resizes it to specified dimensions, 0 means parameter untouched */
 		public function resize(w:Number, h:Number=0):void
 		{
@@ -492,36 +500,13 @@ package axl.utils.binAgent
 		
 		//--- magic
 		
-		protected function asYouType():void
-		{
-			if(input.text.length > 0 && input.text.charAt(0) == ':')
-				return consoleSearch(input.text.substr(1));
-			else if(consoleSearched)
-			{
-				consoleSearched = false;
-				console.text = totalString;
-			}
-		}
-		
 		
 		protected function PARSE_INPUT(s:String):Object
 		{
 			// allows to keep console only
 			// BinAgent which only extends this class overrides this one
-			return null;
+			return s;
 		}
 		
-		protected function consoleSearch(v:String):void
-		{
-			lines = totalString.split('\n');
-			var out:String ='', s:String, i:int=0, l:int=lines.length, r:RegExp = new RegExp(v,'i');
-			while(i<l)
-			{
-				s = lines[i++]
-				out +=  (s.match(v)) ? s + '\n' : '';
-			}
-			console.text = out;
-			consoleSearched = true;
-		}
 	}
 }
