@@ -56,7 +56,6 @@ package axl.ui
 			this.isHORIZONTAL = false;
 		}
 		
-		
 		public function get numRailChildren():int {	return railNumChildren }
 		/** container where all rail elements are displayed. Improper use can cause unpredictable effects */
 		public function get railElementsContainer():Sprite { return rail }
@@ -82,6 +81,8 @@ package axl.ui
 		
 		public function set isHORIZONTAL(v:Boolean):void
 		{
+			if(HOR == v)
+				return;
 			HOR = v;
 			VER = !v;
 			if(v)
