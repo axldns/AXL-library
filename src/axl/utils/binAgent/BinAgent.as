@@ -149,6 +149,9 @@ package axl.utils.binAgent
 							chooseHighlightedHint();
 					}
 					break;
+				case Keyboard.ESCAPE:
+					this.removeHints();
+					break;
 				default : asYouType();
 					
 			}
