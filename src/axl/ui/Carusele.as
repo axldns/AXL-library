@@ -44,8 +44,8 @@ package axl.ui
 		private var roffset:Number;
 		
 		private var dbg:Shape;
-		
-		public var debug:Boolean;
+		public var debug:uint=0;
+		private var bug:Number=0;
 		public function Carusele()
 		{
 			super();
@@ -69,7 +69,7 @@ package axl.ui
 				this.addChild(dbg);
 			}
 			dbg.graphics.clear();
-			dbg.graphics.lineStyle(1, 0x00FF00);
+			dbg.graphics.lineStyle(1, debug);
 			dbg.graphics.drawRect(.5, .5, rail.width-1, rail.height-1);
 			dbg.graphics.moveTo(0,0);
 			dbg.graphics.lineTo(dbg.width, dbg.height);
@@ -170,28 +170,28 @@ package axl.ui
 				return
 			firstChild =  rail.getChildAt(0);
 			lastChild = rail.getChildAt(railNumChildren-1);
-			
-			var lastDim:Number = lastChild[mod.d] + gap;
-			var firstDim:Number  =firstChild[mod.d] + gap;
+			var axl:String = mod.a, dim:String = mod.d;
+			var lastDim:Number = lastChild[dim] + gap;
+			var firstDim:Number  =firstChild[dim] + gap;
 			
 			var rearangeNeeded:Boolean;
 			
 			var nOffset:Number = railCenter + delta;
 			var nOffsetA:Number = Math.abs(nOffset);
-			var nra:Number = rail[mod.a] + delta;
+			var nra:Number = rail[axl] + delta;
 			var sortEveryTemp:Number = _sortEvery;
 			if(nOffsetA > sortEveryTemp)
 			{
 				if(nOffset<0)
 				{
-					while(nOffsetA > 0)
-					{
+					while(nOffsetA > 0)	// [ --------[----x----]|---------------------]
+					{					// [ -------------[----|x----]----------------]
 						nOffsetA -= firstDim;
 						nOffset += firstDim;
 						nra += lastDim;
 						firstToLast();
-						lastDim = lastChild[mod.d] + gap;
-						firstDim =firstChild[mod.d] + gap;
+						lastDim = lastChild[dim] + gap;
+						firstDim =firstChild[dim] + gap;
 						rearangeNeeded = true;
 					}
 				}
@@ -203,16 +203,22 @@ package axl.ui
 						nOffset -= lastDim;
 						nra -= lastDim;
 						lastToFirst();
-						lastDim = lastChild[mod.d] + gap;
-						firstDim =firstChild[mod.d] + gap;
+						lastDim = lastChild[dim] + gap;
+						firstDim =firstChild[dim] + gap;
 						rearangeNeeded = true
 					}
 				}
 			}
 			
-			rail[mod.a] = nra;
+			rail[axl] = nra;
+			bug += (nra - rail[axl]);
+			nra = rail[axl] + bug;
+			rail[axl] += bug;
+			bug = nra - rail[axl];
 			if(rearangeNeeded)
 				rearange();
+			if(debug)
+				updateDebug();
 		}
 		
 		private function lastToFirst():void
