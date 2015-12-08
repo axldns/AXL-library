@@ -78,7 +78,7 @@ package axl.ui
 			dbg.x = rail.x;
 			dbg.y = rail.y;
 		}
-		
+		/** Allows to set carousel either horizontally or vertically */
 		public function set isHORIZONTAL(v:Boolean):void
 		{
 			if(HOR == v)
@@ -113,13 +113,19 @@ package axl.ui
 			rail[mod.a] = rail[modA.a]; //temporary as need to be seemles
 			rail[modA.a] = -rail[modA.d]/2;
 		}
-		
+		/** Allows to set carousel either horizontally or vertically */
 		public function get isHORIZONTAL():Boolean { return HOR }
+		/** Allows to set carousel either horizontally or vertically */
 		public function get isVERTICAL():Boolean { return VER }
 		public function set isVERTICAL(v:Boolean):void 	{ isHORIZONTAL = !v}
+		/** Defines gap (horizontal or vertical) between carusele elements. Can be negative [OB1]GAP[OB2]GAP[OB3] */
 		public function get GAP():Number { return  gap}
 		public function set GAP(v:Number):void { gap=v, rearange()}
-		
+		/** Adds display object to carousel. If Carousele is horizontal, it manages objects "x" position,
+		 * If carouslee is vertical - it manges object's "y" property.
+		 * @param displayObject - new member of carousel
+		 * @param seemles - if true, object is added at the end of carousele and no immediate movement is noticable.
+		 * If false, objects are being re-aranged in order to deal with new dimensions of carousele.*/
 		public function addToRail(displayObject:DisplayObject, seemles:Boolean=false):void
 		{
 			if(!firstChild)
