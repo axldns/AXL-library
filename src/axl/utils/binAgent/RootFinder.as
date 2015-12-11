@@ -96,7 +96,7 @@ package axl.utils.binAgent
 			current = hashNew(current as String);
 			//trace('is cleared:', current);
 			current = hashBrackets(current as String);
-			//trace('brackets hashed:\n', current);
+			//trace('--brackets hashed/ all hashed:\n', current);
 			if(current is Error)
 				return current;
 			current = loop(current as String);
@@ -673,7 +673,6 @@ package axl.utils.binAgent
 		
 		private function createObject(input:String):*
 		{
-			//trace('creating object from', input);
 			var props:Array = input.split(',');
 			var plen:int = props.length;
 			var output:Object = {};
@@ -686,7 +685,10 @@ package axl.utils.binAgent
 				if(kv.length != 2) return errorInvalidObject;
 				k = kv[0], v = parseArgument(kv[1]);
 				if(v is Error) return v;
-				output[kv[0]] = v;
+				k = isHash(k) as String;
+				if(k == null)
+					return errorInvalidObject;
+				output[k] = v;
 			}
 			return output;
 		}
@@ -757,6 +759,7 @@ package axl.utils.binAgent
 			var s:int = text.indexOf(o[0]); 
 			var r:int = text.indexOf(o[1]);
 			var c:int = text.indexOf(o[2]);
+			//trace("TEXT", text, 'src',s,r,c);
 			var i:int =0;
 			var startI:int = s, endI:int = 0;
 			if(r>-1&&(r<startI || startI<0)) startI=r;
@@ -799,7 +802,7 @@ package axl.utils.binAgent
 		private function hashNew(s:Object):Object
 		{
 			/// replaces IS statement 
-			s = s.replace(/(^|\s|=|\[|\(|\:)new\s/g, S_NEW);
+			s = s.replace(/(^|\s|=|\[|\(|\:)new\s/g, "$1" + S_NEW);
 			/// clear space confusions
 			s = s.replace(/\s/g,"").replace(/;$/, "");
 			return s;
