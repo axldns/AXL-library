@@ -243,6 +243,7 @@ package axl.utils.binAgent
 			curRootProps[2] = rootDesc.variable;
 			var n:String, i:int, l:int;
 			tl = key.length;
+			var keyLow:String = key.toLowerCase();
 			for(var a:int = 0; a < curRootProps.length; a++)
 			{
 				l =  curRootProps[a].length();
@@ -250,7 +251,7 @@ package axl.utils.binAgent
 				for(i = 0; i < l; i++)
 				{
 					n = curRootProps[a][i].@name;
-					if(n.substr(0,tl) == key)
+					if(n.substr(0,tl).toLowerCase() == keyLow)
 					{
 						addHint(curRootProps[a][i]);
 						if(++numHints > maxHints)break;
@@ -269,7 +270,7 @@ package axl.utils.binAgent
 			while(i<l)
 			{
 				s = lines[i++]
-				out +=  (s.match(v)) ? s + '\n' : '';
+				out +=  (s.match(r)) ? s + '\n' : '';
 			}
 			console.text = out;
 			consoleSearched = true;
