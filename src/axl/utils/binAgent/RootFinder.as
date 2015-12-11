@@ -50,7 +50,7 @@ package axl.utils.binAgent
 		private var errorInvalidObject:Error = new Error("Invalid Object to create?");
 		private var errorMaxClassArguments:Error = new Error("This software supports up to 10 constructor arguments");
 		private var errorInvalidClassArgument:Error = new Error("Null class argument?");
-		private var userRoot:DisplayObject;
+		private var userRoot:Object;
 		private var consoleRoot:Object;
 		private var binApi:Object;
 		public var currentResult:Object;
@@ -66,6 +66,8 @@ package axl.utils.binAgent
 			binApi = api;
 			build_hierarchy();
 		}
+		
+		public function changeContext(v:Object):void { this.userRoot = v ? v : this.userRoot }
 		private function build_hierarchy():void
 		{
 			var levelLength:int;
@@ -201,6 +203,7 @@ package axl.utils.binAgent
 					if(opchars.indexOf(rawElements[charIndex].charAt(0)) > -1)
 					{
 						//trace('skiping due to math', rawElements[charIndex]);
+						//here operands are being put as live elements + - * = 
 						liveElements[charIndex] = rawElements[charIndex];   /////////// placing [+][-]
 						continue;
 					}
@@ -217,6 +220,47 @@ package axl.utils.binAgent
 					}
 				}
 			}
+			
+			// walk through to look for negat posit
+			var p:* = liveElements[0],ll:int = liveElements.length, c:*, n:*, e:*, s:int=3;
+			if(p is String)
+			{
+				if(p.match(/(\+|\-)/) && ll > 1 )
+				{
+					e = liveElements[i+1];
+					e.chain = [Number(String(p + e.chain.pop()))];
+					e.text = [String(e.chain[0])];
+					liveElements.splice(0,2,e);
+					ll--;
+				}
+				else
+					return this.errorOperands;
+			}
+			for(var i:int = 0; i < ll -2; i++)
+			{
+				p = liveElements[i];
+				c = liveElements[i+1];
+				n = liveElements[i+2];
+				
+					if(c is String && n is String)
+					{
+						if((i+s) >= liveElements.length)
+							return this.errorOperands;
+						e = liveElements[i+s];
+						if(e is Result)
+						{
+							if(n.match(/(\+|\-)/))
+							{
+								e.chain = [Number(String(n + e.chain.pop()))];
+								e.text = [String(e.chain[0])];
+								liveElements.splice(i+s-1,2,e);
+								--ll;
+								--i;
+							}
+						}
+					}
+			}
+			
 			if(numOperations == 0) // if there are no operations
 			{
 				//trace('      no operations, return single live element, last of the chain');
@@ -679,14 +723,14 @@ package axl.utils.binAgent
 			return (chunk.length > 0) ? chunk : null;
 		}
 		
-		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):Object
+		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):*
 		{
 			// trace('[*]readyTypeCheck[*]', arg);
 			if(!isNaN(Number(arg))) return Number(arg)
 			else if(arg == 'true' || arg == 'false') return (arg == 'true')
 			else if(arg == 'this') return userRoot;
 			else if(arg == 'null') return S_NULL;
-			else if(arg == 'trace') return trace;
+			else if(arg == 'trace') return Object(trace);
 			else if(arg == '@') return binApi;
 			else
 			{
