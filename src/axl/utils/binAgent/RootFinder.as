@@ -82,7 +82,22 @@ package axl.utils.binAgent
 				}
 			}
 		}
-		
+		/** Parses input string and returns evealuated result. 
+		 * <br>Supported operations: 
+		 * <ul><li>
+		 * Returning Classes, its instances, public methods, properties and its values</li>
+		 * <li>Type casting, asignments, negations, concatenation, mathematical operations with it's order, nesting in parentheses</li>
+		 * <li>Creating new Objects, Arrays and instances of any Classes</li>
+		 * <li>Basic conditionals with ternary operator (both true and false are evauated! only right one is returned)</li>
+		 * </ul>
+		 * Does <b>not</b> support: 
+		 * <ul>
+		 * <li>creating functions</li>
+		 * <li>if-else-if and switch blocks</li>
+		 * <li>for-do-while loops</li>
+		 * <li>in-de-crementation</li>
+		 * </ul>
+		 * */
 		public function parseInput(text:String):Object
 		{
 			//trace('---input:',text);
