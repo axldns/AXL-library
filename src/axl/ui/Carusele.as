@@ -20,6 +20,7 @@ package axl.ui
 	import flash.display.DisplayObject;
 	import flash.display.Shape;
 	import flash.display.Sprite;
+	import flash.events.Event;
 	
 	public class Carusele extends Sprite
 	{
@@ -53,7 +54,17 @@ package axl.ui
 			railNumChildren =0;
 			rail = new Sprite();
 			this.addChild(rail);
-			this.isHORIZONTAL = false;
+			rail.addEventListener(Event.ADDED, elementAdded);
+			setAxle(true);
+		}
+		
+		protected function elementAdded(e:Event):void
+		{
+			railDim = rail[mod.d];
+			railPivot = railDim>>1;
+			rail[mod.a] = -railPivot;
+			rearange();
+			movementBit(0);
 		}
 		
 		public function get numRailChildren():int {	return railNumChildren }
@@ -83,6 +94,12 @@ package axl.ui
 		{
 			if(HOR == v)
 				return;
+			setAxle(v);
+			resetAxle();
+		}
+		
+		private function setAxle(v:Boolean):void
+		{
 			HOR = v;
 			VER = !v;
 			if(v)
@@ -95,7 +112,6 @@ package axl.ui
 				mod = modV;
 				modA = modH;
 			}
-			resetAxle();
 		}
 		
 		private function resetAxle():void
@@ -128,23 +144,16 @@ package axl.ui
 		 * If false, objects are being re-aranged in order to deal with new dimensions of carousele.*/
 		public function addToRail(displayObject:DisplayObject, seemles:Boolean=false):void
 		{
-			if(!firstChild)
-				firstChild = displayObject;
 			if(rail.contains(displayObject))
 				return;
+			if(!firstChild)
+				firstChild = displayObject;
 			lastChild = displayObject;
 			lastChild[mod.a] = railDim + (railNumChildren>0?GAP:0);
-			rail.addChild(lastChild);
-			railDim = rail[mod.d];
-			railPivot = railDim>>1;
 			railNumChildren++;
-			if(!seemles)
-				rail[mod.a] = -railPivot;
-			movementBit(0);
-			onRailElementAdded();
+			rail.addChild(lastChild);
 		}
 		
-		protected function onRailElementAdded():void { }
 		
 		public function removeFromRail(displayObject:DisplayObject):void
 		{
@@ -215,7 +224,6 @@ package axl.ui
 					}
 				}
 			}
-			
 			rail[axl] = nra;
 			bug += (nra - rail[axl]);
 			nra = rail[axl] + bug;
