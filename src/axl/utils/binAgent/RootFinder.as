@@ -401,10 +401,10 @@ package axl.utils.binAgent
 				case '===': lc[lci] = lc[lci] === rc[rci]; break;
 				case '&&': lc[lci] = lc[lci] && rc[rci]; break;
 				case '||': lc[lci] = lc[lci] || rc[rci]; break;
-				case '+=': lc[lci-1][lastText] += rc[rci]; break;
-				case '-=': lc[lci-1][lastText] -= rc[rci]; break;
-				case '*=': lc[lci-1][lastText] *= rc[rci]; break;
-				case '/=': lc[lci-1][lastText] /= rc[rci]; break;
+				case '+=': lc[lci] = lc[lci-1][lastText] += rc[rci]; break;
+				case '-=':  lc[lci] = lc[lci-1][lastText] -= rc[rci]; break;
+				case '*=': lc[lci] = lc[lci-1][lastText] *= rc[rci]; break;
+				case '/=':  lc[lci] = lc[lci-1][lastText] /= rc[rci]; break;
 				case '=': lc[lci-1][lastText] = rc[rci]; break;
 				case S_IS: lc[lci] = lc[lci] is rc[rci]; break;
 				case '?': lc[lci] = getNextNext();  break;
