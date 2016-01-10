@@ -91,7 +91,8 @@ package  axl.utils
 		 Defines default value if <code>storeDirectory</code> argument of method <code>Ldr.load</code> is ommited.
 		 * @default File.applicationStorageDirectory;
 		 * @see Ldr#load */
-		public static var defaultStoreDirectory:Object = Req.fileInterfaceAvailable ? Req.FileClass.applicationStorageDirectory : null;
+		public static var defaultStoreDirectory:Object; 
+		try { defaultStoreDirectory = Req.FileClass.applicationStorageDirectory } catch(e:*){ trace("defaultStoreDirectory=null")}
 		
 		/**
 		 * (AIR only)<br>
