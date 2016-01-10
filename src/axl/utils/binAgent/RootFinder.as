@@ -16,13 +16,13 @@ package axl.utils.binAgent
 	{
 		private var opchars:Vector.<String> = new <String>['+','-','*','/','%','=','<','>','|','&','!','?',':', S_IS]
 		private var hierarchy:Vector.<Vector.<String>> =new <Vector.<String>> [
-			new <String>['*','/','*=','/=','!','%'],
+			new <String>['*','/','*=','/=','!','%', '%='],
 			new <String>['+','-','+=','-='],
 			new <String>['<','<=','>','>=', '<<','>>','==','===','!=', '!==', S_IS], 
 			new <String>['?', ':', '||','&&'],
 			new <String>['=']
 		];
-		private var asignments:Vector.<String> = new <String>['=','+=','-=','*=','/='];
+		private var asignments:Vector.<String> = new <String>['=','+=','-=','*=','/=','%='];
 		private var oneSiders:Vector.<String> = new <String>['!', '++', '--'];
 		private var allOperations:Vector.<String> = new Vector.<String>();
 		private var mathLevelDict:Object = {}
@@ -169,6 +169,13 @@ package axl.utils.binAgent
 		private function parseOperations(argument:String):*
 		{
 			//trace('    ||||||parseOperations', argument);
+			var q:int = argument.indexOf('?');
+			var argLeft:String;
+			if(q > -1)
+			{
+				argLeft = argument.substr(q+1);
+				argument = argument.substr(0,q);
+			}
 			var rawElements:Array =[];
 			var liveElements:Array = [];
 			var numOperations:int;
@@ -236,7 +243,7 @@ package axl.utils.binAgent
 				}
 			}
 			
-			// walk through to look for negat posit
+			//trace("walk through to look for negat posit)");
 			var p:* = liveElements[0],ll:int = liveElements.length, c:*, n:*, e:*, s:int=3;
 			if(p is String)
 			{
@@ -282,22 +289,28 @@ package axl.utils.binAgent
 				
 				//trace('    level one:', help);//, '\n\n', describeType(help).toXMLString());
 				help = liveElements.pop();
-				if(!(help is Result))
-				{
-					//trace('Error or NULL operations level 1', help);
-					return help;
-				}
-				help =help.chain.pop();
+				if(help is Result)
+					help =help.chain.pop();
 				//trace('    level two:\n\n', describeType(help).toXMLString());
-				return help;
 			}
 			else
 			{
 				//trace('      ', numOperations, 'operations to validate and perform on', liveElements);
 				// this should fold to a single argument
 				help = performChainOperations(liveElements);
-				return help;
 			}
+			//trace("RETURN", help, q > -1);
+			if(q >-1)
+			{
+				q = argLeft.indexOf(':');
+				if(q < 0)
+					return errorOperands;
+				argument = argLeft.substr(0,q);
+				argLeft = argLeft.substr(q+1);
+				help = help ? parseOperations(argument) : parseOperations(argLeft);
+			}
+			//trace("FINALLY", help);
+			return help
 		}
 		
 		private function performChainOperations(liveElements:Array):*
@@ -405,28 +418,12 @@ package axl.utils.binAgent
 				case '-=':  lc[lci] = lc[lci-1][lastText] -= rc[rci]; break;
 				case '*=': lc[lci] = lc[lci-1][lastText] *= rc[rci]; break;
 				case '/=':  lc[lci] = lc[lci-1][lastText] /= rc[rci]; break;
+				case '%=':  lc[lci] = lc[lci-1][lastText] %= rc[rci]; break;
 				case '=': lc[lci-1][lastText] = rc[rci]; break;
 				case S_IS: lc[lci] = lc[lci] is rc[rci]; break;
-				case '?': lc[lci] = getNextNext();  break;
 			}
 			liveElements.splice(i, deleteCount);
 			//trace('leftover', liveElements, "("+liveElements.length+")");
-			function getNextNext():Object
-			{
-				if(liveElements.length > i +3)
-				{
-					if(liveElements[i+2] == ':')
-					{
-						var rr:Result = liveElements[i+3] as Result;
-						if(rr != null)
-						{
-							deleteCount =4;
-							return lc[lci] ? rc[rci] : rr.chain[rr.chain.length-1];
-						}
-					}
-				}
-				return errorOperands;
-			}
 			return liveElements;
 		}
 		
