@@ -247,10 +247,10 @@ package axl.utils.binAgent
 			var p:* = liveElements[0],ll:int = liveElements.length, c:*, n:*, e:*, s:int=3;
 			if(p is String)
 			{
-				if(p.match(/(\+|\-)/) && ll > 1 )
+				if(p.match(/(\+|\-|\!)/) && ll > 1 )
 				{
 					e = liveElements[i+1];
-					e.chain = [Number(String(p + e.chain.pop()))];
+					e.chain = (p == '!' ? [!e.chain.pop()] :  [Number(String(p + e.chain.pop()))]);
 					e.text = [String(e.chain[0])];
 					liveElements.splice(0,2,e);
 					ll--;
@@ -271,9 +271,9 @@ package axl.utils.binAgent
 						e = liveElements[i+s];
 						if(e is Result)
 						{
-							if(n.match(/(\+|\-)/))
+							if(n.match(/(\+|\-|\!)/))
 							{
-								e.chain = [Number(String(n + e.chain.pop()))];
+								e.chain = (n == '!' ? [!e.chain.pop()] :  [Number(String(n + e.chain.pop()))]);
 								e.text = [String(e.chain[0])];
 								liveElements.splice(i+s-1,2,e);
 								--ll;
@@ -282,7 +282,11 @@ package axl.utils.binAgent
 						}
 					}
 			}
-			
+			numOperations =0, i= 0, ll = liveElements.length;
+			for(; i < ll; i++)
+				if(liveElements[i] is String)
+					numOperations++;
+				
 			if(numOperations == 0) // if there are no operations
 			{
 				//trace('      no operations, return single live element, last of the chain');
@@ -375,7 +379,7 @@ package axl.utils.binAgent
 			var isAsignment:Boolean = asignments.indexOf(oper) > -1;
 			var deleteCount:int = (oneSiders.indexOf(oper) > -1) ? 1 : 2;
 			var np:int;
-			var right:Result = (i+1 < liveElements.length) ? liveElements[i+1] : null;
+			var right:* = (i+1 < liveElements.length) ? liveElements[i+1] : null;
 			var left:* = (i > 0) ? liveElements[i-1] : null;
 			if(right != null)
 			{
