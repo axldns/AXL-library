@@ -413,7 +413,6 @@ package  axl.utils
 			if(!IS_LOADING)
 			{
 				IS_LOADING = true;
-				U.log("[Ldr][LISTENERS ADD]");
 				req.addEventListener(Event.COMPLETE, completeHandler);
 				req.addEventListener(Event.CHANGE, progressHandler);
 				req.load();

@@ -556,5 +556,15 @@ package axl.utils
 				trace.apply(null,args);
 		}
 		
+		public static function fileNameFromUrl(v:String,removeQuerry:Boolean=false,removeExtension:Boolean=false):String
+		{
+			var fileName:String = v||"";
+			var q:int = fileName.indexOf('?');
+			if(q > -1&&removeQuerry)
+				fileName = fileName.substr(0,q).split('/').pop();
+			else
+				fileName = fileName.split('/').pop();
+			return removeExtension ? fileName.replace(/.\w+$/i, "") : fileName;
+		}
 	}
 }
