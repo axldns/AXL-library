@@ -499,7 +499,7 @@ package axl.utils.binAgent
 								//trace("MULTI ARG");
 								try { shelp = prev.apply(null, help) } catch(e:*) { shelp = e}
 								if(shelp is Error)
-									try { shelp =prev(help) } catch (e:*) {shelp = e}
+									return shelp;
 								help = shelp
 								//trace("DONE?", help);
 							}
