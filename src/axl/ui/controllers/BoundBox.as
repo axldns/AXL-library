@@ -59,13 +59,19 @@ package axl.ui.controllers
 		public var horizontal:Boolean;
 		/** determines if any horizontal movement of any methods and events is applied */
 		public var vertical:Boolean;
-		private var down:Boolean;
+		
 		
 		private var ao:Object = { x  : null, y : null };
 		private var aop:Object = { x : {x:0}, y : {y:0}};
 		private var animTime:Number=0;
 		private var boxStage:Stage;
+		private var boundStage:Stage;
 		private var inited:Boolean;
+		
+		private var down:Boolean;
+		private var xtouchyBound:Boolean=true;
+		private var touchyBoundDown:Boolean;
+		public var onChange:Function;
 		
 		/**
 		 * <h3>Decorator style coordinates controller</h3>
@@ -175,6 +181,7 @@ package axl.ui.controllers
 				var aoo:AO = ao[a];
 				aoo.subject = box;
 				aoo.cycles = 1;
+				aoo.onUpdate = onChange;
 				aoo.nSeconds = animTime;
 				aop[a][a] = rmovable[a];
 				aoo.nProperties = aop[a];
@@ -187,15 +194,43 @@ package axl.ui.controllers
 				}
 			}
 			else
+			{
 				box[a] = rmovable[a];
-			
+				if(onChange != null)
+					onChange();
+			}
 		}
 		
 		private function updatePercentage(axle:String):void
 		{
 			percentage[axle] = (rmovable[axle]-min[axle]) / (max[axle] - min[axle]);
 		}
-
+		
+		private function updateAbsolute(mod:Object, val:Number):void
+		{
+			var a:String = mod.a;
+			rmovable[a] = val;
+			validateAndUpdate(a);
+		}
+		
+		protected function updateBoxToTouchyBound(e:*=null):void
+		{
+			var tbx:Number = bnd.mouseX;
+			var tby:Number = bnd.mouseY;
+			if(horizontal)
+				this.percentageHorizontal = tbx / bnd.width;
+			if(vertical)
+				this.percentageVertical = tby / bnd.height;
+		}
+		
+		private function setBehavior(v:String, axle:String):void
+		{
+			var i:int = mapn.indexOf(v); 
+			if(i>-1)
+				behIdx[axle] = i;
+			mmax[axle] = mapf[behIdx[axle]];
+		}
+		// listeners
 		private function addListeners(bx:DisplayObject):void
 		{
 			if(boxStage == null)
@@ -217,15 +252,50 @@ package axl.ui.controllers
 			boxStage = box.stage;
 		}
 		
-		protected function boxOffStage(event:Event):void
+		protected function boxOffStage(e:Event):void
 		{
 			finishMovement();
 		}
-		
-		protected function finishMovement():void
+		//-- BOUND
+		private function addBoundListeners(bo:DisplayObject):void
 		{
-			boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, mmove);
-			down = false
+			if(boundStage == null)
+			{
+				if(bound.stage != null)
+					boundOnStage();
+				else
+					bound.addEventListener(Event.ADDED_TO_STAGE, boundOnStage);
+			}
+		}
+		
+		protected function boundOnStage(e:Event=null):void
+		{
+			if(boundStage == null)
+			{
+				bound.addEventListener(MouseEvent.MOUSE_DOWN, onBoundTouchDown);
+				bound.addEventListener(Event.REMOVED_FROM_STAGE, boundOffStage);
+			}
+			boundStage = bound.stage;
+		}
+		
+		protected function boundOffStage(e:Event):void
+		{
+			finishBoundMovement();
+		}
+		
+		protected function onBoundTouchDown(e:Event):void
+		{
+			bnd.stage.addEventListener(MouseEvent.MOUSE_MOVE, onTouchyBoundMove);
+			touchyBoundDown = true;
+			updateBoxToTouchyBound();
+		}
+		
+		protected function onTouchyBoundMove(e:MouseEvent):void
+		{
+			if(e.buttonDown && touchyBoundDown)
+				updateBoxToTouchyBound(e);
+			else
+				finishBoundMovement();
 		}
 		
 		protected function md(e:MouseEvent):void
@@ -264,24 +334,28 @@ package axl.ui.controllers
 			}
 		}
 		
-		private function updateAbsolute(mod:Object, val:Number):void
-		{
-			var a:String = mod.a;
-			rmovable[a] = val;
-			validateAndUpdate(a);
-		}
-		
 		private function removeListeners(bx:DisplayObject):void
 		{
 			bx.removeEventListener(flash.events.MouseEvent.MOUSE_DOWN, md);
+			boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, mmove);
 		}
 		
-		private function setBehavior(v:String, axle:String):void
+		private function removeBoundListeners(bnd:DisplayObject):void
 		{
-			var i:int = mapn.indexOf(v); 
-			if(i>-1)
-				behIdx[axle] = i;
-			mmax[axle] = mapf[behIdx[axle]];
+			bound.removeEventListener(flash.events.MouseEvent.MOUSE_DOWN, onBoundTouchDown);
+			boundStage.removeEventListener(MouseEvent.MOUSE_MOVE, onTouchyBoundMove);
+		}
+		
+		private function finishBoundMovement():void
+		{
+			boundStage.removeEventListener(MouseEvent.MOUSE_MOVE, onTouchyBoundMove);
+			touchyBoundDown = false;
+		}
+		
+		protected function finishMovement():void
+		{
+			boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, mmove);
+			down = false
 		}
 		
 		// -------------------------------- PUBLIC API ---------------------------------- //
@@ -291,9 +365,16 @@ package axl.ui.controllers
 		public function get bound():DisplayObject {	return bnd }
 		public function set bound(v:DisplayObject):void
 		{
+			if(bnd == v)
+				return;
+			if(bnd != null)
+				removeBoundListeners(bnd);
 			bnd = v;
+			if(touchyBound)
+				addBoundListeners(bnd);
 			refresh();
 		}
+		
 		/** object to move within <code>bound</code> area according according to <code>horizontalBehavior</code> 
 		 * and <code>verticalBehavior</code> rules. listeners for dragging are  added automatically.
 		 *  @see #horizontalBehavior @see #verticalBehavior @see #bound */
@@ -376,6 +457,24 @@ package axl.ui.controllers
 		/** maximum y value which box can take to follow <code>verticalBehavior</code> defined rule @see #verticalBehavior */
 		public function get maxY():Number { return max.y };
 		
+		public function get touchyBound():Boolean {	return xtouchyBound }
+		public function set touchyBound(v:Boolean):void
+		{
+			if(xtouchyBound == v)
+				return;
+			xtouchyBound = v;
+			if(bnd)
+			{
+				if(v)
+				{
+					if(!bnd.hasEventListener(MouseEvent.MOUSE_DOWN))
+						addBoundListeners(bnd);
+				}
+				else
+					removeBoundListeners(bnd);
+			}
+		}
+
 		public function dispatchChange():void
 		{
 			this.dispatchEvent(eventChange);
