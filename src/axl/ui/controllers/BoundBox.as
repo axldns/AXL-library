@@ -59,7 +59,9 @@ package axl.ui.controllers
 		public var horizontal:Boolean;
 		/** determines if any horizontal movement of any methods and events is applied */
 		public var vertical:Boolean;
-		
+		public var liveChanges:Boolean=true;
+		public var onChange:Function;
+		public var changeNotifications:Boolean = true;
 		
 		private var ao:Object = { x  : null, y : null };
 		private var aop:Object = { x : {x:0}, y : {y:0}};
@@ -71,7 +73,6 @@ package axl.ui.controllers
 		private var down:Boolean;
 		private var xtouchyBound:Boolean=true;
 		private var touchyBoundDown:Boolean;
-		public var onChange:Function;
 		
 		/**
 		 * <h3>Decorator style coordinates controller</h3>
@@ -130,13 +131,12 @@ package axl.ui.controllers
 			mmax[mod.a](mod);
 		}
 	
-		private function setPercentage(v:Number, mod:Object):Number
+		private function setPercentage(v:Number, mod:Object,omitAnimation:Boolean=false):void
 		{
 			var a:String = mod.a;
 			updateFrames();
 			rmovable[a] = min[a] + (max[a] - min[a]) * v;
-			validateAndUpdate(a);
-			return percentage.a;
+			validateAndUpdate(a,omitAnimation);
 		}
 		
 		private function updateFrames():void
@@ -164,7 +164,10 @@ package axl.ui.controllers
 		private function validateAndUpdate(a:String,omitAnimation:Boolean=false):void
 		{
 			if(box == null)
+			{
+				return;
 				throw new Error("Undefined box - can't move anything");
+			}
 			
 			calculateMinMax(mods[a]);
 			
@@ -175,13 +178,21 @@ package axl.ui.controllers
 			if(box[a] == rmovable[a])
 				return;
 			
-			updatePercentage(a);
 			if(animTime > 0 && !omitAnimation)
 			{
 				var aoo:AO = ao[a];
 				aoo.subject = box;
 				aoo.cycles = 1;
-				aoo.onUpdate = onChange;
+				if(liveChanges)
+				{
+					aoo.onUpdate = changeNotify;
+					aoo.onUpdateArgs = [a]
+				}
+				else
+				{
+					aoo.onComplete = changeNotify;
+					aoo.onCompleteArgs =[a]
+				}
 				aoo.nSeconds = animTime;
 				aop[a][a] = rmovable[a];
 				aoo.nProperties = aop[a];
@@ -196,14 +207,24 @@ package axl.ui.controllers
 			else
 			{
 				box[a] = rmovable[a];
-				if(onChange != null)
-					onChange();
+				changeNotify(a);
 			}
+		}
+		
+		private function changeNotify(axis:String):void
+		{
+			updatePercentage(axis);
+			if(!changeNotifications)
+				return;
+			//U.log('this dispatch change',n,axis, box[axis], this.percentageVertical);
+			dispatchChange();
+			if(onChange != null)
+				onChange();
 		}
 		
 		private function updatePercentage(axle:String):void
 		{
-			percentage[axle] = (rmovable[axle]-min[axle]) / (max[axle] - min[axle]);
+			percentage[axle] = (box[axle]-min[axle]) / (max[axle] - min[axle]);
 		}
 		
 		private function updateAbsolute(mod:Object, val:Number):void
@@ -218,9 +239,9 @@ package axl.ui.controllers
 			var tbx:Number = bnd.mouseX;
 			var tby:Number = bnd.mouseY;
 			if(horizontal)
-				this.percentageHorizontal = tbx / bnd.width;
+				this.percentageHorizontal = tbx / (bnd.width / bnd.scaleX);
 			if(vertical)
-				this.percentageVertical = tby / bnd.height;
+				this.percentageVertical = tby / (bnd.height / bnd.scaleY);
 		}
 		
 		private function setBehavior(v:String, axle:String):void
@@ -326,7 +347,6 @@ package axl.ui.controllers
 					updateAbsolute(modH, boxStart.x + (U.STG.mouseX - startMouse.x));					
 				if(vertical)
 					updateAbsolute(modV, boxStart.y + (U.STG.mouseY - startMouse.y));			
-				this.dispatchEvent(eventChange);
 			}
 			else
 			{
@@ -442,6 +462,12 @@ package axl.ui.controllers
 		/** determines vertical position of the <code>box</code> between its minY and maxY values  @see #minY @see #maxY */
 		public function set percentageVertical(v:Number):void { setPercentage(v, modV) }
 		public function get percentageVertical():Number { return percentage.y }
+		
+		/** determines horizontal position of the <code>box</code> between its minX and maxX values @see #minX @see #maxX */
+		public function setPercentageHorizontal(v:Number,omitAnimation:Boolean=false):void { setPercentage(v, modH,omitAnimation) }
+		
+		/** determines vertical position of the <code>box</code> between its minY and maxY values  @see #minY @see #maxY */
+		public function setPercentageVertical(v:Number,omitAnimation:Boolean=false):void { setPercentage(v, modV,omitAnimation) }
 		
 		/** movement can be smoothed by optimized animation. @default 0 */
 		public function get animationTime():Number { return animTime }
