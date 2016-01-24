@@ -27,6 +27,7 @@ package axl.ui
 		private static var tf:TextField = makeTf();
 		private static var insideTap:Function;
 		private static var outsideTap:Function;
+		public static var logMessages:Boolean=true;
 		
 		/**
 		 * tells if messages dialog is on stage at the moment
@@ -51,7 +52,8 @@ package axl.ui
 			tf.width = U.REC.width;
 			tf.height = tf.textHeight + 5;
 			U.STG.addChild(tf);
-			
+			if(logMessages)
+				U.log(v);
 			U.STG.addEventListener(MouseEvent.MOUSE_DOWN, MD);
 		}
 		
