@@ -37,6 +37,7 @@ package axl.utils.binAgent
 		private var bConsole:TextField;
 		private var bInput:TextField;
 		private var bSlider:Sprite;
+		private var bSliderRail:Sprite;
 		private var past:Vector.<String> = new Vector.<String>();
 		private var pastIndex:int;
 		
@@ -110,10 +111,9 @@ package axl.utils.binAgent
 			boundBox.horizontal = false;
 			boundBox.vertical = true;
 			boundBox.verticalBehavior  = BoundBox.inscribed;
-			boundBox.bound = bConsole;
+			boundBox.bound = bSliderRail;
 			boundBox.box = bSlider;
 			boundBox.addEventListener(Event.CHANGE, sliderEvent);
-			
 		}
 		
 		
@@ -154,6 +154,12 @@ package axl.utils.binAgent
 		
 		private function build_consoleSlider():void
 		{
+			bSliderRail = new Sprite();
+			bSliderRail.graphics.beginFill(0xffffff,0.3);
+			bSliderRail.graphics.drawRect(0,0,15,console.height);
+			bSliderRail.graphics.endFill();
+			bSliderRail.mouseChildren = false;
+			this.addChild(bSliderRail);
 			bSlider = new Sprite();
 			bSlider.graphics.beginFill(0xffffff);
 			bSlider.graphics.drawRoundRect(0,0, 15,25,5,5);
@@ -166,6 +172,7 @@ package axl.utils.binAgent
 		{
 			bSlider.x = bConsole.x + bConsole.width - bSlider.width;
 			bSlider.y = bConsole.y + bConsole.height - bSlider.height;
+			bSliderRail.x = bSlider.x
 			bInput.y = bConsole.height;
 		}
 		
@@ -243,7 +250,13 @@ package axl.utils.binAgent
 		
 		protected function sliderEvent(event:Event):void
 		{
+			boundBox.changeNotifications=false;
+			boundBox.liveChanges=false;
+			bConsole.removeEventListener(Event.SCROLL, scrollEvent);
 			bConsole.scrollV = this.boundBox.percentageVertical * bConsole.maxScrollV;
+			bConsole.addEventListener(Event.SCROLL, scrollEvent);
+			boundBox.changeNotifications=true;
+			boundBox.liveChanges=true;
 		}
 		
 		protected function scrollEvent(e:Event):void
@@ -251,8 +264,17 @@ package axl.utils.binAgent
 			if(boundBox)
 			{
 				var n:Number = bConsole.scrollV /  bConsole.maxScrollV;
-				if(n != boundBox.percentageVertical)
+				var dif:Number = Math.abs(n - boundBox.percentageVertical);
+				if(dif > 0.01)
+				{
+					boundBox.changeNotifications=false;
+					boundBox.liveChanges=false;
+					bConsole.removeEventListener(Event.SCROLL, scrollEvent);
 					boundBox.percentageVertical = n;
+					bConsole.addEventListener(Event.SCROLL, scrollEvent);
+					boundBox.changeNotifications=true;
+					boundBox.liveChanges=true;
+				}
 			}
 		}
 		protected function stageMouseDown(e:MouseEvent):void
@@ -459,7 +481,14 @@ package axl.utils.binAgent
 				input.width = w;
 			}
 			if(h !=0)
+			{
 				console.height = h - input.height;
+				bSliderRail.graphics.clear();
+				bSliderRail.graphics.beginFill(0xffffff,0.3);
+				bSliderRail.graphics.drawRect(0,0,15,console.height);
+				bSliderRail.graphics.endFill();
+				bSliderRail.mouseChildren = false;
+			}
 			align();
 		}
 		
