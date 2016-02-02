@@ -13,6 +13,7 @@ package axl.utils.binAgent
 	import flash.display.Sprite;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
+	import flash.system.ApplicationDomain;
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
@@ -44,34 +45,96 @@ package axl.utils.binAgent
 		
 		public function BinAgent(rootObject:DisplayObject)
 		{
-				if(instance != null)
+			if(instance != null)
+			{
+				assignInstance(instance)
+			}
+			else
+			{
+				var inst:BinAgent = checkDomains();
+				if(inst)
+					assignInstance(inst);
+				else
 				{
-					hintContainer = instance.hintContainer;
-					userRoot = instance.userRoot;
-					hintContainer = instance.hintContainer;
-					curRootProps = instance.curRootProps;
-					rootFinder = instance.rootFinder;
-					assist = instance.assist;
-					curRoot = instance.curRoot;
+					createNewInstance(rootObject);
+					super(rootObject);
+				}
+			}
+		}
+		
+		private function createNewInstance(rootObject:DisplayObject):void
+		{
+			_instance = this;
+			hintContainer = new Sprite();
+			hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
+			hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);
+			userRoot = rootObject;
+			
+			this.addChild(hintContainer);
+			curRootProps = new Vector.<XMLList>();
+			hintIndex = 0;
+			hintTextFormat = tfSyntax;//input.defaultTextFormat;
+			Hint.hintWidth = 100;//input.width;
+			Hint.hintHeight = 15;//hHeight;
+			rootFinder =new RootFinder(rootObject, this);
+			assist = new Asist();
+			curRoot = userRoot;
+		}
+		
+		private function assignInstance(inst:BinAgent):void
+		{
+			hintContainer = inst.hintContainer;
+			userRoot = inst.userRoot;
+			hintContainer = inst.hintContainer;
+			curRootProps = inst.curRootProps;
+			rootFinder = inst.rootFinder;
+			assist = inst.assist;
+			curRoot = inst.curRoot;
+		}
+		
+		private function checkDomains():BinAgent
+		{
+			trace('[BinAgent][checkDomains]');
+			var appDomain:ApplicationDomain = ApplicationDomain.currentDomain;
+			var cs:Vector.<String>;
+			var cn:String = 'axl.utils.binAgent::BinAgent';
+			find(appDomain, ' ApplicationDomain.currentDomain');
+			
+			
+			function find(ad:ApplicationDomain, s:String):void
+			{
+				cs = ad.getQualifiedDefinitionNames();			
+				if(cs.indexOf(cn) > -1)
+				{
+					trace('////////// FOUND BIN AGENT //////////', s);
+					var c:Class = ad.getDefinition(cn) as Class;
+					if(c && c.instance)
+					{
+						trace('found live instance', c.instance)
+						return c.instance;
+					}
+					else
+					{
+						trace('found class but not instance');
+						try {find(ad.parentDomain, s+'.parentDomain') }
+						catch(e:*)
+						{
+							trace('// NO MORE PARENT DOMAINS //', s);
+							appDomain =null;
+						}
+					}
 				}
 				else
 				{
-					_instance = this;
-					hintContainer = new Sprite();
-					hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
-					hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);
-					userRoot = rootObject;
-					super(rootObject);
-					this.addChild(hintContainer);
-					curRootProps = new Vector.<XMLList>();
-					hintIndex = 0;
-					hintTextFormat = input.defaultTextFormat;
-					Hint.hintWidth = 100;//input.width;
-					Hint.hintHeight = 15;//hHeight;
-					rootFinder =new RootFinder(rootObject, this);
-					assist = new Asist();
-					curRoot = userRoot;
+					try {find(ad.parentDomain, s+'.parentDomain') }
+					catch(e:*)
+					{
+						trace('// NO MORE PARENT DOMAINS //', s);
+						ad =null;
+					}
 				}
+			}
+			return null;
 		}
 		
 		public static function get instance():BinAgent { return _instance }

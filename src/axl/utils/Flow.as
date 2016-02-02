@@ -132,7 +132,7 @@ package axl.utils
 		
 		protected function afterConfigLoaded():void
 		{
-			U.log('[Flow][configLoaded]');
+			U.log('[Flow]' + webflow ? '[webFlow]' : '[mobileFlow]' +'[configLoaded]');
 			/*if(onConfigLoaded != null)
 				onConfigLoaded()*/
 			if(webflow) 

@@ -92,9 +92,10 @@ package axl.utils.binAgent
 				rootObj = rootObject;
 				build();
 				rootSetup();
-				trrace("==== BIN AGENT ====");
+				trrace("==== BIN-AGENT ====");
 			}
 		}
+		
 		public static function get instance():Console { return _instance }
 		
 		private function build():void
@@ -216,6 +217,7 @@ package axl.utils.binAgent
 		private function giveStage(stage:Stage):void
 		{
 			axl.utils.U.log(this, "Stage given",stage);
+			U.log('stage already has it ?', stage.loaderInfo.applicationDomain.hasDefinition('axl.utils.binAgent::BinAgent'));
 			rootObj.removeEventListener(Event.ADDED_TO_STAGE, gotStage);
 			if(stg != null) return;
 			stg = stage;
