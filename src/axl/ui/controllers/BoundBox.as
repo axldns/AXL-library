@@ -505,5 +505,46 @@ package axl.ui.controllers
 		{
 			this.dispatchEvent(eventChange);
 		}
+		
+		public function destroy():void
+		{
+			if(bound)
+			{
+				bound.removeEventListener(Event.ADDED_TO_STAGE, boundOnStage);
+				bound.removeEventListener(Event.REMOVED_FROM_STAGE, boundOffStage);
+				bound.removeEventListener(MouseEvent.MOUSE_DOWN, onBoundTouchDown);
+			}
+			if(boundStage)
+			{
+				boundStage.removeEventListener(MouseEvent.MOUSE_MOVE, onTouchyBoundMove);
+			}
+			if(bx)
+			{
+				bx.removeEventListener(Event.ADDED_TO_STAGE, boxOnStage);
+				bx.removeEventListener(Event.REMOVED_FROM_STAGE, boxOffStage);
+				bx.removeEventListener(MouseEvent.MOUSE_DOWN, md);
+			}
+			if(boxStage)
+			{
+				boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, mmove);
+			}
+			bound = null;
+			box = null;
+			boundStage = null;
+			boxStage = null;
+			if(ao)
+			{
+				AO.killOff(ao.x);
+				AO.killOff(ao.y)
+			}
+			ao = null;
+			changeNotifications = false;
+			liveChanges = false;
+			eventChange = null;
+			rmovable =  rstatic = null;
+			boxStart = inBox = min = max = null;
+			mapf = mapn = null;
+			modH =  mods = modV = null;
+		}
 	}
 }
