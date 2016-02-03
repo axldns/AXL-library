@@ -16,6 +16,7 @@ package axl.utils.binAgent
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
+	import flash.events.SyncEvent;
 	import flash.events.UncaughtErrorEvent;
 	import flash.geom.Rectangle;
 	import flash.system.ApplicationDomain;
@@ -30,10 +31,11 @@ package axl.utils.binAgent
 	
 	public class Console extends Sprite
 	{
+		
 		//window
-		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 14, 0xaaaaaa);
-		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0x333333);
-		private var consoleOutput_TextFormat:TextFormat =  new TextFormat('Lucida Console', 14, 0xFFDE9D);
+		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 12, 0xaaaaaa);
+		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 12, 0x333333);
+		private var consoleOutput_TextFormat:TextFormat =  new TextFormat('Lucida Console', 12, 0xFFDE9D);
 		private var bConsole:TextField;
 		private var bInput:TextField;
 		private var bSlider:Sprite;
@@ -64,7 +66,7 @@ package axl.utils.binAgent
 		public var maxChars:uint = 80000;
 		private var resizeListenerAdded:Boolean;
 		
-		
+		public var passNewTextFunction:Function;
 		public function Console(rootObject:DisplayObject)
 		{
 			if(instance != null)
@@ -84,15 +86,17 @@ package axl.utils.binAgent
 				regularTraceToo = instance.regularTraceToo;
 				nonKarea = instance.nonKarea;
 				nonRepsIndicator = instance.nonRepsIndicator;
+				passNewTextFunction = instance.passNewText;
 			}
 			else
 			{
 				super();
 				_instance = this;
+				passNewTextFunction  = passNewText;
 				rootObj = rootObject;
 				build();
 				rootSetup();
-				trrace("==== BIN-AGENT ====");
+				trrace("==== BIN AGENT 0.0.11 ====");
 			}
 		}
 		
@@ -117,7 +121,6 @@ package axl.utils.binAgent
 			boundBox.addEventListener(Event.CHANGE, sliderEvent);
 		}
 		
-		
 		private function build_console():void
 		{
 			bConsole = new TextField();
@@ -128,14 +131,12 @@ package axl.utils.binAgent
 			bConsole.width = 500;
 			bConsole.height = 200;
 			bConsole.background = true;
-			bConsole.backgroundColor = 0x333333;
+			bConsole.backgroundColor = 0x212121;
 			bConsole.type = 'dynamic';
 			bConsole.selectable = true;
 			bConsole.addEventListener(Event.SCROLL, scrollEvent);
 			this.addChild(bConsole);
 		}
-		
-		
 		
 		private function build_input():void
 		{
@@ -145,7 +146,7 @@ package axl.utils.binAgent
 			bInput.wordWrap= true;
 			bInput.border = true;
 			bInput.width = 500;
-			bInput.height = 20;
+			bInput.height = 17;
 			bInput.background=true;
 			bInput.backgroundColor= 0xffffff;
 			bInput.type = 'input';
@@ -179,10 +180,10 @@ package axl.utils.binAgent
 		
 		//-------
 		//-------------------------------------  ROOT SETUP ------------------------------------------  //
+		
 		private function rootSetup():void
 		{
 			rootObj.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, uncaughtError);
-			
 			this.addEventListener(Event.ADDED_TO_STAGE, ats);
 			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
 			if(rootObj.stage != null)
@@ -212,23 +213,55 @@ package axl.utils.binAgent
 		{
 			bIsOpen = false;
 		}
-		
+	
 		private function gotStage(event:Event=null):void { giveStage(rootObj.stage) }
 		private function giveStage(stage:Stage):void
 		{
 			axl.utils.U.log(this, "Stage given",stage);
-			U.log('stage already has it ?', stage.loaderInfo.applicationDomain.hasDefinition('axl.utils.binAgent::BinAgent'));
 			rootObj.removeEventListener(Event.ADDED_TO_STAGE, gotStage);
 			if(stg != null) return;
 			stg = stage;
-			AO.stage = stage;
-			buildControler();
-			// slider needs to know, gesture uses it as well
-			stg.addEventListener(MouseEvent.MOUSE_UP, mu);
-			// dirty refresh
-			allowKeyboardOpen = allowKeyboardOpen;
-			allowGestureOpen = allowGestureOpen;
-			align();
+			stg.loaderInfo.sharedEvents.dispatchEvent(new SyncEvent('axl.utils.binAgent',true,false,[this]));
+			if(stg)
+			{
+				stg.loaderInfo.sharedEvents.addEventListener('axl.utils.binAgent', onBibAgentSyncEvent);
+				AO.stage = stage;
+				buildControler();
+				stg.addEventListener(MouseEvent.MOUSE_UP, mu);
+				allowKeyboardOpen = allowKeyboardOpen;
+				allowGestureOpen = allowGestureOpen;
+				align();
+			}
+		}
+		
+		protected function onBibAgentSyncEvent(e:SyncEvent):void
+		{
+			trrace("BIN AGENT NEW INSTANCE ATTEMPT ",e.changeList);
+			if(e.changeList && e.changeList.length > 0)
+			{
+				var b:Object = e.changeList[0];
+				b.transferInstance(this);
+			}
+			else
+			{
+				trrace("TRANSFERING BIN AGENT INSTANCE FAILED (changesList)", e.changeList,e.changeList.length > 0)
+			}
+		}
+		
+		protected function transferInstance(parentConsole:Object):void
+		{
+			trrace('transferInstance');
+			if(parentConsole && parentConsole.hasOwnProperty('passNewText'))
+			{
+				passNewTextFunction = parentConsole.passNewText;
+				passNewTextFunction('[MERGE CONSOLE INSTANCES]' + totalString + '[/MERGE CONSOLE INSTANCES]');
+				destroy();
+			}
+			else
+			{
+				trrace("TRANSFERING BIN AGENT INSTANCE FAILED (instance)", parentConsole, parentConsole.hasOwnProperty('passNewText'));
+			}
+			
 		}
 		
 		private function uncaughtError(e:UncaughtErrorEvent):void
@@ -343,7 +376,6 @@ package axl.utils.binAgent
 			}
 		}
 		
-		
 		protected function showPast(kc:int):void
 		{
 			if(past.length < 1) return;
@@ -405,16 +437,21 @@ package axl.utils.binAgent
 					s += ' ';
 			}
 			s += '\n';
+			passNewTextFunction(s);
+			v=null;
+			return s.length;
+		}
+		
+		public function passNewText(s:String):void
+		{
 			totalString += s;
 			var numChars:int = totalString.length;
 			if(maxChars > 0 && numChars > maxChars)
 				totalString = totalString.substr(numChars - maxChars);
-			if(this.stage != null)
+			if(this.stg != null)
 				refreshWindow();
 			if(bExternalTrace != null)
 				bExternalTrace(s);
-			v=null;
-			return s.length;
 		}
 		
 		private function refreshWindow():void
@@ -448,6 +485,7 @@ package axl.utils.binAgent
 					stg.addEventListener(MouseEvent.MOUSE_DOWN, stageMouseDown); 
 			}
 		}
+		
 		/** controlls non-programatic opening of the bin window. @see BinAgent */
 		public function get allowKeyboardOpen():Boolean { return bAllowKeyboardOpen }
 		public function set allowKeyboardOpen(v:Boolean):void
@@ -539,8 +577,6 @@ package axl.utils.binAgent
 		public function get pool():Object { return _pool }
 		
 		//--- magic
-		
-		
 		protected function PARSE_INPUT(s:String):Object
 		{
 			// allows to keep console only
@@ -548,5 +584,58 @@ package axl.utils.binAgent
 			return s;
 		}
 		
+		private function destroy():void
+		{
+			this.removeChildren();
+			console_textFormat = null;
+			input_textFormat = null;
+		
+			if(boundBox)
+			{
+				boundBox.removeEventListener(Event.CHANGE, sliderEvent);
+				boundBox.destroy();
+			}
+			boundBox = null;
+			if(bConsole)
+			{
+				bConsole.addEventListener(Event.SCROLL, scrollEvent);
+			}
+			bConsole = null;
+			if(bInput)
+				bInput.addEventListener(KeyboardEvent.KEY_UP, KEY_UP);
+			bInput = null;
+			if(rootObj)
+				rootObj.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, uncaughtError);
+			if(rootObj)
+				rootObj.removeEventListener(Event.ADDED_TO_STAGE, gotStage);
+			this.removeEventListener(Event.ADDED_TO_STAGE, ats);
+			this.removeEventListener(Event.REMOVED_FROM_STAGE, rfs);
+			if(stg)
+			{
+				stg.removeEventListener(Event.RESIZE, stageResized);
+				stg.removeEventListener(MouseEvent.MOUSE_UP, mu);
+				stg.loaderInfo.sharedEvents.removeEventListener('axl.utils.binAgent', onBibAgentSyncEvent);
+				stg.removeEventListener(MouseEvent.MOUSE_DOWN, stageMouseDown); 
+				stg.removeEventListener(KeyboardEvent.KEY_DOWN, stageKeyDown);
+				stg = null;
+			}
+			if(bSlider)
+				bSlider.graphics.clear();
+			bSlider = null;
+			if(bSliderRail)
+				bSliderRail.graphics.clear();
+			bSliderRail = null;
+			if(past)
+				past.length = 0;
+			past = null;
+			
+			rootObj = null;
+			_pool = null;
+			bIsOpen = false;
+			allowKeyboardOpen = false;
+			allowGestureOpen = false;
+			nonKarea = null;
+			totalString = null;
+		}
 	}
 }

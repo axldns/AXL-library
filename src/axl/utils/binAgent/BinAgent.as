@@ -13,7 +13,6 @@ package axl.utils.binAgent
 	import flash.display.Sprite;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
-	import flash.system.ApplicationDomain;
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
@@ -21,13 +20,11 @@ package axl.utils.binAgent
 	public class BinAgent extends Console
 	{
 		private static var _instance:BinAgent;
-		private var tfSyntax:TextFormat = new TextFormat('Lucida Console', 15,0xff0000,true);
 		private var hintContainer:Sprite;
 		private var selectedHint:Hint
 		private var numHints:int=0;
 		private var hintIndex:int;
 		private var hHeight:int=20;
-		private var hintTextFormat:TextFormat;
 		private var curRoot:Object;
 		private var curRootProps:Vector.<XMLList>;
 		private var curRootCarete:int=0;
@@ -51,14 +48,8 @@ package axl.utils.binAgent
 			}
 			else
 			{
-				var inst:BinAgent = checkDomains();
-				if(inst)
-					assignInstance(inst);
-				else
-				{
-					createNewInstance(rootObject);
-					super(rootObject);
-				}
+				createNewInstance(rootObject);
+				super(rootObject);
 			}
 		}
 		
@@ -73,7 +64,6 @@ package axl.utils.binAgent
 			this.addChild(hintContainer);
 			curRootProps = new Vector.<XMLList>();
 			hintIndex = 0;
-			hintTextFormat = tfSyntax;//input.defaultTextFormat;
 			Hint.hintWidth = 100;//input.width;
 			Hint.hintHeight = 15;//hHeight;
 			rootFinder =new RootFinder(rootObject, this);
@@ -92,50 +82,31 @@ package axl.utils.binAgent
 			curRoot = inst.curRoot;
 		}
 		
-		private function checkDomains():BinAgent
+		override protected function transferInstance(parentConsole:Object):void
 		{
-			trace('[BinAgent][checkDomains]');
-			var appDomain:ApplicationDomain = ApplicationDomain.currentDomain;
-			var cs:Vector.<String>;
-			var cn:String = 'axl.utils.binAgent::BinAgent';
-			find(appDomain, ' ApplicationDomain.currentDomain');
-			
-			
-			function find(ad:ApplicationDomain, s:String):void
-			{
-				cs = ad.getQualifiedDefinitionNames();			
-				if(cs.indexOf(cn) > -1)
-				{
-					trace('////////// FOUND BIN AGENT //////////', s);
-					var c:Class = ad.getDefinition(cn) as Class;
-					if(c && c.instance)
-					{
-						trace('found live instance', c.instance)
-						return c.instance;
-					}
-					else
-					{
-						trace('found class but not instance');
-						try {find(ad.parentDomain, s+'.parentDomain') }
-						catch(e:*)
-						{
-							trace('// NO MORE PARENT DOMAINS //', s);
-							appDomain =null;
-						}
-					}
-				}
-				else
-				{
-					try {find(ad.parentDomain, s+'.parentDomain') }
-					catch(e:*)
-					{
-						trace('// NO MORE PARENT DOMAINS //', s);
-						ad =null;
-					}
-				}
-			}
-			return null;
+			/*_instance = parentConsole as BinAgent;*/
+			super.transferInstance(parentConsole);
+			destroy();
+			this.trrace("[BIN AGENT MERGED]");
 		}
+		
+		private function destroy():void
+		{
+			trrace("[BinAgent instance DESTROYED]");
+			this.removeChildren();
+			hintContainer = null;
+			selectedHint = null;
+			curRoot = null;
+			if(curRootProps)
+				curRootProps.length = 0;
+			curRootProps = null;
+			rootDesc = null;
+			rootFinder = null;
+			userRoot = null;
+			assist = null;
+			
+		}
+		
 		
 		public static function get instance():BinAgent { return _instance }
 		public function get parser():RootFinder { return rootFinder }
@@ -322,7 +293,11 @@ package axl.utils.binAgent
 				}
 			}
 			alignHints();
-			if(Hint.numHints > 0) selectHint(-1);
+			if(Hint.numHints > 0)
+			{
+				selectHint(-1);
+				this.setChildIndex(hintContainer, this.numChildren-1);
+			}
 			prevText = input.text;
 		}
 		
