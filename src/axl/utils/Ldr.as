@@ -79,6 +79,8 @@ package  axl.utils
 		private static var linfos:Object = {};
 		private static var requests:Vector.<Req> = new Vector.<Req>();
 		public static var displayStateBreakDown:Boolean;
+		private static var xunloadEvent:Event = new Event('unload');
+		public static function get unloadEvent():Event { return xunloadEvent }
 		
 		private static var IS_LOADING:Boolean;
 		public static var policyFileCheck:Boolean;
@@ -620,9 +622,10 @@ package  axl.utils
 			{
 				if(l.hasOwnProperty('parent') && l.parent)
 					l.parent.removeChild(l);
+				if(l.contentLoaderInfo)
+					l.contentLoaderInfo.sharedEvents.dispatchEvent(unloadEvent);
 				if(l.loaderInfo)
-					l.loaderInfo.bytes.clear();
-				l.unload();
+					l.loaderInfo.bytes.clear();;
 				l.unloadAndStop();
 				found = true;
 			}
