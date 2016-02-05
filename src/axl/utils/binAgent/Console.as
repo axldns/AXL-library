@@ -67,6 +67,8 @@ package axl.utils.binAgent
 		private var resizeListenerAdded:Boolean;
 		
 		public var passNewTextFunction:Function;
+		private var version:String = '0.0.12';
+		public function get VERSION():String { return version } 
 		public function Console(rootObject:DisplayObject)
 		{
 			if(instance != null)
@@ -96,7 +98,7 @@ package axl.utils.binAgent
 				rootObj = rootObject;
 				build();
 				rootSetup();
-				trrace("==== BIN AGENT 0.0.11 ====");
+				trrace("==== BIN AGENT "+version+" ====");
 			}
 		}
 		
@@ -584,7 +586,7 @@ package axl.utils.binAgent
 			return s;
 		}
 		
-		private function destroy():void
+		protected function destroy():void
 		{
 			this.removeChildren();
 			console_textFormat = null;

@@ -90,8 +90,9 @@ package axl.utils.binAgent
 			this.trrace("[BIN AGENT MERGED]");
 		}
 		
-		private function destroy():void
+		override protected function destroy():void
 		{
+			super.destroy();
 			trrace("[BinAgent instance DESTROYED]");
 			this.removeChildren();
 			hintContainer = null;
