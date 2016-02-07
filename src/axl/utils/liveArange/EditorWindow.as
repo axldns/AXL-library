@@ -24,7 +24,6 @@ package axl.utils.liveArange
 	
 	import axl.utils.U;
 	
-	
 	/**
 	 * Class that allows "on screen edit" any DisplayObject.<br>
 	 * Allows to drag  and resize this window aside from editing <code>subject</code>.<br>
@@ -59,7 +58,7 @@ package axl.utils.liveArange
 		private var boundTop:Sprite;
 		private var boundMiddle:Sprite;
 		private var boundRight:Sprite;
-		private var boundDrag:Object;
+		private var boundDrag:Sprite;
 		
 		public var exitEditor:Function;
 		public var getParent:Function;
@@ -166,9 +165,10 @@ package axl.utils.liveArange
 		{
 			U.STG.addEventListener(MouseEvent.MOUSE_MOVE, mm);
 			U.STG.addEventListener(MouseEvent.MOUSE_UP, mu);
-			boundDrag = e.target;
-			coffset.x =  boundDrag.mouseX;
-			coffset.y =  boundDrag.mouseY;
+			boundDrag = e.target as Sprite;
+			if(!boundDrag) return;
+			coffset.x =  boundDrag.mouseX * boundDrag.scaleX;
+			coffset.y =  boundDrag.mouseY * boundDrag.scaleY;
 		}
 		
 		protected function mm(e:MouseEvent):void
@@ -195,7 +195,13 @@ package axl.utils.liveArange
 						props[i].updateBalance(balance);
 					break;
 				case boundRight:
-					this.width = (cGloToLo.x- coffset.x) - this.x;
+					var nw:Number = (cGloToLo.x- coffset.x) - this.x;
+					if(nw < 10)
+					{
+						this.x -= 2;
+						this.width = 10;
+					}
+					else this.width = nw;
 					break;
 			}
 			if(this.y < 0) this.y = 0;
@@ -381,8 +387,7 @@ package axl.utils.liveArange
 			xml = null;
 			coffset = cGloToLo = null;
 			filter = tparent = null;
-			propspool = allbounds = boundLeft = boundTop = boundMiddle =  boundRight = null;
-			boundDrag = null;
+			propspool = allbounds = boundLeft = boundTop = boundMiddle =  boundRight = boundDrag =  null;
 			exitEditor = getChild = getSybiling = null;
 		}
 	}

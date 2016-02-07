@@ -178,8 +178,8 @@ package axl.utils
 			if(subject != null || xselector.target != null)
 			{
 				
-				offset.x =  xselector.target.mouseX;
-				offset.y =  xselector.target.mouseY;
+				offset.x =  xselector.target.mouseX * xselector.target.scaleX;
+				offset.y =  xselector.target.mouseY* xselector.target.scaleY;
 				moving = e.target == xselector;
 			}
 			else
@@ -193,11 +193,9 @@ package axl.utils
 			if(isOn)
 			{
 				var t:DisplayObject = e.target as DisplayObject;
-				var movbl:Boolean = !editorWindowOn || (editorWindowOn && e.ctrlKey);
+				var movbl:Boolean = (!editorWindowOn && !e.ctrlKey && !e.buttonDown) || (editorWindowOn && e.ctrlKey);
 				if(movbl)
 				{
-					var deeper:Boolean = true;
-					
 					this.objectsUnderPoint = U.STG.getObjectsUnderPoint(new Point(U.STG.mouseX, U.STG.mouseY));
 					var dob:DisplayObject;
 					for(var i:int = objectsUnderPoint.length; i-->0;)
@@ -205,7 +203,6 @@ package axl.utils
 						dob = objectsUnderPoint[i];
 						if(t != dob && U.isTargetGrandChild(dob, t))
 						{
-							deeper = true;
 							t = dob;
 							break;
 						}
