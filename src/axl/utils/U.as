@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -115,7 +115,34 @@ package axl.utils
 		public static function msg(message:String, onOutsideTap:Function=null, onInsideTap:Function=null):void {
 			Messages.msg(message, onOutsideTap, onInsideTap);
 		}
-		
+		/** Adds multiple children to <code>container</code> in a single call */
+		public static function addChildGroup(container:Object, ...args):void
+		{
+			if(container && container.hasOwnProperty('addChild'))
+				while (args.length)
+					container.addChild(args.shift())
+		}
+		/** Adds multiple children to <code>container</code> in a single call. 
+		 * @param container - anything
+		 * @param command - anything that container has as a function.
+		 * Typically "addChild" but "push" and "shift" would also work if <code>
+		 * container</code> is an Array or Vector. */
+		public static function addGroup(container:Object, command:String, ...args):void
+		{
+			if(container && container.hasOwnProperty(command))
+				while (args.length)
+					container[command](args.shift())
+		}
+		/** Checks if traversing <code>target.parent</code> would eventually hit <code>grandParent</code>
+		 * Usefull for handling grouped MouseEvents and TouchEvents. */
+		public static function isTargetGrandChild(target:Object, grandParent:Object):Boolean
+		{
+			if(target == grandParent)
+				return true;
+			else if(target && target.hasOwnProperty('parent') && target.parent != null)
+				return isTargetGrandChild(target.parent, grandParent);
+			return false;
+		}
 		/** @param movable: any object which contains x,y,width,height
 		 *  @param static: any object which contains x,y,width,height
 		 *  @param Inside: indicates whether to include coords of static 
