@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -11,100 +11,100 @@ package axl.utils
 {
 	import flash.display.DisplayObject;
 	import flash.display.DisplayObjectContainer;
-	import flash.display.Shape;
 	import flash.display.Stage;
+	import flash.events.Event;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
+	import flash.events.SyncEvent;
 	import flash.geom.Point;
-	import flash.geom.Rectangle;
 	import flash.text.TextField;
 	import flash.ui.Keyboard;
+	
+	import axl.utils.liveArange.EditorWindow;
+	import axl.utils.liveArange.Selector;
 
+	/**
+	 * Class that allows onscreen edit display objects.
+	 * Objects are being detected based on mouse pointer position.
+	 * An outline of currently detected object is being drawn.<br>
+	 * Hotkeys:
+	 * <ul>
+	 * <li><b>F6</b> - turns it on/off.</li>
+	 * <li><b>SPACEBAR</b> - opens/closes editor window for selected object</li>
+	 * <li>hold <b>CTRL/CMD</b>
+	 * 	<ul>
+	 * 		<li>if editor is off: allows to drag objects</li>
+	 * 		<li>if editor is on: allows to select new object without exiting editor</li>
+	 * 	</ul>
+	 * </li>
+	 * <li><b>Z</b> - (traverse up) sets parent of selected object as selected object if available.</li>
+	 * <li><b>X</b> - (traverse down) selects first child of selected object as selected object if available.</li>
+	 * <li><b>1</b> - (traverse side) selects another child(+1) in container of selected object if available.</li>
+	 * <li><b>2</b> - (traverse side) selects another child(-1) in container of selected object if available.</li>
+	 * <li><b>ESC</b> - turns off editor. If editor is closed, turns aranger off.</li>
+	 * </ul>
+	 * 
+	 * <h3>Class is a singletone</h3> 
+	 * Singletone contoll is managed by dispatching SyncEvent of type <i>axl.utils.LiveAranger</i> 
+	 * to <code>stage.loaderInfo.sharedEvents</code> passing itself instance in <code>changesList</code>.<br>
+	 * If there's any primary class listening to this event, it will call <code>destroy</code> method on the
+	 * instance passed in changesList.<br>
+	 * If there's no response on SyncEvent, the dispatcher instance becomes ruling primary listener to SyncEvents, and 
+	 * it's only allowed one to continue with building it's contents.
+	 */
 	public class LiveAranger
 	{
 		public static var instance:LiveAranger;
-		private var miniHint:TextField;
-		private var c:DisplayObject;
-		private var cp:DisplayObjectContainer;
+		
+		private var subject:DisplayObject;
+		private var subjectParent:DisplayObjectContainer;
 		private var added:Boolean;
-		private var outline:Shape;
-		private var resizeHhint:Boolean;
-		private var resizeVhint:Boolean;
-		private var go:Point = new Point();
 		
-		private var oap:Array = [];
-		private var oapi:int = 0;
-		private var cpi:int;
+		private var objectsUnderPoint:Array;
+		private var withinLayerIndex:int;
 		
-		private var objectMouse:Point = new Point();;
-		private var startObject:Point = new Point();
-		private var coffset:Point = new Point();
+		private var offset:Point;
 		private var cGloToLo:Point = new Point();
-		private var startMouse:Point = new Point();
-		private var resizingH:Boolean;
-		private var resizingV:Boolean;
 		private var moving:Boolean;
-		private var cbounds:Rectangle = new Rectangle()
-		private var ci:int;
-		private var isOn:Boolean=false;
+		private var xisOn:Boolean=false;
+		private var destroyed:Boolean;
+		private var xselector:Selector;
+		private var editorWindow:EditorWindow;
+		private var editorWindowOn:Boolean;
 		
+		/** @see LiveAranger*/
 		public function LiveAranger()
 		{
-			if(instance == null)
-			{
-				instance = this;
-				miniHint = new TextField();
-				miniHint.border = true;
-				miniHint.background = true;
-				miniHint.backgroundColor = 0xEECD8C;
-				miniHint.height = 19;
-				miniHint.selectable = false;
-				miniHint.mouseEnabled = false;
-				miniHint.tabEnabled = false;
-				U.STG.addEventListener(MouseEvent.MOUSE_MOVE, mm);
-				U.STG.addEventListener(MouseEvent.MOUSE_DOWN, md);
-				U.STG.addEventListener(MouseEvent.MOUSE_UP, mu);
-				U.STG.addEventListener(KeyboardEvent.KEY_UP, ku);
-				U.STG.addEventListener(KeyboardEvent.KEY_DOWN, kd);
-				outline = new Shape();
-				super();
-			}
+			U.STG.loaderInfo.sharedEvents.dispatchEvent(new SyncEvent('axl.utils.LiveAranger',true,false,[this]));
+			if(destroyed)
+				return;
 			else
 			{
-				miniHint = instance.miniHint;
-				
-				added = instance.added;
-				c = instance.c;
-				cbounds = instance.cbounds;
-				ci = instance.ci;
-				cp = instance.cp;
-				cpi = instance.cpi;
-				go = instance.go;
-				isOn = instance.isOn;
-				moving = instance.moving;
-				oap = instance.oap;
-				oapi = instance.oapi;
-				objectMouse = instance.objectMouse;
-				outline = instance.outline;
-				resizeHhint = instance.resizeHhint;
-				resizeVhint = instance.resizeVhint;
-				resizingH = instance.resizingH;
-				resizingV = instance.resizingV;
-				startMouse = instance.startMouse;
-				startObject = instance.startObject;
-				cGloToLo = instance.cGloToLo;
-				coffset = instance.coffset;
+				instance =this;
+				U.STG.loaderInfo.sharedEvents.addEventListener('axl.utils.LiveAranger',liveArangerAlreadyExists);
+				xselector = new Selector(selectorDoubleClick);
+				offset = new Point();
+				cGloToLo = new Point();
+				U.STG.addEventListener(KeyboardEvent.KEY_UP, keyUp);
 			}
 		}
-		public static function destroyInstance():void
+		
+		//------------------EVENTS HANDLING------------------------//
+		protected function onUnload(event:Event):void { destroy() }
+		
+		protected function liveArangerAlreadyExists(e:SyncEvent):void
 		{
-			if(instance != null)
-				instance.destroy();
+			var o:Object = e.changeList.length > 0 ? e.changeList.pop() : null;
+			if(o.hasOwnProperty('destroy'))
+				o.destroy();
+			o = null;
 		}
-		public function get cTarget():Object { return c}
-		protected function kd(e:KeyboardEvent):void
+		
+		//---KEYBOARD EVENTS---//
+		protected function keyDown(e:KeyboardEvent):void
 		{
-			if(c == null) return
+			if(!isOn || subject==null || U.STG.focus is TextField) 
+				return;
 			var mod:String;
 			var dir:int;
 			switch(e.keyCode)
@@ -125,121 +125,67 @@ package axl.utils
 					mod = 'y';
 					dir = 1;
 					break;
+				case Keyboard.COMMAND:
+				case Keyboard.CONTROL:
+						this.xselector.mouseEnabled = !this.editorWindowOn;
+					break;
+				case Keyboard.SPACE:
+					toggleEditor();
+					break;
+				case Keyboard.ESCAPE:
+					editorWindowOn ? exitEditor() : isOn = false;
+					break;
 			}
 			if(mod == null) return;
-			c[mod] += (1 + (e.shiftKey ? 5 : 0)) * dir;
-			updateStuff();
+			subject[mod] += (1 + (e.shiftKey ? 5 : 0)) * dir;
+			updateInfo();
 		}
 		
-		protected function ku(e:KeyboardEvent):void
+		protected function keyUp(e:KeyboardEvent):void
 		{
 			if(e.keyCode == 117)
 			{
 				isOn = !isOn;
-			}
-			if(c==null) return;
-			//goes up
-			if(e.keyCode == Keyboard.Z)
-			{
-				objectUp();
-			}
-			else if(e.keyCode == Keyboard.X)
-			{
-				if(c is DisplayObjectContainer && c['numChildren'] > 0)
-				{
-					cpi = 0;
-					newC(c['getChildAt'](cpi));
-				}
 				
 			}
-			else if(e.keyCode == Keyboard.NUMBER_2)
-			{
-				if(cp == null  || cp.numChildren == 0)
-					return;
-				if(++cpi >= cp.numChildren)
-					cpi = 0;
-				newC(cp.getChildAt(cpi));
-			}
-			else if(e.keyCode == Keyboard.NUMBER_1)
-			{
-				if(cp == null || cp.numChildren == 0)
-					return;
-				if(--cpi <= 0)
-					cpi = cp.numChildren-1;
-				newC(cp.getChildAt(cpi));
-			}
-		}
-		
-		private function objectUp():void { newC(c.parent) }
-		
-		private function newC(v:DisplayObject):void
-		{
-			c = v;
-			descC();
-			if(!c)
-			{
-				cp = null;
-				cpi = -1;
-				removeHint();
+			if(!isOn && subject==null || U.STG.focus is TextField) 
 				return;
-			}
-			cp = c.parent;
-			if(cp)
+			switch (e.keyCode)
 			{
-				cpi = cp.getChildIndex(c);
+				case Keyboard.Z:
+					objectUp();
+					break
+				case Keyboard.X:
+					objectDown();
+					break;
+				case Keyboard.NUMBER_1:
+					objectSybilingPrev();
+					break;
+				case Keyboard.NUMBER_2:
+					objectSybilingNext();
+					break;
+				case Keyboard.COMMAND:
+				case Keyboard.CONTROL:
+					this.xselector.mouseEnabled = this.editorWindowOn;
+					break;
 			}
-			resizingH = false;
-			resizingV = false;
-			moving = false;
-			
-			go.x = go.y = 0;
-			globalOffsetFind(cp);
-			updateStuff();
 		}
-		
-		protected function mu(e:MouseEvent):void
-		{
-			descC();
-			c=null;
-			cp = null;
-			oap =[];
-			resizingH = false;
-			resizingV = false;
-			moving = false;
-		}
-		
-		private function descC():void
-		{
-			if(c)
-				trace('<' + c.toString(),'name="' + c.name + '" x="' + c.x + '" y="' + c.y 
-					+ '" width="' + c.width + '" height="' + c.height + '" scaleX="' + c.scaleX + '" scaleY="' + c.scaleY + '" />'
-					+ '\njson:' + '{"x":' + c.x + ',"y":' + c.y + ',"width":' + c.width + ',"height":' + c.height + ',"alpha":' 
-					+ c.alpha + ',"scaleX":' + c.scaleX + ',"scaleY":' + c.scaleY + '}');
-		}
-		
+		//---END OF KEYBOARD EVENTS---//
+		//---MOUSE EVENTS---//
 		protected function md(e:MouseEvent):void
 		{
 			if(!isOn) return;
-			if(c != null)
+			if(subject != null || xselector.target != null)
 			{
-				startObject.x = c.x;
-				startObject.y = c.y;
-				objectMouse.x = c.mouseX;
-				objectMouse.y = c.mouseY;
-				startMouse.x = U.STG.mouseX;
-				startMouse.y = U.STG.mouseY;
-				coffset.x = c.mouseX;
-				coffset.y = c.mouseY;
-				resizingH = resizeHhint;
-				resizingV = resizeVhint;
-				moving = (!resizingH && !resizingV);
+				
+				offset.x =  xselector.target.mouseX;
+				offset.y =  xselector.target.mouseY;
+				moving = e.target == xselector;
 			}
 			else
-			{
-				resizingH = false;
-				resizingV = false;
 				moving = false;
-			}
+			if(e.target != xselector && !U.isTargetGrandChild(e.target, this.editorWindow))
+				exitEditor();
 		}
 		
 		protected function mm(e:MouseEvent):void
@@ -247,131 +193,249 @@ package axl.utils
 			if(isOn)
 			{
 				var t:DisplayObject = e.target as DisplayObject;
-				if(c != t && !e.buttonDown)
-					newC(t);
-				updateStuff();
-			}
-			else
-				removeHint();
-		}
-		
-		private function updateStuff():void
-		{
-			if(c==null) return;
-			resizeVhint = false;
-			resizeHhint = false;
-			if(U.STG.mouseX - (cbounds.x + cbounds.width) > -10)
-				resizeHhint=true;
-			if(U.STG.mouseY - ( cbounds.y + cbounds.height)  > -10)
-				resizeVhint=true;
-			if(c.parent)
-			{
-				cGloToLo.setTo(c.stage.mouseX, c.stage.mouseY);
-				cGloToLo = c.parent.globalToLocal(cGloToLo);
-			}
-			
-			if(moving && !(c is Stage))
-			{
-				c.x = cGloToLo.x- coffset.x;//startObject.x + (U.STG.mouseX - startMouse.x);
-				c.y = cGloToLo.y- coffset.y;//startObject.y + (U.STG.mouseY - startMouse.y);
-			}
-			else if(!(c is Stage))
-			{
-				var hval:Number = U.STG.mouseX - go.x - c.x;
-				var vval:Number = U.STG.mouseY - go.y - c.y;
-				if(resizingH && resizingV)
+				var movbl:Boolean = !editorWindowOn || (editorWindowOn && e.ctrlKey);
+				if(movbl)
 				{
-					var hd:Number = hval - c.width;
-					var vd:Number = vval - c.height;
-					if(hd>vd)
+					var deeper:Boolean = true;
+					
+					this.objectsUnderPoint = U.STG.getObjectsUnderPoint(new Point(U.STG.mouseX, U.STG.mouseY));
+					var dob:DisplayObject;
+					for(var i:int = objectsUnderPoint.length; i-->0;)
 					{
-						c.width = hval;
-						c.scaleY = c.scaleX;
+						dob = objectsUnderPoint[i];
+						if(t != dob && U.isTargetGrandChild(dob, t))
+						{
+							deeper = true;
+							t = dob;
+							break;
+						}
 					}
-					else
-					{
-						c.height = vval;
-						c.scaleX = c.scaleY;
-					}
+				}
+				if(((subject != t && !e.buttonDown) || movbl) && t != xselector)
+				{
+					if(!movbl)
+						return;
+					newSubject(t);
 				}
 				else
-				{
-					if(resizingH)
-						c.width = hval;
-					if(resizingV)
-						c.height = vval;
-				}
+					updateInfo();
 			}
-			addMiniHint(c);
+			else
+				removeSelector();
 		}
 		
-		private function removeHint():void
+		protected function mu(e:MouseEvent):void { moving = false }
+		
+		protected function selectorDoubleClick(e:MouseEvent=null):void
 		{
-			c = null;
+			if(xselector.target.hasOwnProperty('numChildren') && xselector.target['numChildren'] > 0)
+				this.objectDown();
+			else
+			{
+				if(xselector.target.parent != U.STG)
+					this.objectUp();
+				else
+				{
+					this.objectUp();
+					this.objectSybilingNext();
+				}
+			}
+		}
+		
+		//------------------END EVENTS HANDLING------------------------//
+		//------------------EDITOR DIRECTIVES------------------------//
+		private function toggleEditor():void
+		{
+			if(this.editorWindowOn)
+				exitEditor();
+			else
+				addEditorWindow();
+		}
+		
+		private function addEditorWindow():void
+		{
+			if(!xselector.target)
+				return;
+			if(editorWindow == null)
+			{
+				editorWindow = new EditorWindow();
+				editorWindow.exitEditor = this.exitEditor;
+				editorWindow.getChild = this.objectDown;
+				editorWindow.getParent = this.objectUp;
+				editorWindow.getSybiling = this.objectSybilingNext;
+			}
+			editorWindow.subject = xselector.target;
+			editorWindowOn = true;
+			xselector.mouseEnabled = true;
+			moving = false;
+			U.STG.addChild(editorWindow);
+		}
+		
+		private function exitEditor():void
+		{
+			if(editorWindow && editorWindow.parent)
+			{
+				editorWindow.parent.removeChild(editorWindow);
+			}
+			editorWindowOn = false;
+			xselector.target = null;
+			xselector.mouseEnabled = false;
+			removeSelector();
+			subject=null;
+			subjectParent = null;
+			objectsUnderPoint =[];
+			moving = false;
+		}
+		//------------------ END OF EDITOR DIRECTIVES------------------------//
+		//------------------ SELECTOR DIRECTIVES------------------------//
+		private function removeSelector():void
+		{
+			subject = null;
 			if(!added)
 				return
-			if(U.STG.contains(miniHint))
-				U.STG.removeChild(miniHint);
-			U.STG.removeChild(outline);
+			U.STG.removeChild(xselector);
 			added = false;
 		}
 		
-		private function addMiniHint(c:DisplayObject):void
+		private function addSelector(c:DisplayObject):void
 		{
-			if(!added)
-				U.STG.addChild(miniHint);
-			U.STG.addChild(outline);
+			if(!added)		
+				U.STG.addChild(xselector);
 			added = true;
-			
-			cbounds = c.getBounds(c.stage);
-			miniHint.text = c.toString() + '[' + c.name +'] x:' + c.x + ' y:' + c.y + ' w:' + c.width + ' h:' + c.height;
-			miniHint.width = miniHint.textWidth + 5;
-			
-			
-			outline.graphics.clear();
-			outline.graphics.lineStyle(1,0x00ff00,.8);
-			if(false)
-				outline.graphics.beginFill(0,0.2);
-			outline.graphics.drawRect(0.5,0.5, cbounds.width-1, cbounds.height-1);
-			if(resizeHhint || resizingH)
-			{
-				outline.graphics.lineStyle(1,0x0ff000,.8);
-				outline.graphics.drawRect(cbounds.width-11, 0.5,10, cbounds.height-1);
-			}
-			if(resizeVhint || resizingV)
-			{
-				outline.graphics.lineStyle(1,0x0ff000,.8);
-				outline.graphics.drawRect(0.5, cbounds.height-11,cbounds.width-1, 10);
-			}
-			outline.x = cbounds.x;
-			outline.y = cbounds.y;
-			miniHint.x =  cbounds.x;
-			miniHint.y =  cbounds.y;
+			xselector.update();
 		}
-		
-		private function globalOffsetFind(dob:DisplayObject):void
+		//------------------ END OF SELECTOR DIRECTIVES------------------------//
+		//------------------ OBJECT TRAVERSING------------------------//
+		private function objectSybilingNext():void
 		{
-			if(dob == null)
-				return
-			go.x += dob.x;
-			go.y += dob.y;
-			globalOffsetFind(dob.parent);
+			if(subjectParent == null  || subjectParent.numChildren == 0)
+				return;
+			if(++withinLayerIndex >= subjectParent.numChildren)
+				withinLayerIndex = 0;
+			newSubject(subjectParent.getChildAt(withinLayerIndex));
 		}
 		
+		private function objectSybilingPrev():void
+		{
+			if(subjectParent == null || subjectParent.numChildren == 0)
+				return;
+			if(--withinLayerIndex < 0)
+				withinLayerIndex = subjectParent.numChildren-1;
+			newSubject(subjectParent.getChildAt(withinLayerIndex));
+		}
+		
+		private function objectDown():void
+		{
+			if(subject is DisplayObjectContainer && subject['numChildren'] > 0)
+			{
+				withinLayerIndex = 0;
+				newSubject(subject['getChildAt'](withinLayerIndex));
+			}
+		}
+		
+		private function objectUp():void { 
+			if(subject.parent)
+				newSubject(subject.parent)
+		}
+		//------------------ END OF OBJECT TRAVERSING------------------------//
+		//------------------ GENERAL MECHANIC AND API------------------------//
+		private function newSubject(v:DisplayObject):void
+		{
+			xselector.target = v;
+			subject = v;
+			
+			xselector.mouseEnabled = false;
+			if(!subject)
+			{
+				subjectParent = null;
+				withinLayerIndex = -1;
+				removeSelector();
+				return;
+			}
+			subjectParent = subject.parent;
+			if(subjectParent)
+			{
+				withinLayerIndex = subjectParent.getChildIndex(subject);
+			}
+			moving = false;
+			if(editorWindowOn)
+				addEditorWindow();
+			updateInfo();
+		}
+		
+		private function updateInfo():void
+		{
+			if(xselector.target==null) return;
+			
+			if(xselector.target.parent)
+			{
+				cGloToLo.setTo(xselector.target.stage.mouseX, xselector.target.stage.mouseY);
+				cGloToLo = xselector.target.parent.globalToLocal(cGloToLo);
+			}
+			
+			if(moving && !(xselector.target is Stage))
+			{
+				xselector.target.x = cGloToLo.x- offset.x;
+				xselector.target.y = cGloToLo.y- offset.y;
+			}
+			addSelector(xselector.target);
+		}
+		/** Returns reference to selector that provides information about current subject of edition.*/
+		public function get selector():Selector { return selector }
+		/** Sets aranger on and off. Usually triggered by F6 automatically.*/
+		public function get isOn():Boolean { return xisOn }
+		public function set isOn(v:Boolean):void
+		{
+			xisOn = v;
+			if(isOn)
+			{
+				U.STG.addEventListener(MouseEvent.MOUSE_MOVE, mm);
+				U.STG.addEventListener(MouseEvent.MOUSE_DOWN, md);
+				U.STG.addEventListener(MouseEvent.MOUSE_UP, mu);
+				U.STG.addEventListener(KeyboardEvent.KEY_DOWN, keyDown);
+			}
+			else
+			{
+				removeSelector();
+				exitEditor();
+				U.STG.removeEventListener(MouseEvent.MOUSE_MOVE, mm);
+				U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, md);
+				U.STG.removeEventListener(MouseEvent.MOUSE_UP, mu);
+				U.STG.removeEventListener(KeyboardEvent.KEY_DOWN, keyDown);
+			}
+		}
+		/** Removes all event listeners and destroys instance. Destroyed instance can not be reused.*/
+		public static function destroyInstance():void
+		{
+			if(instance != null)
+				instance.destroy();
+		}
+		/** Removes all event listeners and destroys instance. Destroyed instance can not be reused.*/
 		public function destroy():void
 		{
-			U.STG.addEventListener(MouseEvent.MOUSE_MOVE, instance.mm);
-			U.STG.addEventListener(MouseEvent.MOUSE_DOWN, md);
-			U.STG.addEventListener(MouseEvent.MOUSE_UP, mu);
-			U.STG.addEventListener(KeyboardEvent.KEY_UP, ku);
-			U.STG.addEventListener(KeyboardEvent.KEY_DOWN, kd);
+			U.STG.removeEventListener(MouseEvent.MOUSE_MOVE,mm);
+			U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, md);
+			U.STG.removeEventListener(MouseEvent.MOUSE_UP, mu);
+			U.STG.removeEventListener(KeyboardEvent.KEY_UP, keyUp);
+			U.STG.removeEventListener(KeyboardEvent.KEY_DOWN, keyDown);
+			U.STG.loaderInfo.sharedEvents.removeEventListener('axl.utils.LiveAranger',liveArangerAlreadyExists);
 			instance = null;
-			if(miniHint && miniHint.parent)
-				miniHint.parent.removeChild(miniHint);
-			miniHint =null;
 			
-			if(outline && outline.parent)
-				outline.parent.removeChild(outline);
+			if(xselector)
+			{
+				xselector.loaderInfo.removeEventListener(Ldr.unloadEvent.type,onUnload);
+				xselector.destroy();
+			}
+			xselector = null;
+			if(editorWindow)
+				editorWindow.destroy();
+			editorWindow = null;
+			
+			offset = null;
+			cGloToLo = null;
+			moving = false;
+			objectsUnderPoint = null;
+			destroyed = true;
 		}
 	}
 }
