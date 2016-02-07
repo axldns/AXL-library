@@ -367,16 +367,16 @@ package axl.utils
 		{
 			if(xselector.target==null) return;
 			
-			if(xselector.target.parent)
-			{
-				cGloToLo.setTo(xselector.target.stage.mouseX, xselector.target.stage.mouseY);
-				cGloToLo = xselector.target.parent.globalToLocal(cGloToLo);
-			}
-			
 			if(moving && !(xselector.target is Stage))
 			{
-				xselector.target.x = cGloToLo.x- offset.x;
-				xselector.target.y = cGloToLo.y- offset.y;
+				if(xselector.target.stage)
+				{
+					cGloToLo.setTo(xselector.target.stage.mouseX, xselector.target.stage.mouseY);
+					cGloToLo = xselector.target.parent.globalToLocal(cGloToLo);
+				
+					xselector.target.x = cGloToLo.x- offset.x;
+					xselector.target.y = cGloToLo.y- offset.y;
+				}
 			}
 			addSelector(xselector.target);
 		}

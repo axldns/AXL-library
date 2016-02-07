@@ -302,6 +302,7 @@ package axl.utils.liveArange
 					else
 						props[limit] = new Property(this,xml[limit]);
 					p = props[limit];
+					p.width = xwidth;
 					propspool.addChild(p);
 					propMatch.push(p);
 					if(++limit>=maxProperties)
