@@ -15,6 +15,7 @@ package axl.utils.liveArange
 	import flash.events.MouseEvent;
 	import flash.geom.Rectangle;
 	import flash.text.TextField;
+
 	/**
 	 * Class that holds and displays information of the display object set as <code>target</code>.<br>
 	 * Draws it's outline and live(onEnterFrame) tracks it's bounds.
@@ -31,11 +32,18 @@ package axl.utils.liveArange
 		/** Executed if  <code>mouseEnabled = true</code> and doubleClick was registered*/
 		public var onDoubleClick:Function;
 		/** @see Selector */
+		
+		private var styleIndex:int;
+		private var drawing:Vector.<Function>;
+		private var drawingFunc:Function;
 		public function Selector(doubleClickHandler:Function){
 			
 			onDoubleClick = doubleClickHandler;
 			doubleClickEnabled = true;
 			buildMiniHint();
+			drawing = new <Function>[drawOutlineNoBg, drawOutlineNoBg, drawBGnoOutline, drawBGnoOutline, drawOutlineAndBg, drawOutlineAndBg];
+			styleIndex =-1;
+			nextStyle();
 			this.addEventListener(Event.ADDED_TO_STAGE, ats);
 			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
 		}
@@ -71,6 +79,25 @@ package axl.utils.liveArange
 			miniHint.tabEnabled = false;
 			addChild(miniHint);
 		}
+		private function drawBGnoOutline():void
+		{
+			this.graphics.beginFill(0xff,0.2);
+			this.graphics.drawRect(0,0,bnds.width,bnds.height);
+			this.graphics.endFill();
+		}
+		
+		private function drawOutlineNoBg():void
+		{
+			this.graphics.lineStyle(1,0x00ff00,0.8);
+			this.graphics.drawRect(0.5,0.5,bnds.width-1,bnds.height-1);
+		}
+		
+		private function drawOutlineAndBg():void
+		{
+			drawBGnoOutline();
+			drawOutlineNoBg();
+		}
+		
 		/** Subject of information tracking*/
 		public function get target():DisplayObject { return xtarget }
 		public function set target(v:DisplayObject):void{
@@ -85,8 +112,7 @@ package axl.utils.liveArange
 			if(!target || !target.stage)
 				return;
 			bnds = target.getBounds(target.stage);
-			this.graphics.beginFill(0xff,0.2);
-			this.graphics.drawRect(0,0,bnds.width,bnds.height);
+			drawingFunc();
 			x = bnds.x;
 			y = bnds.y;
 			
@@ -94,6 +120,28 @@ package axl.utils.liveArange
 				+ target.y + ' w:' + target.width + ' h:' + target.height;
 			miniHint.width = miniHint.textWidth + 5;
 		}
+		
+		/** Changes style of selecting
+		 * <ol>
+		 * <li>outline, no bg, minihint</li>
+		 * <li>outline, no bg, no minihint</li>
+		 * <li>no outline, bg, minihint</li>
+		 * <li>no outline, bg, no minihint</li>
+		 * <li>outline, bg, minihint</li>
+		 * <li>outline, bg, no minihint</li>
+		 * </ol> */
+		public function nextStyle():void
+		{
+			if(++styleIndex >= drawing.length)
+				styleIndex = 0;
+			drawingFunc = drawing[styleIndex];
+			if(styleIndex%2)
+				addChild(miniHint);
+			else
+				if(contains(miniHint))
+					removeChild(miniHint);
+		}
+		
 		/** Removes listeners and destroys the instance. Destroyed can't be reused.*/
 		public function destroy():void
 		{

@@ -164,12 +164,16 @@ package axl.utils
 				case Keyboard.NUMBER_2:
 					objectSybilingNext();
 					break;
+				case Keyboard.SHIFT:
+					changeSelectorStyle();
+					break;
 				case Keyboard.COMMAND:
 				case Keyboard.CONTROL:
 					this.xselector.mouseEnabled = this.editorWindowOn;
 					break;
 			}
 		}
+		
 		//---END OF KEYBOARD EVENTS---//
 		//---MOUSE EVENTS---//
 		protected function md(e:MouseEvent):void
@@ -193,7 +197,7 @@ package axl.utils
 			if(isOn)
 			{
 				var t:DisplayObject = e.target as DisplayObject;
-				var movbl:Boolean = (!editorWindowOn && !e.ctrlKey && !e.buttonDown) || (editorWindowOn && e.ctrlKey);
+				var movbl:Boolean = (t != xselector && (!editorWindowOn && !e.ctrlKey && !e.buttonDown) || (editorWindowOn && e.ctrlKey));
 				if(movbl)
 				{
 					this.objectsUnderPoint = U.STG.getObjectsUnderPoint(new Point(U.STG.mouseX, U.STG.mouseY));
@@ -301,6 +305,12 @@ package axl.utils
 			added = true;
 			xselector.update();
 		}
+		
+		private function changeSelectorStyle():void
+		{
+			xselector.nextStyle();
+		}
+		
 		//------------------ END OF SELECTOR DIRECTIVES------------------------//
 		//------------------ OBJECT TRAVERSING------------------------//
 		private function objectSybilingNext():void
