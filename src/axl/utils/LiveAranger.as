@@ -71,6 +71,7 @@ package axl.utils
 		private var xselector:Selector;
 		private var editorWindow:EditorWindow;
 		private var editorWindowOn:Boolean;
+		private var version:String = '2.0.0';
 		
 		/** @see LiveAranger*/
 		public function LiveAranger()
@@ -91,7 +92,6 @@ package axl.utils
 		
 		//------------------EVENTS HANDLING------------------------//
 		protected function onUnload(event:Event):void { destroy() }
-		
 		protected function liveArangerAlreadyExists(e:SyncEvent):void
 		{
 			var o:Object = e.changeList.length > 0 ? e.changeList.pop() : null;
@@ -146,7 +146,6 @@ package axl.utils
 			if(e.keyCode == 117)
 			{
 				isOn = !isOn;
-				
 			}
 			if(!isOn && subject==null || U.STG.focus is TextField) 
 				return;
@@ -389,6 +388,8 @@ package axl.utils
 		}
 		/** Returns reference to selector that provides information about current subject of edition.*/
 		public function get selector():Selector { return selector }
+		
+		public function get VERSION():String { return version } 
 		/** Sets aranger on and off. Usually triggered by F6 automatically.*/
 		public function get isOn():Boolean { return xisOn }
 		public function set isOn(v:Boolean):void
