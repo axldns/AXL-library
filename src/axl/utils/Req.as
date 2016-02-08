@@ -575,7 +575,8 @@ package  axl.utils
 				try {
 					var f:Object = new FileClass(cp) ;
 					f.resolvePath('.');
-					return  f.url;
+					//return f.url.substr(0, f.url.indexOf('\%3F')); //ON MAC LOCAL RESOURCES URL REQUESTS WITH QUERY STRINGS CAUSE IOERROR
+					return f.url;
 				} catch (e:*) { log("[Ldr][Queue]["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
 				} finally { f = null }
 			}
