@@ -56,6 +56,7 @@ package axl.utils.binAgent
 		public var currentResult:Object;
 		private var errorOperands:Error = new Error("Invalid logic operator");
 		private var consoleResult:Result = new Result();
+		private var userThis:Object;
 		
 		
 		public function get userInputRoot():Object {  return consoleRoot }
@@ -98,9 +99,10 @@ package axl.utils.binAgent
 		 * <li>in-de-crementation</li>
 		 * </ul>
 		 * */
-		public function parseInput(text:String):Object
+		public function parseInput(text:String,thisContext:Object=null):Object
 		{
 			//trace('---input:',text);
+			this.userThis =thisContext;
 			consoleRoot =userRoot;
 			hashedStrings.length= hashedSquares.length = hashedRounds.length = hashedCurl.length=  numStrings =0;
 			current = hashStrings(text);
@@ -746,7 +748,7 @@ package axl.utils.binAgent
 			// trace('[*]readyTypeCheck[*]', arg);
 			if(!isNaN(Number(arg))) return Number(arg)
 			else if(arg == 'true' || arg == 'false') return (arg == 'true')
-			else if(arg == 'this') return userRoot;
+			else if(arg == 'this') return userThis || userRoot;
 			else if(arg == 'null') return S_NULL;
 			else if(arg == 'trace') return Object(trace);
 			else if(arg == '@') return binApi;
