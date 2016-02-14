@@ -17,6 +17,7 @@ package axl.ui.controllers
 	import flash.display.Stage;
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
+	import flash.events.IEventDispatcher;
 	import flash.events.MouseEvent;
 	import flash.geom.Point;
 	import flash.geom.Rectangle;
@@ -236,8 +237,8 @@ package axl.ui.controllers
 		
 		protected function updateBoxToTouchyBound(e:*=null):void
 		{
-			var tbx:Number = bnd.mouseX;
-			var tby:Number = bnd.mouseY;
+			var tbx:Number = bnd.mouseX;// - (bx.width/bx.scaleX/2);
+			var tby:Number = bnd.mouseY;//- (bx.height/bx.scaleY/2);
 			if(horizontal)
 				this.percentageHorizontal = tbx / (bnd.width / bnd.scaleX);
 			if(vertical)
@@ -304,11 +305,17 @@ package axl.ui.controllers
 			finishBoundMovement();
 		}
 		
-		protected function onBoundTouchDown(e:Event):void
+		protected function onBoundTouchDown(e:MouseEvent):void
 		{
 			bnd.stage.addEventListener(MouseEvent.MOUSE_MOVE, onTouchyBoundMove);
 			touchyBoundDown = true;
-			updateBoxToTouchyBound();
+			updateBoxToTouchyBound(e);
+			if(box is IEventDispatcher)
+			{
+				//bx.removeEventListener(flash.events.MouseEvent.MOUSE_DOWN, md);
+				box.dispatchEvent(e);
+				//bx.addEventListener(flash.events.MouseEvent.MOUSE_DOWN, md);
+			}
 		}
 		
 		protected function onTouchyBoundMove(e:MouseEvent):void
