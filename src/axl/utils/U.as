@@ -30,8 +30,8 @@ package axl.utils
 	 */
 	public class U
 	{
-		private static var ver:Number = 0.9;
-		public static function get version():Number { return ver}
+		private static var version:String = '1.0';
+		public static function get VERSION():String { return version}
 		
 		Ldr.verbose = log;
 		/** indicate tracings and bin agent instantiation*/
@@ -66,13 +66,12 @@ package axl.utils
 		private static var uconfig:Object;
 		public static var fullScreen:Boolean;
 		
-		
 		public static function get CONFIG():Object { return uconfig }
 		public static function set CONFIG(v:Object):void { uconfig = v}
 		
 		/*** returns bin agent reference. Read BinAgent class description to see what it does */
 		public static function get bin():BinAgent{ return ubin	}
-		
+		public static function set bin(v:BinAgent):void { ubin = v}
 		
 		/** reference to values passed in <code>U.init</code> method. does affects on scallars only */
 		public static function get designedForHeight():Number {	return udesignedForHeight }
@@ -453,7 +452,6 @@ package axl.utils
 			uSplash = v;
 		}
 		
-		
 		/**
 		 * Instantiates whole app and runs the flow if supplied. If you're using Starling, 
 		 * you probably want to use <code>S.init</code> instead - don't call both as S.init already does call this one.<br><br>
@@ -489,6 +487,9 @@ package axl.utils
 			udesignedForWidth = designedForWidth;
 			udesignedForHeight = designedForHeight;
 			
+			var flowReady:Boolean;
+			var stageReady:Boolean;
+			
 			if(flashRoot.stage == null)
 				flashRoot.addEventListener(Event.ADDED_TO_STAGE, stageAvailable);
 			else
@@ -496,6 +497,7 @@ package axl.utils
 			
 			function stageAvailable(event:Event=null):void
 			{
+				stageReady = true;
 				log('[U] stage available');
 				if(flashRoot.hasEventListener(Event.ADDED_TO_STAGE))
 					flashRoot.removeEventListener(Event.ADDED_TO_STAGE, stageAvailable);
@@ -507,20 +509,27 @@ package axl.utils
 				
 				if(onStageAvailable != null)
 					onStageAvailable();
-				if(flow != null)
-				{
-					flow.addEventListener(Event.COMPLETE, flowComplete);
-					flow.start();
-				}
-				else
-					flowComplete();
+				checkAllReady();
 			}
+			
+			if(flow != null)
+			{
+				flow.addEventListener(Event.COMPLETE, flowComplete);
+				flow.start();
+			}
+			else
+				flowComplete();
 			
 			function flowComplete(e:Event=null):void
 			{
+				flowReady = true;
 				if(flow != null)
 					flow.removeEventListener(Event.COMPLETE, flowComplete);
-				if(onReady is Function)
+			}
+			
+			function checkAllReady():void
+			{
+				if(stageReady && flowReady && onReady is Function)
 					onReady();
 			}
 		}
@@ -585,7 +594,8 @@ package axl.utils
 		
 		public static function fileNameFromUrl(v:String,removeQuerry:Boolean=false,removeExtension:Boolean=false):String
 		{
-			var fileName:String = v||"";
+			if(!v) return null
+			var fileName:String = v;
 			var q:int = fileName.indexOf('?');
 			if(q > -1&&removeQuerry)
 				fileName = fileName.substr(0,q).split('/').pop();
