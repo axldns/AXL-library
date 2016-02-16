@@ -39,23 +39,16 @@ package axl.utils.binAgent
 		public var hints:Boolean=true;
 		private var consoleSearched:Boolean;
 		private var lines:Array;
-		
+		public static const version:String = '0.0.17';		
 		public function BinAgent(rootObject:DisplayObject)
 		{
-			if(instance != null)
-			{
-				assignInstance(instance)
-			}
-			else
-			{
-				createNewInstance(rootObject);
-				super(rootObject);
-			}
+			_instance = this;
+			super(rootObject);
 		}
 		
-		private function createNewInstance(rootObject:DisplayObject):void
+		override protected function build():void
 		{
-			_instance = this;
+			super.build();
 			hintContainer = new Sprite();
 			hintContainer.addEventListener(MouseEvent.MOUSE_MOVE, hintTouchMove);
 			hintContainer.addEventListener(MouseEvent.MOUSE_UP, hintTouchSelect);
@@ -71,29 +64,13 @@ package axl.utils.binAgent
 			curRoot = userRoot;
 		}
 		
-		private function assignInstance(inst:BinAgent):void
-		{
-			hintContainer = inst.hintContainer;
-			userRoot = inst.userRoot;
-			hintContainer = inst.hintContainer;
-			curRootProps = inst.curRootProps;
-			rootFinder = inst.rootFinder;
-			assist = inst.assist;
-			curRoot = inst.curRoot;
-		}
+		public static function get instance():BinAgent { return _instance }
 		
-		override protected function transferInstance(parentConsole:Object):void
-		{
-			/*_instance = parentConsole as BinAgent;*/
-			super.transferInstance(parentConsole);
-			destroy();
-			this.trrace("[BIN AGENT MERGED]");
-		}
+		override protected function setInstance(v:Object):void { _instance = v as BinAgent }
 		
 		override protected function destroy():void
 		{
 			super.destroy();
-			trrace("[BinAgent instance DESTROYED]");
 			this.removeChildren();
 			hintContainer = null;
 			selectedHint = null;
@@ -105,11 +82,8 @@ package axl.utils.binAgent
 			rootFinder = null;
 			userRoot = null;
 			assist = null;
-			
 		}
 		
-		
-		public static function get instance():BinAgent { return _instance }
 		public function get parser():RootFinder { return rootFinder }
 		
 		protected function hintTouchMove(e:MouseEvent):void
@@ -148,7 +122,8 @@ package axl.utils.binAgent
 		private function alignHints():void
 		{
 			Hint.alignHints();
-			hintContainer.y = input.y - hintContainer.height;
+			if(hintContainer)
+				hintContainer.y = input.y - hintContainer.height;
 		}
 		
 		override protected function align():void

@@ -24,10 +24,10 @@ package axl.utils.binAgent
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
+	import flash.utils.getQualifiedClassName;
 	
 	import axl.ui.controllers.BoundBox;
 	import axl.utils.AO;
-	import axl.utils.U;
 	
 	public class Console extends Sprite
 	{
@@ -45,7 +45,7 @@ package axl.utils.binAgent
 		
 		// internall
 		private static var _instance:Console;
-		private var stg:Stage;
+		protected var stg:Stage;
 		private var rootObj:DisplayObject;
 		private var _pool:Object = {};
 		
@@ -67,49 +67,42 @@ package axl.utils.binAgent
 		private var resizeListenerAdded:Boolean;
 		
 		public var passNewTextFunction:Function;
-		private var version:String = '0.0.12';
-		public function get VERSION():String { return version } 
+		protected var className:String;
+		public function get VERSION():String { return version };
+		public function get text():String { return totalString }
+		public function get rootObject():DisplayObject { return rootObj }
+		public static const version:String = '0.0.17';
 		public function Console(rootObject:DisplayObject)
 		{
-			if(instance != null)
-			{
-				bConsole = instance.bConsole;
-				bInput = instance.bInput;
-				bSlider = instance.bSlider;
-				past = instance.past;
-				pastIndex = instance.pastIndex;
-				stg = instance.stg;
-				rootObj = instance.rootObj;
-				bIsEnabled = instance.bIsEnabled;
-				bIsOpen = instance.bIsOpen;
-				bAllowGestureOpen = instance.bAllowGestureOpen;
-				bAllowKeyboardOpen = instance.bAllowKeyboardOpen;
-				bExternalTrace = instance.bExternalTrace;
-				regularTraceToo = instance.regularTraceToo;
-				nonKarea = instance.nonKarea;
-				nonRepsIndicator = instance.nonRepsIndicator;
-				passNewTextFunction = instance.passNewText;
-			}
-			else
-			{
+				className = flash.utils.getQualifiedClassName(this);
 				super();
-				_instance = this;
 				passNewTextFunction  = passNewText;
 				rootObj = rootObject;
-				build();
 				rootSetup();
+				_instance = this;
 				trrace("==== BIN AGENT "+version+" ====");
-			}
+			
 		}
 		
 		public static function get instance():Console { return _instance }
 		
-		private function build():void
+		protected function build():void
 		{
+			setInstance(this);
 			build_console();
 			build_consoleSlider();
 			build_input();
+			
+			AO.stage = rootObj.stage;
+			buildControler();
+			stg.addEventListener(MouseEvent.MOUSE_UP, mu);
+			allowKeyboardOpen = allowKeyboardOpen;
+			allowGestureOpen = allowGestureOpen;
 			align();
+			
+			align();
+			this.addEventListener(Event.ADDED_TO_STAGE, ats);
+			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
 		}
 		
 		private function buildControler():void
@@ -180,22 +173,9 @@ package axl.utils.binAgent
 			bInput.y = bConsole.height;
 		}
 		
-		//-------
-		//-------------------------------------  ROOT SETUP ------------------------------------------  //
-		
-		private function rootSetup():void
-		{
-			rootObj.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, uncaughtError);
-			this.addEventListener(Event.ADDED_TO_STAGE, ats);
-			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
-			if(rootObj.stage != null)
-				giveStage(rootObj.stage);
-			else
-				rootObj.addEventListener(Event.ADDED_TO_STAGE, gotStage);
-		}
-		
 		private function ats(e:Event):void 
 		{
+			rootObj.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, uncaughtError);
 			refreshWindow();
 			stg.focus= this.bInput;
 			bIsOpen = true;
@@ -215,56 +195,53 @@ package axl.utils.binAgent
 		{
 			bIsOpen = false;
 		}
-	
-		private function gotStage(event:Event=null):void { giveStage(rootObj.stage) }
-		private function giveStage(stage:Stage):void
+		
+		//-------
+		//-------------------------------------  ROOT SETUP ------------------------------------------  //
+		
+		private function rootSetup():void
 		{
-			axl.utils.U.log(this, "Stage given",stage);
-			rootObj.removeEventListener(Event.ADDED_TO_STAGE, gotStage);
-			if(stg != null) return;
-			stg = stage;
-			stg.loaderInfo.sharedEvents.dispatchEvent(new SyncEvent('axl.utils.binAgent',true,false,[this]));
+			if(rootObj.stage != null)
+				giveStage();
+			else
+				rootObj.addEventListener(Event.ADDED_TO_STAGE, giveStage);
+		}
+		
+		protected function giveStage(e:Object=null):void
+		{
+			rootObj.removeEventListener(Event.ADDED_TO_STAGE, giveStage);
+			trrace(className, rootObj, "[ROOT-GOT-STAGE] SYNC TEST: build or destroy");
+			stg = rootObj.stage;
+			stg.loaderInfo.sharedEvents.dispatchEvent(new SyncEvent(className,true,false,[this]));
 			if(stg)
 			{
-				stg.loaderInfo.sharedEvents.addEventListener('axl.utils.binAgent', onBibAgentSyncEvent);
-				AO.stage = stage;
-				buildControler();
-				stg.addEventListener(MouseEvent.MOUSE_UP, mu);
-				allowKeyboardOpen = allowKeyboardOpen;
-				allowGestureOpen = allowGestureOpen;
-				align();
+				stg.loaderInfo.sharedEvents.addEventListener(className, onBinAgentSyncEvent);
+				build();
 			}
 		}
 		
-		protected function onBibAgentSyncEvent(e:SyncEvent):void
+		protected function onBinAgentSyncEvent(e:SyncEvent):void
 		{
-			trrace("BIN AGENT NEW INSTANCE ATTEMPT ",e.changeList);
 			if(e.changeList && e.changeList.length > 0)
 			{
 				var b:Object = e.changeList[0];
 				b.transferInstance(this);
 			}
-			else
-			{
-				trrace("TRANSFERING BIN AGENT INSTANCE FAILED (changesList)", e.changeList,e.changeList.length > 0)
-			}
 		}
 		
 		protected function transferInstance(parentConsole:Object):void
 		{
-			trrace('transferInstance');
+			trrace(className, rootObj," transferInstance to", parentConsole.hasOwnProperty('rootObject') ? parentConsole.rootObject : 'unknown rootObject',  parentConsole);
 			if(parentConsole && parentConsole.hasOwnProperty('passNewText'))
 			{
 				passNewTextFunction = parentConsole.passNewText;
-				passNewTextFunction('[MERGE CONSOLE INSTANCES]' + totalString + '[/MERGE CONSOLE INSTANCES]');
+				trrace('[MERGE FROM '+ rootObj +'\n' + text + '\n[/MERGE FROM ' +rootObj+' ]');
+				setInstance(parentConsole)
 				destroy();
 			}
-			else
-			{
-				trrace("TRANSFERING BIN AGENT INSTANCE FAILED (instance)", parentConsole, parentConsole.hasOwnProperty('passNewText'));
-			}
-			
 		}
+		
+		protected function setInstance(v:Object):void { _instance = v as Console }
 		
 		private function uncaughtError(e:UncaughtErrorEvent):void
 		{
@@ -458,8 +435,11 @@ package axl.utils.binAgent
 		
 		private function refreshWindow():void
 		{
-			bConsole.text = totalString;
-			bConsole.scrollV = bConsole.maxScrollV;
+			if(bConsole)
+			{	
+				bConsole.text = totalString;
+				bConsole.scrollV = bConsole.maxScrollV;
+			}
 			if(boundBox != null && boundBox.percentageVertical != 1)
 				boundBox.percentageVertical = 1;
 			if(this.parent)
@@ -609,14 +589,14 @@ package axl.utils.binAgent
 			if(rootObj)
 				rootObj.loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, uncaughtError);
 			if(rootObj)
-				rootObj.removeEventListener(Event.ADDED_TO_STAGE, gotStage);
+				rootObj.removeEventListener(Event.ADDED_TO_STAGE, giveStage);
 			this.removeEventListener(Event.ADDED_TO_STAGE, ats);
 			this.removeEventListener(Event.REMOVED_FROM_STAGE, rfs);
 			if(stg)
 			{
 				stg.removeEventListener(Event.RESIZE, stageResized);
 				stg.removeEventListener(MouseEvent.MOUSE_UP, mu);
-				stg.loaderInfo.sharedEvents.removeEventListener('axl.utils.binAgent', onBibAgentSyncEvent);
+				stg.loaderInfo.sharedEvents.removeEventListener('axl.utils.binAgent', onBinAgentSyncEvent);
 				stg.removeEventListener(MouseEvent.MOUSE_DOWN, stageMouseDown); 
 				stg.removeEventListener(KeyboardEvent.KEY_DOWN, stageKeyDown);
 				stg = null;
