@@ -525,6 +525,7 @@ package axl.utils
 				flowReady = true;
 				if(flow != null)
 					flow.removeEventListener(Event.COMPLETE, flowComplete);
+				checkAllReady();
 			}
 			
 			function checkAllReady():void
