@@ -129,7 +129,7 @@ package axl.utils
 				case Keyboard.CONTROL:
 						this.xselector.mouseEnabled = !this.editorWindowOn;
 					break;
-				case Keyboard.SPACE:
+				case Keyboard.F7:
 					toggleEditor();
 					break;
 				case Keyboard.ESCAPE:
@@ -187,8 +187,6 @@ package axl.utils
 			}
 			else
 				moving = false;
-			if(e.target != xselector && !U.isTargetGrandChild(e.target, this.editorWindow))
-				exitEditor();
 		}
 		
 		protected function mm(e:MouseEvent):void

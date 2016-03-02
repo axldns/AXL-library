@@ -42,6 +42,7 @@ package axl.utils.liveArange
 			doubleClickEnabled = true;
 			buildMiniHint();
 			drawing = new <Function>[drawOutlineNoBg, drawOutlineNoBg, drawBGnoOutline, drawBGnoOutline, drawOutlineAndBg, drawOutlineAndBg];
+			drawing.reverse();
 			styleIndex =-1;
 			nextStyle();
 			this.addEventListener(Event.ADDED_TO_STAGE, ats);
