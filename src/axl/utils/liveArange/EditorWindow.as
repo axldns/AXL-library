@@ -82,7 +82,7 @@ package axl.utils.liveArange
 			filter.width = xwidth;
 			filter.height = 17;
 			filter.defaultTextFormat = stf;
-			filter.text = 'name|x|y|z|scale';
+			filter.text = '^(name|x|y|z|scale|width|height)$';
 			filter.setTextFormat(stf);
 			tparent = new TextField();
 			tparent.border = true;
@@ -101,6 +101,7 @@ package axl.utils.liveArange
 			balance = 0.5;
 			U.addChildGroup(allbounds, boundLeft, boundMiddle, boundRight,boundTop);
 			U.addChildGroup(this, propspool,filter,tparent,allbounds );
+			boundMiddle.y = propspool.y;
 			this.addEventListener(Event.ADDED_TO_STAGE, ats);
 			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
 		}
@@ -112,6 +113,7 @@ package axl.utils.liveArange
 			this.addEventListener(Event.ENTER_FRAME, onEnterFrame);
 			filter.addEventListener(KeyboardEvent.KEY_UP, onSearcherText);
 			this.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+			this.addEventListener(KeyboardEvent.KEY_UP, onKeyUp);
 			allbounds.addEventListener(MouseEvent.MOUSE_OVER, mouseOverBounds);
 			allbounds.addEventListener(MouseEvent.MOUSE_OUT, mouseOutBounds);
 			allbounds.addEventListener(MouseEvent.MOUSE_DOWN, md);
@@ -139,9 +141,6 @@ package axl.utils.liveArange
 				return;
 			switch(e.keyCode)
 			{
-				case Keyboard.ENTER:
-					p.updateFromTextfieldToObject();
-					break;
 				case Keyboard.RIGHT:
 				case Keyboard.UP:
 					p.keyUp(e.shiftKey ? shiftMultiply : 1);
@@ -151,6 +150,12 @@ package axl.utils.liveArange
 					p.keyDown(e.shiftKey ? shiftMultiply: 1);
 					break;
 			}
+		}
+		
+		protected function onKeyUp(e:KeyboardEvent):void
+		{
+			var p:Property =  e.target.parent as Property;
+			p ? p.updateFromTextfieldToObject() : null;
 		}
 		
 		protected function onSearcherText(e:KeyboardEvent):void
@@ -175,6 +180,7 @@ package axl.utils.liveArange
 		{
 			cGloToLo.setTo(this.stage.mouseX, this.stage.mouseY);
 			cGloToLo = this.parent.globalToLocal(cGloToLo);
+			boundMiddle.y = tparent.y + tparent.height;
 			switch(boundDrag)
 			{
 				case boundLeft:
@@ -236,6 +242,7 @@ package axl.utils.liveArange
 			p.expand();
 			p.addEventListener(FocusEvent.FOCUS_OUT, onEditorFieldFocusOut);
 			U.distribute(propspool,0,false);
+			updateBg();
 		}
 		
 		protected function onEditorFieldFocusOut(e:Event):void
@@ -246,6 +253,7 @@ package axl.utils.liveArange
 			p.removeEventListener(FocusEvent.FOCUS_OUT, onEditorFieldFocusOut);
 			p.deflate();
 			U.distribute(propspool,0,false);
+			updateBg();
 		}
 		
 		protected function onHyperTextEvent(e:TextEvent):void
@@ -339,7 +347,7 @@ package axl.utils.liveArange
 			boundTop.alpha = 0;
 			
 			boundMiddle.graphics.beginFill(0xffff00);
-			boundMiddle.graphics.drawRect(0,0,5,height);
+			boundMiddle.graphics.drawRect(0,0,5,height - boundMiddle.y);
 			boundMiddle.x = (xwidth * balance) - (boundMiddle.width/1);
 			boundMiddle.alpha = 0;
 			
@@ -353,6 +361,7 @@ package axl.utils.liveArange
 		{
 			this.removeEventListener(Event.ENTER_FRAME, onEnterFrame);
 			this.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+			this.removeEventListener(KeyboardEvent.KEY_UP, onKeyUp);
 			if(filter)
 				filter.removeEventListener(KeyboardEvent.KEY_UP, onSearcherText);
 			if(allbounds)
