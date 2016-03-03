@@ -21,6 +21,7 @@ package axl.utils
 	import flash.ui.Keyboard;
 	
 	import axl.utils.liveArange.EditorWindow;
+	import axl.utils.liveArange.Property;
 	import axl.utils.liveArange.Selector;
 
 	/**
@@ -71,11 +72,13 @@ package axl.utils
 		private var xselector:Selector;
 		private var editorWindow:EditorWindow;
 		private var editorWindowOn:Boolean;
-		private var version:String = '2.0.0';
+		private var version:String = '2.0.2';
+		private var tname:String = "[LiveArranger "+ version + "]";
 		
 		/** @see LiveAranger*/
 		public function LiveAranger()
 		{
+			U.log(tname, "[constructor]");
 			U.STG.loaderInfo.sharedEvents.dispatchEvent(new SyncEvent('axl.utils.LiveAranger',true,false,[this]));
 			if(destroyed)
 				return;
@@ -88,6 +91,7 @@ package axl.utils
 				cGloToLo = new Point();
 				U.STG.addEventListener(KeyboardEvent.KEY_UP, keyUp);
 			}
+			U.log(tname, "[CONSTRUCTED]");
 		}
 		
 		//------------------EVENTS HANDLING------------------------//
@@ -95,6 +99,7 @@ package axl.utils
 		protected function liveArangerAlreadyExists(e:SyncEvent):void
 		{
 			var o:Object = e.changeList.length > 0 ? e.changeList.pop() : null;
+			U.log(tname, "[liveArangerAlreadyExists]", 'self?', o == this);
 			if(o.hasOwnProperty('destroy'))
 				o.destroy();
 			o = null;
@@ -103,7 +108,7 @@ package axl.utils
 		//---KEYBOARD EVENTS---//
 		protected function keyDown(e:KeyboardEvent):void
 		{
-			if(!isOn || subject==null || U.STG.focus is TextField) 
+			if(!isOn || subject==null || (U.STG.focus is TextField && U.STG.focus.parent is Property)) 
 				return;
 			var mod:String;
 			var dir:int;
@@ -127,9 +132,9 @@ package axl.utils
 					break;
 				case Keyboard.COMMAND:
 				case Keyboard.CONTROL:
-						this.xselector.mouseEnabled = !this.editorWindowOn;
+						this.xselector.mouseEnabled =!this.editorWindowOn;
 					break;
-				case Keyboard.F7:
+				case Keyboard.HOME:
 					toggleEditor();
 					break;
 				case Keyboard.ESCAPE:
@@ -147,7 +152,7 @@ package axl.utils
 			{
 				isOn = !isOn;
 			}
-			if(!isOn && subject==null || U.STG.focus is TextField) 
+			if(!isOn && subject==null || (U.STG.focus is TextField && U.STG.focus.parent is Property)) 
 				return;
 			switch (e.keyCode)
 			{
@@ -183,7 +188,7 @@ package axl.utils
 				
 				offset.x =  xselector.target.mouseX * xselector.target.scaleX;
 				offset.y =  xselector.target.mouseY* xselector.target.scaleY;
-				moving = e.target == xselector;
+				moving = (this.editorWindowOn ?  (e.target == xselector) : true);
 			}
 			else
 				moving = false;
@@ -419,13 +424,14 @@ package axl.utils
 		/** Removes all event listeners and destroys instance. Destroyed instance can not be reused.*/
 		public function destroy():void
 		{
+			U.log(tname, "[DESTROY]");
 			U.STG.removeEventListener(MouseEvent.MOUSE_MOVE,mm);
 			U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, md);
 			U.STG.removeEventListener(MouseEvent.MOUSE_UP, mu);
 			U.STG.removeEventListener(KeyboardEvent.KEY_UP, keyUp);
 			U.STG.removeEventListener(KeyboardEvent.KEY_DOWN, keyDown);
 			U.STG.loaderInfo.sharedEvents.removeEventListener('axl.utils.LiveAranger',liveArangerAlreadyExists);
-			instance = null;
+			//instance = null;
 			
 			if(xselector)
 			{
