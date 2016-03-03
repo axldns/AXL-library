@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -36,11 +36,7 @@ package axl.utils.binAgent
 		private var hRound:String = '©';
 		private var hCurl:String = 'ƒ';
 		private var hashSymbols:Array = [S_IS,S_NEW, hString, hSquare, hRound, hCurl];
-		private var hashedStrings:Vector.<String> = new Vector.<String>();
-		private var hashedSquares:Vector.<String> = new Vector.<String>();
-		private var hashedRounds:Vector.<String> = new Vector.<String>();
-		private var hashedCurl:Vector.<String> = new Vector.<String>();
-		private var numStrings:int=0;
+		
 		//oper
 		private var original:String;
 		private var current:Object;
@@ -50,17 +46,12 @@ package axl.utils.binAgent
 		private var errorInvalidObject:Error = new Error("Invalid Object to create?");
 		private var errorMaxClassArguments:Error = new Error("This software supports up to 10 constructor arguments");
 		private var errorInvalidClassArgument:Error = new Error("Null class argument?");
+		private var errorOperands:Error = new Error("Invalid logic operator");
 		private var userRoot:Object;
 		private var consoleRoot:Object;
 		private var binApi:Object;
-		public var currentResult:Object;
-		private var errorOperands:Error = new Error("Invalid logic operator");
-		private var consoleResult:Result = new Result();
-		private var userThis:Object;
-		
 		
 		public function get userInputRoot():Object {  return consoleRoot }
-		
 		public function RootFinder(userRoot:DisplayObject, api:Object)
 		{
 			this.userRoot = userRoot;
@@ -102,41 +93,44 @@ package axl.utils.binAgent
 		public function parseInput(text:String,thisContext:Object=null):Object
 		{
 			//trace('---input:',text);
-			this.userThis =thisContext;
 			consoleRoot =userRoot;
-			hashedStrings.length= hashedSquares.length = hashedRounds.length = hashedCurl.length=  numStrings =0;
-			current = hashStrings(text);
+			var request:HashRequest = new HashRequest(thisContext);
+			//hashedStrings.length= hashedSquares.length = hashedRounds.length = hashedCurl.length=  numStrings =0;
+			current = hashStrings(text,request);
 			//trace('strings hashed:\n', current);
 			if(current is Error)
 				return current;
 			current = hashIs(current as String);
 			current = hashNew(current as String);
 			//trace('is cleared:', current);
-			current = hashBrackets(current as String);
+			current = hashBrackets(current as String,request);
 			//trace('--brackets hashed/ all hashed:\n', current);
 			if(current is Error)
 				return current;
-			current = loop(current as String);
+			//trace("ALL HASHED", current, request.hashedCurl)
+			current = loop(current as String,request);
+			request.destroy();
+			request = null;
 			//trace('---output:',current);//flash.utils.describeType(current));
-			currentResult = current;
+			current;
 			return current;
 		}
 		
-		private function loop(cur:String):Object
+		private function loop(cur:String,r:HashRequest):Object
 		{
 			//trace('loop', cur);
 			if(cur==null) return null;
-			return parseArguments(cur.split(','));
+			return parseArguments(cur.split(','),r);
 		}
 		
-		private function parseArguments(main:Array):Object
+		private function parseArguments(main:Array,r:HashRequest):Object
 		{
 			var len:int = main.length;
 			var result:Array = [];
 			//trace('parseArguments ('+ len +'):', main);
 			for(var i:int = 0; i < len; i++)
 			{
-				var help:* = parseArgument(main[i]);
+				var help:* = parseArgument(main[i],r,true);
 				if(help is Error)
 					return help;
 				else
@@ -149,10 +143,10 @@ package axl.utils.binAgent
 				return result.pop()
 		}
 		
-		private function parseArgument(arg:String, doParseOperations:Boolean=true):*
+		private function parseArgument(arg:String, r:HashRequest,doParseOperations:Boolean=true):*
 		{
-			//trace(doParseOperations ? '  arg' : '   dot', arg);
-			var help:* = readyTypeCheck(arg);
+		//trace('parseArgument  arg' ,  arg, 'r:',r);
+			var help:* = readyTypeCheck(arg,r);
 			if(help != null)
 			{
 				//trace('  <readyType!:', help);
@@ -163,14 +157,14 @@ package axl.utils.binAgent
 			else if(doParseOperations)
 			{
 				//trace('  <not ready type. parsing Operations',arg);
-				help = parseOperations(arg);
+				help = parseOperations(arg,r);
 			}
 			return help;
 		}
 		
-		private function parseOperations(argument:String):*
+		private function parseOperations(argument:String,r:HashRequest):*
 		{
-			//trace('    ||||||parseOperations', argument);
+			//trace('    ||||||parseOperations', argument, "R", r);
 			var q:int = argument.indexOf('?');
 			var argLeft:String;
 			if(q > -1)
@@ -236,7 +230,7 @@ package axl.utils.binAgent
 						if(!isNaN(rawElements[charIndex]))
 							help = new Result([Number(rawElements[charIndex])], [rawElements[charIndex]]);
 						else
-							help = parseDots(rawElements[charIndex].split('.'),true); ////////// <<<<<<<<< PARSING DOTS
+							help = parseDots(rawElements[charIndex].split('.'),true,r); ////////// <<<<<<<<< PARSING DOTS
 						if(help is Error) return help;
 						if(help == null) 
 							return new Error("Undefined " + rawElements[charIndex] + " reference");
@@ -313,7 +307,7 @@ package axl.utils.binAgent
 					return errorOperands;
 				argument = argLeft.substr(0,q);
 				argLeft = argLeft.substr(q+1);
-				help = help ? parseOperations(argument) : parseOperations(argLeft);
+				help = help ? parseOperations(argument,r) : parseOperations(argLeft,r);
 			}
 			//trace("FINALLY", help);
 			return help
@@ -375,7 +369,6 @@ package axl.utils.binAgent
 		
 		private function operate(liveElements:Array, i:int):*
 		{
-			
 			//trace("OPERATE", i,'@', liveElements);
 			var oper:String = liveElements[i];
 			var isAsignment:Boolean = asignments.indexOf(oper) > -1;
@@ -417,6 +410,8 @@ package axl.utils.binAgent
 				case '>>': lc[lci] = lc[lci] >> rc[rci]; break;
 				case '<<': lc[lci] = lc[lci] << rc[rci]; break;
 				case '==': lc[lci] = lc[lci] == rc[rci]; break;
+				case '!=': lc[lci] = lc[lci] != rc[rci]; break;
+				case '!==': lc[lci] = lc[lci] !== rc[rci]; break;
 				case '===': lc[lci] = lc[lci] === rc[rci]; break;
 				case '&&': lc[lci] = lc[lci] && rc[rci]; break;
 				case '||': lc[lci] = lc[lci] || rc[rci]; break;
@@ -433,9 +428,9 @@ package axl.utils.binAgent
 			return liveElements;
 		}
 		
-		private function parseDots(main:Array,returnChain:Boolean):*
+		private function parseDots(main:Array,returnChain:Boolean,r:HashRequest):*
 		{
-			
+			//trace("parseDots", main,'R', r);
 			var mainWithHashes:Array = [];
 			var textual:Array = [];
 			var chain:Array = [];
@@ -486,7 +481,7 @@ package axl.utils.binAgent
 						return mainWithHashes[i]; // bad dots
 					}
 					prev = chain[i-1];
-					help = isHash(mainWithHashes[i]);
+					help = isHash(mainWithHashes[i],r);
 					if(help is Error) 
 						return help;
 					//trace('    >checking on prev of chain:', prev, '<-[' + help + ']-/',mainWithHashes[i].length);
@@ -547,7 +542,8 @@ package axl.utils.binAgent
 				{// attention! live objects being passed to parseArguments?
 					//trace('    ->checking as first of chain',  mainWithHashes[i], 'out of', mainWithHashes.length);
 					//as first it doesnt go as here, if its null, its an error?
-					help = isHash(mainWithHashes[i]);
+					help = isHash(mainWithHashes[i],r);
+					
 					textual[0] =help;
 					if(help is Error) 
 					{
@@ -557,7 +553,7 @@ package axl.utils.binAgent
 					if(help == mainWithHashes[i])
 					{
 						//trace("  ->->reparsing argument?");
-						help = parseArgument(mainWithHashes[i],false);
+						help = parseArgument(mainWithHashes[i],r,true);
 						//trace("  <-<-", help, help is Error || help == null);
 						if(help is Error || help == null)
 						{
@@ -634,7 +630,7 @@ package axl.utils.binAgent
 			return errorMaxClassArguments;
 		}
 		
-		private function isHash(bit:String):Object
+		private function isHash(bit:String,r:HashRequest):Object
 		{
 			var char:String = bit.charAt(0);
 			var hi:int = hashSymbols.indexOf(char);
@@ -645,25 +641,25 @@ package axl.utils.binAgent
 			if(bit.length -1 != hi) return errorSyntax;
 			var indexS:Number = Number(bit.substring(1,hi));
 			if(isNaN(indexS)) return errorSyntax;
-			var i:int = int(indexS)
+			var i:int = int(indexS);
 			var help:*;
 			switch (symbol)
 			{
 				case hString:
 					//trace("DE-HASH STRING");
-					return hashedStrings[i];
+					return r.hashedStrings[i];
 				case hCurl:
 					//trace("DE-HASH OBJECT CREATION");
-					return createObject(hashedCurl[i]);
+					return createObject(r.hashedCurl[i],r);
 				case hRound:
-					//trace("DE-HASH ( ) looping");
-					if(hashedRounds[i].length == 0) return null;
-					help = loop(hashedRounds[i]);
+					//trace("DE-HASH ( ) looping",bit, 'against', r);
+					if(r.hashedRounds[i].length == 0) return null;
+					help = loop(r.hashedRounds[i],r);
 					//trace("DE-HASH () RESULT:", help);
 					return help;
 				case hSquare:
 					//trace("DE-HASH [ ] looping");
-					help = createArray(hashedSquares[i]);
+					help = createArray(r.hashedSquares[i],r);
 					//trace("DE-HASH [] RESULT:", help);
 					return help;
 				default:
@@ -673,7 +669,7 @@ package axl.utils.binAgent
 			}
 		}
 		
-		private function createArray(input:String):*
+		private function createArray(input:String,r:HashRequest):*
 		{
 			//trace('creating array from', input);
 			var props:Array = input.split(',');
@@ -682,14 +678,14 @@ package axl.utils.binAgent
 			var help:*;
 			for(var i:int = 0; i < plen; i++)
 			{
-				help = parseArgument(props[i]);
+				help = parseArgument(props[i],r);
 				if(help is Error) return help;
 				output[i] = help;
 			}
 			return output;
 		}
 		
-		private function createObject(input:String):*
+		private function createObject(input:String,r:HashRequest):*
 		{
 			var props:Array = input.split(',');
 			var plen:int = props.length;
@@ -701,9 +697,9 @@ package axl.utils.binAgent
 				var kv:Array = props[i].split(':');
 				if(kv.length == 1 && kv[0].length == '') continue; // empty object
 				if(kv.length != 2) return errorInvalidObject;
-				k = kv[0], v = parseArgument(kv[1]);
+				k = kv[0], v = parseArgument(kv[1],r);
 				if(v is Error) return v;
-				k = isHash(k) as String;
+				k = isHash(k,r) as String;
 				if(k == null)
 					return errorInvalidObject;
 				output[k] = v;
@@ -743,12 +739,12 @@ package axl.utils.binAgent
 			return (chunk.length > 0) ? chunk : null;
 		}
 		
-		private function readyTypeCheck(arg:String,tryUserRoot:Boolean=true):*
+		private function readyTypeCheck(arg:String,r:HashRequest,tryUserRoot:Boolean=true):*
 		{
 			// trace('[*]readyTypeCheck[*]', arg);
 			if(!isNaN(Number(arg))) return Number(arg)
 			else if(arg == 'true' || arg == 'false') return (arg == 'true')
-			else if(arg == 'this') return userThis || userRoot;
+			else if(arg == 'this') return r.userThis || userRoot;
 			else if(arg == 'null') return S_NULL;
 			else if(arg == 'trace') return Object(trace);
 			else if(arg == '@') return binApi;
@@ -767,12 +763,12 @@ package axl.utils.binAgent
 			}
 		}
 		
-		private function hashBrackets(text:String):Object
+		private function hashBrackets(text:String,hr:HashRequest):Object
 		{
 			var o:Array = ['[', '(', '{'];
 			var e:Array = [']', ')', '}'];
 			var h:Array = [hSquare, hRound, hCurl];
-			var v:Array = [hashedSquares, hashedRounds, hashedCurl];
+			var v:Array = [hr.hashedSquares, hr.hashedRounds, hr.hashedCurl];
 			//start bracket
 			var s:int = text.indexOf(o[0]); 
 			var r:int = text.indexOf(o[1]);
@@ -802,12 +798,12 @@ package axl.utils.binAgent
 			var left:String = text.substr(0,startI);
 			var center:String = text.substring(startI+1, endI);
 			var right:String = text.substr(endI+1);
-			var help:* = hashBrackets(center);
+			var help:* = hashBrackets(center,hr);
 			if(help is Error) return help;
 			s = v[i].length;
 			text = left + h[i] + s + h[i] + right;
 			v[i][s++] = help;
-			return hashBrackets(text);
+			return hashBrackets(text,hr);
 		}
 		
 		private function hashIs(s:Object):Object
@@ -826,7 +822,7 @@ package axl.utils.binAgent
 			return s;
 		}
 		
-		private function hashStrings(text:Object):Object
+		private function hashStrings(text:Object, r:HashRequest):Object
 		{
 			var single:String = "'";
 			var double:String = '"';
@@ -842,9 +838,9 @@ package axl.utils.binAgent
 			var left:String = text.substr(0,startIndex);
 			var center:String = text.substring(startIndex+1, endIndex);
 			var right:String = text.substr(endIndex+1);
-			text = left + hString + numStrings + hString + right
-			hashedStrings[numStrings++] = center;
-			return hashStrings(text);
+			text = left + hString + r.numStrings + hString + right
+			r.hashedStrings[r.numStrings++] = center;
+			return hashStrings(text,r);
 		}
 		
 		public function findCareteContext(text:String, caretIndex:int):Object
@@ -899,6 +895,21 @@ package axl.utils.binAgent
 			help = this.parseInput(cropped);
 			return { r : help is Error ? null : help, k: key };
 		}
+	}
+}
+internal class HashRequest {
+	
+	public var hashedStrings:Vector.<String> = new Vector.<String>();
+	public var hashedSquares:Vector.<String> = new Vector.<String>();
+	public var hashedRounds:Vector.<String> = new Vector.<String>();
+	public var hashedCurl:Vector.<String> = new Vector.<String>();
+	public var numStrings:int=0;
+	public var userThis:Object;
+	public function HashRequest(thisArg:Object){userThis=thisArg}
+	public function destroy():void { 
+		hashedStrings.length = hashedSquares.length = hashedRounds.length = hashedCurl.length = numStrings = 0;
+		hashedStrings = hashedSquares = hashedRounds = hashedCurl = null;
+		userThis = null;
 	}
 }
 internal class Result { 

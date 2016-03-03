@@ -71,7 +71,7 @@ package axl.utils.binAgent
 		public function get VERSION():String { return version };
 		public function get text():String { return totalString }
 		public function get rootObject():DisplayObject { return rootObj }
-		public static const version:String = '0.0.17';
+		public static const version:String = '0.0.18';
 		public function Console(rootObject:DisplayObject)
 		{
 				className = flash.utils.getQualifiedClassName(this);

@@ -39,7 +39,7 @@ package axl.utils.binAgent
 		public var hints:Boolean=true;
 		private var consoleSearched:Boolean;
 		private var lines:Array;
-		public static const version:String = '0.0.17';		
+		public static const version:String = '0.0.18';		
 		public function BinAgent(rootObject:DisplayObject)
 		{
 			_instance = this;
