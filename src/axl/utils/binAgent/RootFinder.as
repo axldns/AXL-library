@@ -310,7 +310,7 @@ package axl.utils.binAgent
 				help = help ? parseOperations(argument,r) : parseOperations(argLeft,r);
 			}
 			//trace("FINALLY", help);
-			return help
+			return help;
 		}
 		
 		private function performChainOperations(liveElements:Array):*
@@ -553,7 +553,7 @@ package axl.utils.binAgent
 					if(help == mainWithHashes[i])
 					{
 						//trace("  ->->reparsing argument?");
-						help = parseArgument(mainWithHashes[i],r,true);
+						help = parseArgument(mainWithHashes[i],r,false);
 						//trace("  <-<-", help, help is Error || help == null);
 						if(help is Error || help == null)
 						{
