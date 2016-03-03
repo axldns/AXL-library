@@ -96,6 +96,7 @@ package axl.utils.liveArange
 		{
 			var t:TextField = new TextField();
 			t.border = true;
+			t.backgroundColor = 0;
 			t.width = fwidth/2;
 			t.height = 17;
 			t.defaultTextFormat = tff;
@@ -126,22 +127,24 @@ package axl.utils.liveArange
 		 */
 		public function updateFromTextfieldToObject():void
 		{
-			switch(type)
-			{
-				case "String":
-					editor.subject[pname] = tvalue.text;
-					break;
-				case "XML":
-					editor.subject[pname] = XML(tvalue.text);
-					break;
-				default:
-					try {
-						var val:* = JSON.parse(tvalue.text);
-						editor.subject[pname] = val;
-					}
-					catch(e:*) {trace("updateToUserInput FAIL",e);}
-					break;
+			try {
+				switch(type)
+				{
+					case "String":
+						editor.subject[pname] = tvalue.text;
+						break;
+					case "XML":
+						editor.subject[pname] = XML(tvalue.text);
+						break;
+					default:
+						
+							var val:* = JSON.parse(tvalue.text);
+							editor.subject[pname] = val;
+						break;
+				}
 			}
+			catch(e:*) {trace("updateToUserInput FAIL",e);}
+					
 		}
 		/** sets width balance between name and value fields (0-1)*/
 		public function updateBalance(n:Number):void
@@ -157,12 +160,14 @@ package axl.utils.liveArange
 			tname.wordWrap = tvalue.wordWrap = tvalue.multiline = tname.multiline =  true;
 			var h:Number = 5+ (tname.textHeight > tvalue.textHeight ? tname.textHeight : tvalue.textHeight);
 			tname.height = tvalue.height = h;
+			tvalue.background = tname.background = true;
 		}
 		/** folds down fields to its initial height, does not wrap words, no multiline neither*/
 		public function deflate():void
 		{
 			tname.wordWrap = tvalue.wordWrap = tvalue.multiline = tname.multiline =  false;
 			tname.height = tvalue.height = 17;
+			tvalue.background = tname.background = false;
 		}
 		/** allows to in/de-crement numeric or to set oposite boleans values*/
 		public function keyAction(dir:int):void
