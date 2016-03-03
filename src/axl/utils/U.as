@@ -30,9 +30,9 @@ package axl.utils
 	 */
 	public class U
 	{
-		private static var version:String = '1.0';
+		private static var version:String = '1.0.1';
 		public static function get VERSION():String { return version}
-		
+		private static var tname:String = '[U ' + version + ']';
 		Ldr.verbose = log;
 		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
@@ -352,6 +352,16 @@ package axl.utils
 						left[s] = right[s];
 		}
 		
+		/** Randomizes vector or array */
+		public static function randomizeArray(array:Object):void
+		{
+			for (var i:uint = 0,j:int=array.length; i < j; i++)
+			{
+				var rand:int = int(Math.random() * j);
+				array.push(array.splice(rand,1)[0]);
+			}
+		}
+		
 		/** Draws any flash.display.DisplayObject to BitmapData*/
 		public static function getBitmapData(source:Object):BitmapData
 		{
@@ -483,7 +493,7 @@ package axl.utils
 			
 			if(DEBUG)
 				ubin = ((BinAgent.instance != null) ? BinAgent.instance : new BinAgent(flashRoot));
-			
+			log(tname, 'init');
 			udesignedForWidth = designedForWidth;
 			udesignedForHeight = designedForHeight;
 			
@@ -498,7 +508,7 @@ package axl.utils
 			function stageAvailable(event:Event=null):void
 			{
 				stageReady = true;
-				log('[U] stage available');
+				log(tname,'stage available');
 				if(flashRoot.hasEventListener(Event.ADDED_TO_STAGE))
 					flashRoot.removeEventListener(Event.ADDED_TO_STAGE, stageAvailable);
 				uSTG = flashRoot.stage;
