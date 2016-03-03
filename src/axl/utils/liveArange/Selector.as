@@ -41,8 +41,7 @@ package axl.utils.liveArange
 			onDoubleClick = doubleClickHandler;
 			doubleClickEnabled = true;
 			buildMiniHint();
-			drawing = new <Function>[drawOutlineNoBg, drawOutlineNoBg, drawBGnoOutline, drawBGnoOutline, drawOutlineAndBg, drawOutlineAndBg];
-			drawing.reverse();
+			drawing = new <Function>[drawOutlineAndBg, drawOutlineAndBg, drawBGnoOutline, drawBGnoOutline, drawOutlineNoBg, drawOutlineNoBg  ];
 			styleIndex =-1;
 			nextStyle();
 			this.addEventListener(Event.ADDED_TO_STAGE, ats);
@@ -124,12 +123,12 @@ package axl.utils.liveArange
 		
 		/** Changes style of selecting
 		 * <ol>
-		 * <li>outline, no bg, minihint</li>
-		 * <li>outline, no bg, no minihint</li>
-		 * <li>no outline, bg, minihint</li>
-		 * <li>no outline, bg, no minihint</li>
 		 * <li>outline, bg, minihint</li>
 		 * <li>outline, bg, no minihint</li>
+		 * <li>no outline, bg, minihint</li>
+		 * <li>no outline, bg, no minihint</li>
+		 * <li>outline, no bg, minihint</li>
+		 * <li>outline, no bg, no minihint</li>
 		 * </ol> */
 		public function nextStyle():void
 		{
@@ -137,10 +136,10 @@ package axl.utils.liveArange
 				styleIndex = 0;
 			drawingFunc = drawing[styleIndex];
 			if(styleIndex%2)
-				addChild(miniHint);
-			else
 				if(contains(miniHint))
 					removeChild(miniHint);
+			else
+				addChild(miniHint);
 		}
 		
 		/** Removes listeners and destroys the instance. Destroyed can't be reused.*/
