@@ -135,6 +135,8 @@ package axl.utils
 						this.xselector.mouseEnabled =!this.editorWindowOn;
 					break;
 				case Keyboard.HOME:
+				case Keyboard.PAGE_UP:
+				case Keyboard.PAGE_DOWN:
 					toggleEditor();
 					break;
 				case Keyboard.ESCAPE:
