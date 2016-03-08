@@ -16,13 +16,13 @@ package axl.utils.liveArange
 	/** 
 	 * Class prepared to parse and modify single node of XML description of object defined as 
 	 * <code>editor.subject</code> of this instance.<br>
-	 * Contains two textfields: name & value.<br>
+	 * Contains two textfields: name and value.<br>
 	 * Allows bi-directional update:
 	 * <ul>
 	 * <li><code>updateFromObjectToTextfield</code> - from object's actual value to this instance text input field</li>
 	 * <li><code>updateFromTextfieldToObject</code> - from this instance text input field to actual object</li>
 	 * </ul>
-	 * Elements are parsed through JSON.parse if needed.</br>
+	 * Elements are parsed through JSON.parse if needed.<br>
 	 * Class has no internal event listeners.
 	 */
 	public class Property extends Sprite
@@ -105,7 +105,7 @@ package axl.utils.liveArange
 		// --- END OF BUILD SECTION --- //
 		// --- MECHANIC AND API SECTION --- //
 		/**
-		 * Updates  input field<--from--edited--object.
+		 * Updates  input field&lt;--from--edited--object.
 		 * Strings and XML objects are casted, everything else
 		 * goes through JSON.parse
 		 */

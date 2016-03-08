@@ -78,14 +78,14 @@ package axl.utils.binAgent
 		 * <br>Supported operations: 
 		 * <ul><li>
 		 * Returning Classes, its instances, public methods, properties and its values</li>
-		 * <li>Type casting, asignments, negations, concatenation, mathematical operations with it's order, nesting in parentheses</li>
+		 * <li>Type casting, comparisons, asignments, negations, concatenation, mathematical operations with it's order, nesting in parentheses</li>
 		 * <li>Creating new Objects, Arrays and instances of any Classes</li>
-		 * <li>Basic conditionals with ternary operator (both true and false are evauated! only right one is returned)</li>
+		 * <li>Conditionals with ternary operator of simple and  nested structures (parhentheses needed)</li>
 		 * </ul>
 		 * Does <b>not</b> support: 
 		 * <ul>
 		 * <li>creating functions</li>
-		 * <li>if-else-if and switch blocks</li>
+		 * <li>if-else-if and switch blocks (can be achieved via ternary operators)</li>
 		 * <li>for-do-while loops</li>
 		 * <li>in-de-crementation</li>
 		 * </ul>

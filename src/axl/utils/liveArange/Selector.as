@@ -61,7 +61,7 @@ package axl.utils.liveArange
 		
 		protected function xonDoubleClick(event:MouseEvent):void
 		{
-			if(onDoubleClick)
+			if(onDoubleClick!=null)
 				onDoubleClick();
 		}
 		

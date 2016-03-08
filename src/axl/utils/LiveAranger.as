@@ -31,10 +31,10 @@ package axl.utils
 	 * Hotkeys:
 	 * <ul>
 	 * <li><b>F6</b> - turns it on/off.</li>
-	 * <li><b>SPACEBAR</b> - opens/closes editor window for selected object</li>
-	 * <li>hold <b>CTRL/CMD</b>
+	 * <li><b>PageUp,PageDown,Home</b> - opens or closes editor window for selected object</li>
+	 * <li>hold <b>CTRL or CMD</b>
 	 * 	<ul>
-	 * 		<li>if editor is off: allows to drag objects</li>
+	 * 		<li>if editor is off: allows to drag buttons preventing from executing their functions</li>
 	 * 		<li>if editor is on: allows to select new object without exiting editor</li>
 	 * 	</ul>
 	 * </li>
