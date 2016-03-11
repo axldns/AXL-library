@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -13,12 +13,13 @@ package axl.utils.binAgent
 	import flash.display.Sprite;
 	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
-	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
 
 	public class BinAgent extends Console
 	{
+		public static const version:String = '0.0.18';
+		public static function log(...args):void {(instance != null) ? instance.trrace.apply(null, args) : trace("BinAgent not set"); }
 		private static var _instance:BinAgent;
 		private var hintContainer:Sprite;
 		private var selectedHint:Hint
@@ -39,7 +40,7 @@ package axl.utils.binAgent
 		public var hints:Boolean=true;
 		private var consoleSearched:Boolean;
 		private var lines:Array;
-		public static const version:String = '0.0.18';		
+		
 		public function BinAgent(rootObject:DisplayObject)
 		{
 			_instance = this;

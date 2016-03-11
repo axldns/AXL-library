@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -24,14 +24,18 @@ package axl.utils.binAgent
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
+	import flash.utils.getDefinitionByName;
 	import flash.utils.getQualifiedClassName;
 	
-	import axl.ui.controllers.BoundBox;
-	import axl.utils.AO;
+	//import axl.ui.controllers.BoundBox;
 	
 	public class Console extends Sprite
 	{
-		
+		public static const version:String = '0.0.18';
+		private static const BBclassName:String = 'axl.ui.controllers::BoundBox'; 
+		private static const boundBoxClass:Class = ApplicationDomain.currentDomain.hasDefinition(BBclassName) ? getDefinitionByName(BBclassName) as Class : null;
+		private static var _instance:Console;
+		public static function log(...args):void {(instance != null) ? instance.trrace.apply(null, args) : trace("Console not set"); }
 		//window
 		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 12, 0xaaaaaa);
 		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 12, 0x333333);
@@ -44,7 +48,6 @@ package axl.utils.binAgent
 		private var pastIndex:int;
 		
 		// internall
-		private static var _instance:Console;
 		protected var stg:Stage;
 		private var rootObj:DisplayObject;
 		private var _pool:Object = {};
@@ -56,12 +59,14 @@ package axl.utils.binAgent
 		private var bAllowKeyboardOpen:Boolean=true;
 		private var bExternalTrace:Function;
 		public var regularTraceToo:Boolean = true;
+		public var userKeyboarOpenSequence:String;
+		private var userKeyboarOpenSequenceCount:int;
 		
 		//gesture opening
 		private var nonKarea:Rectangle= new Rectangle(60,0,100,60);
 		private var gestureRepetitions:int = 0;
 		private var nonRepsIndicator:int = 4;
-		private var boundBox:BoundBox;
+		private var boundBox:Object;
 		protected var totalString:String='';
 		public var maxChars:uint = 80000;
 		private var resizeListenerAdded:Boolean;
@@ -71,7 +76,8 @@ package axl.utils.binAgent
 		public function get VERSION():String { return version };
 		public function get text():String { return totalString }
 		public function get rootObject():DisplayObject { return rootObj }
-		public static const version:String = '0.0.18';
+		
+		
 		public function Console(rootObject:DisplayObject)
 		{
 				className = flash.utils.getQualifiedClassName(this);
@@ -93,7 +99,6 @@ package axl.utils.binAgent
 			build_consoleSlider();
 			build_input();
 			
-			AO.stage = rootObj.stage;
 			buildControler();
 			stg.addEventListener(MouseEvent.MOUSE_UP, mu);
 			allowKeyboardOpen = allowKeyboardOpen;
@@ -107,10 +112,12 @@ package axl.utils.binAgent
 		
 		private function buildControler():void
 		{
-			boundBox = new BoundBox();
+			if(boundBoxClass == null)
+				return;
+			boundBox = new boundBoxClass();
 			boundBox.horizontal = false;
 			boundBox.vertical = true;
-			boundBox.verticalBehavior  = BoundBox.inscribed;
+			boundBox.verticalBehavior  = boundBoxClass.inscribed;
 			boundBox.bound = bSliderRail;
 			boundBox.box = bSlider;
 			boundBox.addEventListener(Event.CHANGE, sliderEvent);
@@ -151,6 +158,8 @@ package axl.utils.binAgent
 		
 		private function build_consoleSlider():void
 		{
+			if(boundBoxClass == null)
+				return;
 			bSliderRail = new Sprite();
 			bSliderRail.graphics.beginFill(0xffffff,0.3);
 			bSliderRail.graphics.drawRect(0,0,15,console.height);
@@ -167,9 +176,12 @@ package axl.utils.binAgent
 		
 		protected function align():void
 		{
-			bSlider.x = bConsole.x + bConsole.width - bSlider.width;
-			bSlider.y = bConsole.y + bConsole.height - bSlider.height;
-			bSliderRail.x = bSlider.x
+			if(bSlider != null)
+			{
+				bSlider.x = bConsole.x + bConsole.width - bSlider.width;
+				bSlider.y = bConsole.y + bConsole.height - bSlider.height;
+				bSliderRail.x = bSlider.x
+			}
 			bInput.y = bConsole.height;
 		}
 		
@@ -317,7 +329,9 @@ package axl.utils.binAgent
 			if(allowGestureOpen)
 			{
 				if((e.stageY > nonKarea.height) || (e.stageX < (nonKarea.x + nonKarea.width)))
+				{
 					gestureRepetitions = 0;
+				}
 				else if(++gestureRepetitions > nonRepsIndicator-1)
 					openClose();
 			}
@@ -325,7 +339,17 @@ package axl.utils.binAgent
 		
 		protected function stageKeyDown(e:KeyboardEvent):void
 		{
-			if(e.altKey && e.ctrlKey && (e.keyCode == Keyboard.RIGHT)) // alt + s
+			if(userKeyboarOpenSequence!=null)
+			{
+				if(String.fromCharCode(e.charCode) == userKeyboarOpenSequence.charAt(userKeyboarOpenSequenceCount++))
+				{
+					if(userKeyboarOpenSequenceCount >= userKeyboarOpenSequence.length)
+						openClose();
+				}
+				else
+					userKeyboarOpenSequenceCount =0;
+			}
+			else if(e.altKey && e.ctrlKey && (e.keyCode == Keyboard.RIGHT)) // alt + s
 				openClose();
 		}
 		
@@ -340,7 +364,6 @@ package axl.utils.binAgent
 				stg.addChild(this);
 				stg.focus =bInput;
 			}
-			gestureRepetitions = 0;
 		}
 		//----
 		protected function KEY_UP(e:KeyboardEvent):void
