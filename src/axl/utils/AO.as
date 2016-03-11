@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -119,8 +119,8 @@ package axl.utils
 		}
 		
 		public function AO(subject:Object, seconds:Number, properties:Object) {
-			if(STG == null)
-				throw new Error("[AO]Stage not set up!");
+			/*if(STG == null)
+				throw new Error("[AO]Stage not set up!");*/
 			uSeconds = seconds;
 			uProps = properties;
 			if(uProps.hasOwnProperty('delay'))
