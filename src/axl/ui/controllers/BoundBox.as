@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -9,10 +9,6 @@
  */
 package axl.ui.controllers
 {
-	/**
-	 * [axldns free coding 2015]
-	 */
-	
 	import flash.display.DisplayObject;
 	import flash.display.Stage;
 	import flash.events.Event;
@@ -23,7 +19,7 @@ package axl.ui.controllers
 	import flash.geom.Rectangle;
 	
 	import axl.utils.AO;
-	import axl.utils.U;
+	//import axl.utils.U;
 	
 	public class BoundBox  extends EventDispatcher
 	{
@@ -331,8 +327,8 @@ package axl.ui.controllers
 			bx.stage.addEventListener(MouseEvent.MOUSE_MOVE, mmove);
 			boxStart.x = bx.x;
 			boxStart.y = bx.y;
-			startMouse.x = U.STG.mouseX;
-			startMouse.y = U.STG.mouseY;
+			startMouse.x = boxStage.mouseX;
+			startMouse.y = boxStage.mouseY;
 			inBox.x = bx.mouseX;
 			inBox.y = bx.mouseY;
 			down = true;
@@ -351,9 +347,9 @@ package axl.ui.controllers
 			{
 				updateFrames();
 				if(horizontal)
-					updateAbsolute(modH, boxStart.x + (U.STG.mouseX - startMouse.x));					
+					updateAbsolute(modH, boxStart.x + (boxStage.mouseX - startMouse.x));					
 				if(vertical)
-					updateAbsolute(modV, boxStart.y + (U.STG.mouseY - startMouse.y));			
+					updateAbsolute(modV, boxStart.y + (boxStage.mouseY - startMouse.y));			
 			}
 			else
 			{
