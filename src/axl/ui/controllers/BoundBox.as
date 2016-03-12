@@ -251,16 +251,16 @@ package axl.ui.controllers
 			validateAndUpdate(a);
 		}
 		
-		private function updateBoxToMousePosition():void
+		private function updateBoxToMousePosition(dispatchChanges:Boolean):void
 		{
 			var tbx:Number = bnd.mouseX;// - (bx.width/bx.scaleX/2);
 			var tby:Number = bnd.mouseY;//- (bx.height/bx.scaleY/2);
 			if(horizontal && vertical)
-				this.percentageCommon(tbx / (bnd.width / bnd.scaleX),tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,true);
+				this.percentageCommon(tbx / (bnd.width / bnd.scaleX),tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,dispatchChanges);
 			else if(horizontal)
-				this.setPercentageHorizontal(tbx / (bnd.width / bnd.scaleX),omitDraggingAnimation,true);
+				this.setPercentageHorizontal(tbx / (bnd.width / bnd.scaleX),omitDraggingAnimation,dispatchChanges);
 			else if(vertical)
-				this.setPercentageVertical(tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,true);
+				this.setPercentageVertical(tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,dispatchChanges);
 		}
 		
 		private function deltaMovement(delta:Number, mod:Object,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void
@@ -374,7 +374,7 @@ package axl.ui.controllers
 			boundStage.addEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
 			boundStage.addEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
 			touchyBoundDown = true;
-			updateBoxToMousePosition();
+			updateBoxToMousePosition(true);
 			if(box is IEventDispatcher)
 				box.dispatchEvent(e);
 		}
@@ -382,7 +382,7 @@ package axl.ui.controllers
 		protected function onBoxMouseMove(e:MouseEvent):void
 		{
 			if(e.buttonDown && down && !touchyBoundDown)
-				updateBoxToMousePosition();
+				updateBoxToMousePosition(liveChanges);
 			else
 				finishBoxMovement();
 		}
@@ -390,7 +390,7 @@ package axl.ui.controllers
 		protected function onBoundMouseMove(e:MouseEvent):void
 		{
 			if(e.buttonDown && touchyBoundDown)
-				updateBoxToMousePosition();
+				updateBoxToMousePosition(liveChanges);
 			else
 				finishBoundMovement();
 		}
