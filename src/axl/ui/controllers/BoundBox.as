@@ -37,6 +37,8 @@ package axl.ui.controllers
 		
 		private var bnd:DisplayObject;
 		private var bx:DisplayObject;
+		private var boxStage:Stage;
+		private var boundStage:Stage;
 		
 		private var rstatic:Rectangle = new Rectangle();
 		private var rmovable:Rectangle= new Rectangle();
@@ -53,11 +55,13 @@ package axl.ui.controllers
 		private var percentage:Object = { x : 0, y : 0 };
 		private var ao:Object = { x  : null, y : null, xy : null };
 		private var aop:Object = { x : {x:0}, y : {y:0}, xy : {x:0,y:0}};
+		
+		private var cGloToLo:Point;
 		private var animTime:Number=0;
-		private var boxStage:Stage;
-		private var boundStage:Stage;
+		
 		private var inited:Boolean;
 		private var easingFunc:Function;
+		private var xChangesArgument:Object;
 		
 		private var down:Boolean;
 		private var xtouchyBound:Boolean=true;
@@ -83,7 +87,7 @@ package axl.ui.controllers
 		public var onChange:Function;
 		/** Determines if dragging box is eased with animation */
 		public var omitDraggingAnimation:Boolean=true;
-		private var xChangesArgument:Object;
+		
 		
 		/** Easing function for animation curves. Applie it on BoundBox instance by setting easing property.
 		 * @see #animationTime @see #easing */
@@ -98,6 +102,7 @@ package axl.ui.controllers
 		{
 			super();
 			easingFunc = BoundBox.easgings.easeOutQuart;
+			cGloToLo = new Point();
 		}
 		//---------------------------------------- PRIVATE API -----------------------------------//
 		// ----------- POSITION VALIDATION --------------//
@@ -261,14 +266,18 @@ package axl.ui.controllers
 		
 		private function updateBoxToMousePosition(changesArgument:Object):void
 		{
-			var tbx:Number = bnd.mouseX;// - (bx.width/bx.scaleX/2);
-			var tby:Number = bnd.mouseY;//- (bx.height/bx.scaleY/2);
+			cGloToLo.setTo(boxStage.mouseX, boxStage.mouseY);
+			cGloToLo = bx.parent.globalToLocal(cGloToLo);
+			
+			var tbx:Number = cGloToLo.x - startMouse.x;
+			var tby:Number = cGloToLo.y - startMouse.y;
+			
 			if(horizontal && vertical)
-				this.percentageCommon(tbx / (bnd.width / bnd.scaleX),tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,changesArgument);
+				absoluteCommon(tbx,tby,omitDraggingAnimation,changesArgument);
 			else if(horizontal)
-				this.setPercentageHorizontal(tbx / (bnd.width / bnd.scaleX),omitDraggingAnimation,changesArgument);
+				absoluteHor(tbx,omitDraggingAnimation,changesArgument);
 			else if(vertical)
-				this.setPercentageVertical(tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,changesArgument);
+				absoluteVer(tby,omitDraggingAnimation,changesArgument);
 		}
 		
 		private function executeCommon(omitAnimation:Boolean, changesArgument:Object):void
@@ -376,8 +385,8 @@ package axl.ui.controllers
 			bx.stage.addEventListener(MouseEvent.MOUSE_UP, onBoxMouseUp);
 			boxStart.x = bx.x;
 			boxStart.y = bx.y;
-			startMouse.x = boxStage.mouseX;
-			startMouse.y = boxStage.mouseY;
+			startMouse.x = bx.mouseX * bx.scaleX;
+			startMouse.y = bx.mouseY * bx.scaleY;
 			down = true;
 		}
 		
@@ -386,6 +395,8 @@ package axl.ui.controllers
 			boundStage.addEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
 			boundStage.addEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
 			touchyBoundDown = true;
+			startMouse.x = bx.width/2;
+			startMouse.y = bx.height/2;
 			updateBoxToMousePosition(true);
 			if(box is IEventDispatcher)
 				box.dispatchEvent(e);
