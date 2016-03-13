@@ -252,6 +252,13 @@ package axl.ui.controllers
 			validateAndUpdate(a);
 		}
 		
+		private function deltaMovement(delta:Number, mod:Object,omitAnimation:Boolean=false,changesArgument:Object=null):void
+		{
+			updateFrames();
+			rmovable[mod.a] += delta;
+			validateAndUpdate(mod.a,omitAnimation,changesArgument);
+		}
+		
 		private function updateBoxToMousePosition(changesArgument:Object):void
 		{
 			var tbx:Number = bnd.mouseX;// - (bx.width/bx.scaleX/2);
@@ -264,12 +271,16 @@ package axl.ui.controllers
 				this.setPercentageVertical(tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,changesArgument);
 		}
 		
-		private function deltaMovement(delta:Number, mod:Object,omitAnimation:Boolean=false,changesArgument:Object=null):void
+		private function executeCommon(omitAnimation:Boolean, changesArgument:Object):void
 		{
-			updateFrames();
-			rmovable[mod.a] += delta;
-			validateAndUpdate(mod.a,omitAnimation,changesArgument);
+			if(horizontal && vertical)
+				validUpdateCommon(omitAnimation,changesArgument);
+			else if (horizontal)
+				validateAndUpdate('x',omitAnimation,changesArgument);
+			else if(vertical)
+				validateAndUpdate('y',omitAnimation,changesArgument);
 		}
+
 		
 		private function finishBoundMovement():void
 		{
@@ -592,7 +603,7 @@ package axl.ui.controllers
 			updateFrames();
 			rmovable.x = box.x + dx;
 			rmovable.y = box.y + dy;
-			validUpdateCommon(omitAnimation,changesArgument);
+			executeCommon(omitAnimation,changesArgument);
 		}
 		
 		/**Updates box position to absolute values respecting horizontal and vertical behaviors
@@ -605,7 +616,7 @@ package axl.ui.controllers
 			updateFrames();
 			rmovable.x = ax;
 			rmovable.y = ay;
-			validUpdateCommon(omitAnimation,changesArgument);
+			executeCommon(omitAnimation,changesArgument);
 		}
 		
 		/**Updates box position to percentage of bound respecting horizontal and vertical behaviors.
@@ -617,7 +628,7 @@ package axl.ui.controllers
 			updateFrames();
 			rmovable.x = min.x + (max.x - min.x) *px;
 			rmovable.y = min.y + (max.y - min.y) *py;
-			validUpdateCommon(omitAnimation,changesArgument);
+			executeCommon(omitAnimation,changesArgument);
 		}
 		
 		/** Box movement can be smoothed by optimized animation of specific easing.<br>
