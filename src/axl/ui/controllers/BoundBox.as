@@ -83,6 +83,7 @@ package axl.ui.controllers
 		public var onChange:Function;
 		/** Determines if dragging box is eased with animation */
 		public var omitDraggingAnimation:Boolean=true;
+		private var xChangesArgument:Object;
 		
 		/** Easing function for animation curves. Applie it on BoundBox instance by setting easing property.
 		 * @see #animationTime @see #easing */
@@ -183,7 +184,7 @@ package axl.ui.controllers
 			}
 		}
 	
-		private function validateAndUpdate(a:String,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void
+		private function validateAndUpdate(a:String,omitAnimation:Boolean=false,changesArgument:Object=null):void
 		{
 			if(box == null)
 				return;
@@ -192,16 +193,16 @@ package axl.ui.controllers
 			if(box[a] == rmovable[a])
 				return;
 			if(animTime > 0 && !omitAnimation)
-				setupAO(dispatchChanges);
+				setupAO(changesArgument);
 			else
 			{
 				box[a] = rmovable[a];
-				if(dispatchChanges)
-					changeNotify(a);
+				if(changesArgument)
+					changeNotify(a,null,changesArgument);
 			}
 		}
 		
-		private function validUpdateCommon(omitAnimation:Boolean,dispatchChanges:Boolean):void
+		private function validUpdateCommon(omitAnimation:Boolean,changesArgument:Object=null):void
 		{
 			calculateMinMax(mods.x);
 			calculateMinMax(mods.y);
@@ -210,17 +211,17 @@ package axl.ui.controllers
 			if(box.x == rmovable.x && box.y == rmovable.y)
 				return;
 			if(animTime > 0 && !omitAnimation)
-				setupAO(dispatchChanges);
+				setupAO(changesArgument);
 			else
 			{
 				box.x = rmovable.x;
 				box.y = rmovable.y;
-				if(dispatchChanges)
-					changeNotify('x','y');
+				if(changesArgument)
+					changeNotify('x','y',changesArgument);
 			}
 		}
 		
-		private function changeNotify(axis:String,axis2:String=null):void
+		private function changeNotify(axis:String,axis2:String=null,changesArgument:Object=null):void
 		{
 			if(axis2!=null)
 			{
@@ -231,17 +232,17 @@ package axl.ui.controllers
 				updatePercentage(axis);
 			if(!changeNotifications)
 				return;
-			dispatchChange();
+			dispatchChange(changesArgument);
 			if(onChange != null)
-				onChange();
+				changesArgument ? onChange(changesArgument) : onChange();
 		}
 		//------------------ MOVEMENT ------------------- //
-		private function setPercentage(v:Number, mod:Object,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void
+		private function setPercentage(v:Number, mod:Object,omitAnimation:Boolean=false,changesArgument:Object=null):void
 		{
 			var a:String = mod.a;
 			updateFrames();
 			rmovable[a] = min[a] + (max[a] - min[a]) * v;
-			validateAndUpdate(a,omitAnimation,dispatchChanges);
+			validateAndUpdate(a,omitAnimation,changesArgument);
 		}
 		
 		private function updateAbsolute(mod:Object, val:Number):void
@@ -251,23 +252,23 @@ package axl.ui.controllers
 			validateAndUpdate(a);
 		}
 		
-		private function updateBoxToMousePosition(dispatchChanges:Boolean):void
+		private function updateBoxToMousePosition(changesArgument:Object):void
 		{
 			var tbx:Number = bnd.mouseX;// - (bx.width/bx.scaleX/2);
 			var tby:Number = bnd.mouseY;//- (bx.height/bx.scaleY/2);
 			if(horizontal && vertical)
-				this.percentageCommon(tbx / (bnd.width / bnd.scaleX),tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,dispatchChanges);
+				this.percentageCommon(tbx / (bnd.width / bnd.scaleX),tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,changesArgument);
 			else if(horizontal)
-				this.setPercentageHorizontal(tbx / (bnd.width / bnd.scaleX),omitDraggingAnimation,dispatchChanges);
+				this.setPercentageHorizontal(tbx / (bnd.width / bnd.scaleX),omitDraggingAnimation,changesArgument);
 			else if(vertical)
-				this.setPercentageVertical(tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,dispatchChanges);
+				this.setPercentageVertical(tby / (bnd.height / bnd.scaleY),omitDraggingAnimation,changesArgument);
 		}
 		
-		private function deltaMovement(delta:Number, mod:Object,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void
+		private function deltaMovement(delta:Number, mod:Object,omitAnimation:Boolean=false,changesArgument:Object=null):void
 		{
 			updateFrames();
 			rmovable[mod.a] += delta;
-			validateAndUpdate(mod.a,omitAnimation,dispatchChanges);
+			validateAndUpdate(mod.a,omitAnimation,changesArgument);
 		}
 		
 		private function finishBoundMovement():void
@@ -406,7 +407,7 @@ package axl.ui.controllers
 		}
 		
 		//---- ANIMATION SETUP
-		private function setupAO(dispatchChanges:Boolean):void
+		private function setupAO(changesArgument:Object):void
 		{
 			var axisArray:Array;
 			var aoo:AO;
@@ -420,7 +421,7 @@ package axl.ui.controllers
 				aop.xy.x = rmovable.x;
 				aop.xy.y = rmovable.y;
 				aoo.nProperties = aop.xy;
-				axisArray = ['x','y'];
+				axisArray = ['x','y',changesArgument];
 			}
 			else if(horizontal)
 			{
@@ -429,7 +430,7 @@ package axl.ui.controllers
 				aoo =  ao.x;
 				aop.x.x = rmovable.x;
 				aoo.nProperties = aop.x;
-				axisArray = ['y'];
+				axisArray = ['x',null,changesArgument];
 			}
 			else if(vertical)
 			{
@@ -438,15 +439,15 @@ package axl.ui.controllers
 				aoo =  ao.y;
 				aop.y.y = rmovable.y;
 				aoo.nProperties = aop.y;
-				axisArray = ['y'];
+				axisArray = [null,'y',changesArgument];
 			}
 			//changes
-			if(liveChanges && dispatchChanges)
+			if(liveChanges && (changesArgument != null))
 			{
 				aoo.onUpdate = changeNotify;
 				aoo.onUpdateArgs = axisArray;
 			}
-			else if(dispatchChanges)
+			else if(changesArgument != null)
 			{
 				aoo.onUpdate = null;
 				aoo.onComplete = changeNotify;
@@ -550,55 +551,73 @@ package axl.ui.controllers
 		public function set percentageVertical(v:Number):void { setPercentage(v, modV,true) }
 		public function get percentageVertical():Number { return percentage.y }
 		
-		/** determines horizontal position of the <code>box</code> between its minX and maxX values @see #minX @see #maxX */
-		public function setPercentageHorizontal(v:Number,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void { setPercentage(v, modH,omitAnimation,dispatchChanges) }
+		/** determines horizontal position of the <code>box</code> between its minX and maxX values
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed. @see #minX @see #maxX */
+		public function setPercentageHorizontal(v:Number,omitAnimation:Boolean=false,changesArgument:Object=null):void { setPercentage(v, modH,omitAnimation,changesArgument) }
 		
-		/** determines vertical position of the <code>box</code> between its minY and maxY values  @see #minY @see #maxY */
-		public function setPercentageVertical(v:Number,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void { setPercentage(v, modV,omitAnimation,dispatchChanges) }
+		/** determines vertical position of the <code>box</code> between its minY and maxY values 
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed. @see #minY @see #maxY */
+		public function setPercentageVertical(v:Number,omitAnimation:Boolean=false,changesArgument:Object=null):void { setPercentage(v, modV,omitAnimation,changesArgument) }
 		
-		/** Attempts to move box by delta, still follows <code>horizontalBehavior</code> rule @see #horizontalBehavior */
-		public function movementVer(delta:Number,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void  { deltaMovement(delta, modV,omitAnimation,dispatchChanges) }
+		/** Attempts to move box by delta, still follows <code>horizontalBehavior</code> rule
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed. @see #horizontalBehavior */
+		public function movementVer(delta:Number,omitAnimation:Boolean=false,changesArgument:Object=null):void  { deltaMovement(delta, modV,omitAnimation,changesArgument) }
 		
-		/** Attempts to move box by delta, still follows <code>verticalBehavior</code> rule @see #verticalBehavior */
-		public function movementHor(delta:Number,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void { deltaMovement(delta, modH,omitAnimation,dispatchChanges) }
+		/** Attempts to move box by delta, still follows <code>verticalBehavior</code> rule
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed. @see #verticalBehavior */
+		public function movementHor(delta:Number,omitAnimation:Boolean=false,changesArgument:Object=null):void { deltaMovement(delta, modH,omitAnimation,changesArgument) }
 		
-		/** Attempts to set absolute box y, still follows <code>horizontalBehavior</code> rule @see #horizontalBehavior */
-		public function absoluteVer(absolute:Number,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void  { movementVer(absolute - rmovable.y,omitAnimation,dispatchChanges) }
+		/** Attempts to set absolute box y, still follows <code>horizontalBehavior</code> rule
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed. @see #horizontalBehavior */
+		public function absoluteVer(absolute:Number,omitAnimation:Boolean=false,changesArgument:Object=null):void  { movementVer(absolute - rmovable.y,omitAnimation,changesArgument) }
 		
-		/** Attempts to  set absolute box x, still follows <code>verticalBehavior</code> rule @see #verticalBehavior */
-		public function absoluteHor(absolute:Number,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void { movementHor(absolute - rmovable.x, omitAnimation,dispatchChanges) }
+		/** Attempts to  set absolute box x, still follows <code>verticalBehavior</code> rule
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed. @see #verticalBehavior */
+		public function absoluteHor(absolute:Number,omitAnimation:Boolean=false,changesArgument:Object=null):void { movementHor(absolute - rmovable.x, omitAnimation,changesArgument) }
 		
-		/**Updates box position by delta x and delta y simultaneously @param dx - delta x @param dx - delta y  
+		/**Updates box position by delta x and delta y simultaneously
+		 * @param dx - delta x @param dx - delta y
+		 * @param omitAnimation - if true, box will be updated immediately 
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed.
 		 * @see #absoluteCommon() @see #percentageCommon() */
-		public function movementCommon(dx:Number, dy:Number, omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void 
+		public function movementCommon(dx:Number, dy:Number, omitAnimation:Boolean=false,changesArgument:Object=null):void 
 		{ 
 			updateFrames();
 			rmovable.x = box.x + dx;
 			rmovable.y = box.y + dy;
-			validUpdateCommon(omitAnimation,dispatchChanges);
+			validUpdateCommon(omitAnimation,changesArgument);
 		}
 		
 		/**Updates box position to absolute values respecting horizontal and vertical behaviors
-		 * @param ax - requested absolute box x  @param ay - requested absolute box y 
+		 * @param ax - requested absolute box x  @param ay - requested absolute box y
+		 * @param changesArgument - if null or false, no changes will be dispatched while processing this call, 
+		 * otherwise argument will be passed to <code>onChange</code> function if specifed.
 		 * @see #verticalBehavior @see #horizontalBehavior @see #movementCommon() @see #percentageCommon() */
-		public function absoluteCommon(ax:Number, ay:Number, omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void 
+		public function absoluteCommon(ax:Number, ay:Number, omitAnimation:Boolean=false,changesArgument:Object=null):void 
 		{ 
 			updateFrames();
 			rmovable.x = ax;
 			rmovable.y = ay;
-			validUpdateCommon(omitAnimation,dispatchChanges);
+			validUpdateCommon(omitAnimation,changesArgument);
 		}
 		
 		/**Updates box position to percentage of bound respecting horizontal and vertical behaviors.
 		 * @param px - assuming inscribed: if bound is 200px wide setting px to 0.4 would set box x = 80
 		 * @param px - assuming inscribed: if bound is 100px high setting py to 0.4 would set box y = 80
 		 * @see #verticalBehavior @see #horizontalBehavior @see #absoluteCommon() @see #percentageCommon() */
-		public function percentageCommon(px:Number, py:Number,omitAnimation:Boolean=false,dispatchChanges:Boolean=false):void 
+		public function percentageCommon(px:Number, py:Number,omitAnimation:Boolean=false,changesArgument:Object=null):void 
 		{ 
 			updateFrames();
 			rmovable.x = min.x + (max.x - min.x) *px;
 			rmovable.y = min.y + (max.y - min.y) *py;
-			validUpdateCommon(omitAnimation,dispatchChanges);
+			validUpdateCommon(omitAnimation,changesArgument);
 		}
 		
 		/** Box movement can be smoothed by optimized animation of specific easing.<br>
@@ -637,8 +656,11 @@ package axl.ui.controllers
 		}
 		
 		/** Dispatches change event*/
-		public function dispatchChange():void { this.dispatchEvent(eventChange) }
-		
+		public function dispatchChange(changesArgument:Object=null):void { 
+			this.xChangesArgument = changesArgument;
+			this.dispatchEvent(eventChange);
+		}
+		public function get changesArgument():Object { return xChangesArgument }
 		/** If animationTime is > 0, box movements can be eased. Use BoundBox.easings to pick easing function */
 		public function set easing(v:Function):void {this.easingFunc = v }
 		
@@ -678,6 +700,7 @@ package axl.ui.controllers
 			}
 			ao = null;
 			changeNotifications = false;
+			xChangesArgument = null;
 			liveChanges = false;
 			eventChange = null;
 			rmovable =  rstatic = null;
