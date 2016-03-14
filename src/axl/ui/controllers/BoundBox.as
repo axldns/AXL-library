@@ -30,6 +30,7 @@ package axl.ui.controllers
 		public static const bottom:String = 'bottom';
 		public static const middles:String = 'middles';
 		
+		public static const version:String = '1.0';
 		private static var eventChange:Event = new Event(Event.CHANGE);
 		
 		private var mapf:Array = [minMaxInscribed, minMaxDescribed, minMaxChain, minMaxTop, minMaxBottom, minMaxMiddles];
@@ -63,9 +64,9 @@ package axl.ui.controllers
 		private var easingFunc:Function;
 		private var xChangesArgument:Object;
 		
-		private var down:Boolean;
+		private var boxMouseDown:Boolean;
 		private var xtouchyBound:Boolean=true;
-		private var touchyBoundDown:Boolean;
+		private var boundMouseDown:Boolean;
 		
 		/** Determines if box can be moved horizontally */
 		public var horizontal:Boolean;
@@ -293,9 +294,9 @@ package axl.ui.controllers
 		
 		private function finishBoundMovement():void
 		{
-			if(!touchyBoundDown)
-				return
-			touchyBoundDown = false;
+			if(!boundMouseDown)
+				return;
+			boundMouseDown = false;
 			boundStage.removeEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
 			boundStage.removeEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
 			changeNotify('x','y');
@@ -303,9 +304,9 @@ package axl.ui.controllers
 		
 		protected function finishBoxMovement():void
 		{
-			if(!down)
+			if(!boxMouseDown)
 				return;
-			down =false;
+			boxMouseDown =false;
 			boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, onBoxMouseMove);
 			boxStage.removeEventListener(MouseEvent.MOUSE_UP, onBoxMouseUp);
 			changeNotify('x','y');
@@ -381,30 +382,32 @@ package axl.ui.controllers
 		//--------------MOUSE DOWN------------//
 		protected function onBoxMouseDown(e:MouseEvent):void
 		{
+			if(boundMouseDown)
+				return;
 			bx.stage.addEventListener(MouseEvent.MOUSE_MOVE, onBoxMouseMove);
 			bx.stage.addEventListener(MouseEvent.MOUSE_UP, onBoxMouseUp);
 			boxStart.x = bx.x;
 			boxStart.y = bx.y;
 			startMouse.x = bx.mouseX * bx.scaleX;
 			startMouse.y = bx.mouseY * bx.scaleY;
-			down = true;
+			boxMouseDown = true;
 		}
 		
 		protected function onBoundMouseDown(e:MouseEvent):void
 		{
 			boundStage.addEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
 			boundStage.addEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
-			touchyBoundDown = true;
+			boundMouseDown = true;
 			startMouse.x = bx.width/2;
 			startMouse.y = bx.height/2;
-			updateBoxToMousePosition(true);
+			updateBoxToMousePosition(liveChanges);
 			if(box is IEventDispatcher)
 				box.dispatchEvent(e);
 		}
 		//--------------MOUSE MOVE------------//
 		protected function onBoxMouseMove(e:MouseEvent):void
 		{
-			if(e.buttonDown && down && !touchyBoundDown)
+			if(e.buttonDown && boxMouseDown && !boundMouseDown)
 				updateBoxToMousePosition(liveChanges);
 			else
 				finishBoxMovement();
@@ -412,7 +415,7 @@ package axl.ui.controllers
 		
 		protected function onBoundMouseMove(e:MouseEvent):void
 		{
-			if(e.buttonDown && touchyBoundDown)
+			if(e.buttonDown && boundMouseDown)
 				updateBoxToMousePosition(liveChanges);
 			else
 				finishBoundMovement();
