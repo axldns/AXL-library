@@ -23,7 +23,6 @@ package axl.ui
 	public class Messages
 	{
 		private static var tff_msg:TextFormat = new TextFormat("Verdana", 16, 0xffffff,null,null,null,null,null,'center');
-		private static var tff_mini:TextFormat =new TextFormat("Verdana", 8, 0xffffff,null,null,null,null,null,'center');
 		private static var tf:TextField = makeTf();
 		private static var insideTap:Function;
 		private static var outsideTap:Function;
@@ -46,9 +45,8 @@ package axl.ui
 				return MD();
 			insideTap = onTapInside;
 			outsideTap = onTapOutside;
-			tf.text = v;
-			tf.appendText(String(' ('+getTimer()/1000 + ')'));
-			tf.setTextFormat(tff_mini, v.length, tf.text.length);
+			tf.htmlText = v + '<br><font size="7">('+getTimer()/1000 + ')</font>';
+			
 			tf.width = U.REC.width;
 			tf.height = tf.textHeight + 5;
 			U.STG.addChild(tf);
