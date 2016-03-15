@@ -31,7 +31,7 @@ package axl.utils.binAgent
 	
 	public class Console extends Sprite
 	{
-		public static const version:String = '0.0.18';
+		public static const version:String = '0.0.19';
 		private static const BBclassName:String = 'axl.ui.controllers::BoundBox'; 
 		private static const boundBoxClass:Class = ApplicationDomain.currentDomain.hasDefinition(BBclassName) ? getDefinitionByName(BBclassName) as Class : null;
 		private static var _instance:Console;
@@ -39,7 +39,6 @@ package axl.utils.binAgent
 		//window
 		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 12, 0xaaaaaa);
 		private var input_textFormat:TextFormat =  new TextFormat('Lucida Console', 12, 0x333333);
-		private var consoleOutput_TextFormat:TextFormat =  new TextFormat('Lucida Console', 12, 0xFFDE9D);
 		private var bConsole:TextField;
 		private var bInput:TextField;
 		private var bSlider:Sprite;
@@ -69,7 +68,6 @@ package axl.utils.binAgent
 		private var boundBox:Object;
 		protected var totalString:String='';
 		public var maxChars:uint = 80000;
-		private var resizeListenerAdded:Boolean;
 		
 		public var passNewTextFunction:Function;
 		protected var className:String;
@@ -117,10 +115,12 @@ package axl.utils.binAgent
 			boundBox = new boundBoxClass();
 			boundBox.horizontal = false;
 			boundBox.vertical = true;
+			boundBox.liveChanges = true;
 			boundBox.verticalBehavior  = boundBoxClass.inscribed;
 			boundBox.bound = bSliderRail;
 			boundBox.box = bSlider;
-			boundBox.addEventListener(Event.CHANGE, sliderEvent);
+			boundBox.onChange = sliderEvent;
+			//boundBox.addEventListener(Event.CHANGE, sliderEvent);
 		}
 		
 		private function build_console():void
@@ -191,18 +191,10 @@ package axl.utils.binAgent
 			refreshWindow();
 			stg.focus= this.bInput;
 			bIsOpen = true;
-			if(!resizeListenerAdded)
-			{
-				stg.addEventListener(Event.RESIZE, stageResized);
-				resizeListenerAdded = true;
-			}
+			resize(stage.stageWidth, stage.stageHeight/2);
+			boundBox.refresh();
 		}
 		
-		protected function stageResized(event:Event):void
-		{
-			if(this.stage)
-				resize(stage.stageWidth, stage.stageHeight);
-		}
 		private function rfs(e:Event):void
 		{
 			bIsOpen = false;
@@ -274,15 +266,11 @@ package axl.utils.binAgent
 		//-------
 		// ------------------------------------- WINDOW CONTROLL ------------------------------------- //
 		
-		protected function sliderEvent(event:Event):void
+		protected function sliderEvent(e:Object=null):void
 		{
-			boundBox.changeNotifications=false;
-			boundBox.liveChanges=false;
-			bConsole.removeEventListener(Event.SCROLL, scrollEvent);
-			bConsole.scrollV = this.boundBox.percentageVertical * bConsole.maxScrollV;
-			bConsole.addEventListener(Event.SCROLL, scrollEvent);
-			boundBox.changeNotifications=true;
-			boundBox.liveChanges=true;
+			if(e is Event)
+				return;
+			bConsole.scrollV = boundBox.percentageVertical * bConsole.maxScrollV;
 		}
 		
 		protected function scrollEvent(e:Event):void
@@ -292,15 +280,7 @@ package axl.utils.binAgent
 				var n:Number = bConsole.scrollV /  bConsole.maxScrollV;
 				var dif:Number = Math.abs(n - boundBox.percentageVertical);
 				if(dif > 0.01)
-				{
-					boundBox.changeNotifications=false;
-					boundBox.liveChanges=false;
-					bConsole.removeEventListener(Event.SCROLL, scrollEvent);
-					boundBox.percentageVertical = n;
-					bConsole.addEventListener(Event.SCROLL, scrollEvent);
-					boundBox.changeNotifications=true;
-					boundBox.liveChanges=true;
-				}
+					boundBox.setPercentageVertical(n,true,e);
 			}
 		}
 		protected function stageMouseDown(e:MouseEvent):void
@@ -395,18 +375,12 @@ package axl.utils.binAgent
 			var t:String = bInput.text;
 			if(t.length < 1)
 				return;
-			var tstart:int = bConsole.text.length;
-			var tlen:int = trrace(t);
-			if(tstart < bConsole.text.length)
-			{
-				bConsole.setTextFormat(consoleOutput_TextFormat, tstart, tstart +tlen);
-			}
+			
+			trrace('<font color="#FFDE9D">'+t+'</font>');
 			bConsole.scrollV = bConsole.maxScrollV;
 			
 			try{ trrace(PARSE_INPUT(t))}
 			catch (e:*) { trrace("[BinAgent]ERROR OCCURED:\n", e) }
-			if((tstart + tlen) < bConsole.text.length)
-				bConsole.setTextFormat(console_textFormat, tstart +tlen);
 			if(past.indexOf(t) < 0)
 				past.unshift(t);
 			else
@@ -460,7 +434,7 @@ package axl.utils.binAgent
 		{
 			if(bConsole)
 			{	
-				bConsole.text = totalString;
+				bConsole.htmlText = totalString;
 				bConsole.scrollV = bConsole.maxScrollV;
 			}
 			if(boundBox != null && boundBox.percentageVertical != 1)
@@ -617,7 +591,6 @@ package axl.utils.binAgent
 			this.removeEventListener(Event.REMOVED_FROM_STAGE, rfs);
 			if(stg)
 			{
-				stg.removeEventListener(Event.RESIZE, stageResized);
 				stg.removeEventListener(MouseEvent.MOUSE_UP, mu);
 				stg.loaderInfo.sharedEvents.removeEventListener('axl.utils.binAgent', onBinAgentSyncEvent);
 				stg.removeEventListener(MouseEvent.MOUSE_DOWN, stageMouseDown); 
