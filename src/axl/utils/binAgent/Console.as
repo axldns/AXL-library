@@ -57,20 +57,23 @@ package axl.utils.binAgent
 		private var bAllowGestureOpen:Boolean=true;
 		private var bAllowKeyboardOpen:Boolean=true;
 		private var bExternalTrace:Function;
-		public var regularTraceToo:Boolean = true;
-		public var userKeyboarOpenSequence:String;
+	
 		private var userKeyboarOpenSequenceCount:int;
+		protected var className:String;
+		protected var totalString:String='';
 		
 		//gesture opening
 		private var nonKarea:Rectangle= new Rectangle(60,0,100,60);
 		private var gestureRepetitions:int = 0;
 		private var nonRepsIndicator:int = 4;
 		private var boundBox:Object;
-		protected var totalString:String='';
-		public var maxChars:uint = 80000;
 		
+		public var maxChars:uint = 80000;
+		public var autoResize:Boolean = true;
 		public var passNewTextFunction:Function;
-		protected var className:String;
+		public var regularTraceToo:Boolean = true;
+		public var userKeyboarOpenSequence:String;
+		
 		public function get VERSION():String { return version };
 		public function get text():String { return totalString }
 		public function get rootObject():DisplayObject { return rootObj }
@@ -85,7 +88,6 @@ package axl.utils.binAgent
 				rootSetup();
 				_instance = this;
 				trrace("==== BIN AGENT "+version+" ====");
-			
 		}
 		
 		public static function get instance():Console { return _instance }
@@ -191,8 +193,10 @@ package axl.utils.binAgent
 			refreshWindow();
 			stg.focus= this.bInput;
 			bIsOpen = true;
-			resize(stage.stageWidth, stage.stageHeight/2);
-			boundBox.refresh();
+			if(autoResize)
+				resize(stage.stageWidth, stage.stageHeight/2);
+			if(boundBox)
+				boundBox.refresh();
 		}
 		
 		private function rfs(e:Event):void
@@ -303,7 +307,6 @@ package axl.utils.binAgent
 		{
 			if(stg != null)
 			{
-				this.stopDrag()
 				//sliderIsDown = false;
 			}
 			if(allowGestureOpen)
@@ -496,17 +499,23 @@ package axl.utils.binAgent
 		{
 			if(w != 0)
 			{
-				console.width = w;
-				input.width = w;
+				if(console)
+					console.width = w;
+				if(input)
+					input.width = w;
 			}
 			if(h !=0)
 			{
-				console.height = h - input.height;
-				bSliderRail.graphics.clear();
-				bSliderRail.graphics.beginFill(0xffffff,0.3);
-				bSliderRail.graphics.drawRect(0,0,15,console.height);
-				bSliderRail.graphics.endFill();
-				bSliderRail.mouseChildren = false;
+				if(console && input)
+					console.height = h - input.height;
+				if(bSliderRail)
+				{
+					bSliderRail.graphics.clear();
+					bSliderRail.graphics.beginFill(0xffffff,0.3);
+					bSliderRail.graphics.drawRect(0,0,15,console.height);
+					bSliderRail.graphics.endFill();
+					bSliderRail.mouseChildren = false;
+				}
 			}
 			align();
 		}
