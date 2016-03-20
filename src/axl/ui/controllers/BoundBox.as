@@ -395,6 +395,8 @@ package axl.ui.controllers
 		
 		protected function onBoundMouseDown(e:MouseEvent):void
 		{
+			if(!bx)
+				return
 			boundStage.addEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
 			boundStage.addEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
 			boundMouseDown = true;
@@ -464,7 +466,7 @@ package axl.ui.controllers
 				aoo =  ao.y;
 				aop.y.y = rmovable.y;
 				aoo.nProperties = aop.y;
-				axisArray = [null,'y',changesArgument];
+				axisArray = ['y',null,changesArgument];
 			}
 			//changes
 			if(liveChanges && (changesArgument != null))
