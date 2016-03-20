@@ -22,7 +22,7 @@ package axl.ui
 	 */
 	public class Messages
 	{
-		private static var tff_msg:TextFormat = new TextFormat("Verdana", 16, 0xffffff,null,null,null,null,null,'center');
+		private static var tff_msg:TextFormat = new TextFormat("Verdana", 16, 0xffffff,null,null,null,null,null,'center',null,null,null,-4);
 		private static var tf:TextField = makeTf();
 		private static var insideTap:Function;
 		private static var outsideTap:Function;
@@ -33,13 +33,14 @@ package axl.ui
 		 */
 		public static function get areDisplayed():Boolean { return (tf && tf.parent) };
 		public static function set bgColour(u:uint):void {tf.backgroundColor = u }
+		public static function get textfield():TextField { return tf }
 		public static function set textFormat(v:TextFormat):void 
 		{
 			tff_msg = v;
 			tf.defaultTextFormat = tff_msg;
 			tf.setTextFormat(tff_msg);
 		}
-		public static function msg(v:String=null, onTapOutside:Function=null, onTapInside:Function=null):void
+		public static function msg(v:String=null, onTapOutside:Function=null, onTapInside:Function=null,forceClickInside:Boolean=false):void
 		{
 			if(v == null || U.STG == null)
 				return MD();
@@ -53,7 +54,35 @@ package axl.ui
 			if(logMessages)
 				U.log(v);
 			U.STG.addEventListener(MouseEvent.MOUSE_DOWN, MD);
+			
+			function MD(e:MouseEvent=null):void
+			{
+				if((forceClickInside && e.target == tf) || !forceClickInside)
+					remove();
+				if(e != null)
+				{
+					if(e.target == tf)
+					{
+						if(insideTap != null) 
+							insideTap();
+					}
+					else 
+					{
+						if(outsideTap != null)
+							outsideTap();
+					}
+				}
+			}
+			
+			function remove():void
+			{
+				if(tf != null && (tf.parent != null))
+					tf.parent.removeChild(tf);
+				if(U.STG != null)
+					U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
+			}
 		}
+		
 		
 		private static function makeTf():TextField
 		{
@@ -70,22 +99,6 @@ package axl.ui
 			return tfm;
 		}
 		
-		private static function MD(e:MouseEvent=null):void
-		{
-			
-			if(tf != null && (tf.parent != null))
-				tf.parent.removeChild(tf);
-			if(e != null)
-			{
-				if(e.target == tf)
-					if(insideTap != null) insideTap();
-				else 
-					if(outsideTap != null)
-						outsideTap();
-			}
-			if(U.STG != null)
-				U.STG.removeEventListener(MouseEvent.MOUSE_DOWN, MD);
-		}	
 		
 		public static function resize():void
 		{

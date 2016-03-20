@@ -111,8 +111,8 @@ package axl.utils
 		
 		/** Displays semi dialog pop-up message on top of the screen. Message disappears on first focus change / tap / click.
 		 * To adjust layout use Messages class. @see axl.ui.Messages */
-		public static function msg(message:String, onOutsideTap:Function=null, onInsideTap:Function=null):void {
-			Messages.msg(message, onOutsideTap, onInsideTap);
+		public static function msg(message:String, onOutsideTap:Function=null, onInsideTap:Function=null,forceClickInside:Boolean=false):void {
+			Messages.msg(message, onOutsideTap, onInsideTap,forceClickInside);
 		}
 		/** Adds multiple children to <code>container</code> in a single call */
 		public static function addChildGroup(container:Object, ...args):void
