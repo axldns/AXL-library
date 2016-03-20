@@ -327,6 +327,8 @@ package  axl.utils
 			numCurrentRemaining--;
 			if(individualComplete is Function)
 				individualComplete(filename);
+			if(!eventProgress) // this is in case individualComplete DESTROYS this request
+				return
 			dispatchEvent(eventProgress);
 			nextElement();
 		}
