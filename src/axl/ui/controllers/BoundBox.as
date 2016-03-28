@@ -157,7 +157,10 @@ package axl.ui.controllers
 		
 		private function updatePercentage(axle:String):void
 		{
+			
 			percentage[axle] = (box[axle]-min[axle]) / (max[axle] - min[axle]);
+			if(!isFinite(percentage[axle]))
+				percentage[axle] = 0;
 		}
 		
 		private function setBehavior(v:String, axle:String):void
@@ -502,7 +505,6 @@ package axl.ui.controllers
 			}
 		}
 		
-		
 		// -------------------------------- PUBLIC API ---------------------------------- //
 		/** object which limits area where <code>box</code> can be moved around according to <code>horizontalBehavior</code> 
 		 * and <code>verticalBehavior</code> rules. @see #horizontalBehavior @see #verticalBehavior @see #box */
@@ -684,15 +686,25 @@ package axl.ui.controllers
 				addBoundListeners();
 		}
 		/** Stops all current movement of box*/
-		public function killAnimations():void
+		public function killAnimations(changesArgument:Object=null):void
 		{
 			if(ao)
 			{
-				AO.killOff(ao.x);
-				AO.killOff(ao.y);
-				AO.killOff(ao.xy); 
-				updatePercentage('x');
-				updatePercentage('y');
+				if(horizontal && vertical)
+				{
+					AO.killOff(ao.xy); 
+					changeNotify('x','y',changesArgument);
+				}
+				else if(horizontal)
+				{
+					AO.killOff(ao.x);
+					changeNotify('x',null,changesArgument);
+				}
+				else if (vertical)
+				{
+					AO.killOff(ao.y);
+					changeNotify('y',null,changesArgument);
+				}
 			}
 		}
 		
