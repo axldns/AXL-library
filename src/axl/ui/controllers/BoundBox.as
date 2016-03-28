@@ -384,6 +384,7 @@ package axl.ui.controllers
 		{
 			if(boundMouseDown)
 				return;
+			killAnimations();
 			bx.stage.addEventListener(MouseEvent.MOUSE_MOVE, onBoxMouseMove);
 			bx.stage.addEventListener(MouseEvent.MOUSE_UP, onBoxMouseUp);
 			boxStart.x = bx.x;
@@ -397,6 +398,7 @@ package axl.ui.controllers
 		{
 			if(!bx)
 				return
+			killAnimations();
 			boundStage.addEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
 			boundStage.addEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
 			boundMouseDown = true;
@@ -681,6 +683,18 @@ package axl.ui.controllers
 			else if(!bnd.hasEventListener(MouseEvent.MOUSE_DOWN))
 				addBoundListeners();
 		}
+		/** Stops all current movement of box*/
+		public function killAnimations():void
+		{
+			if(ao)
+			{
+				AO.killOff(ao.x);
+				AO.killOff(ao.y);
+				AO.killOff(ao.xy); 
+				updatePercentage('x');
+				updatePercentage('y');
+			}
+		}
 		
 		/** Dispatches change event*/
 		public function dispatchChange(changesArgument:Object=null):void { 
@@ -694,6 +708,7 @@ package axl.ui.controllers
 		/** Stops all animations, removes all event listeners and references to both bound and box */
 		public function destroy():void
 		{
+			killAnimations();
 			if(bound)
 			{
 				bound.removeEventListener(Event.ADDED_TO_STAGE, boundOnStage);
@@ -720,11 +735,6 @@ package axl.ui.controllers
 			box = null;
 			boundStage = null;
 			boxStage = null;
-			if(ao)
-			{
-				AO.killOff(ao.x);
-				AO.killOff(ao.y)
-			}
 			ao = null;
 			changeNotifications = false;
 			xChangesArgument = null;
