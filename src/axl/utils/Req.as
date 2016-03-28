@@ -114,6 +114,7 @@ package  axl.utils
 		private var eventCancel:Event = new Event(Event.CANCEL);
 		public var id:Number;
 		public var separateDomain:Boolean;
+		private var tname:String = '[Ldr][Queue]';
 		
 		public function Req()
 		{
@@ -154,7 +155,7 @@ package  axl.utils
 			flatList.length = 0;
 			flatList = null;
 			counters(l);
-			log("[Ldr][Queue] added to queue.", Ldr.state);
+			log(tname+" added to queue.", Ldr.state);
 			return l;
 		}
 		
@@ -173,7 +174,7 @@ package  axl.utils
 			flatList = null;
 			l = pathList.length;
 			counters(l);
-			log("[Ldr][Queue] removed from queue.");
+			log(tname+" removed from queue.");
 			return l;
 		}
 		
@@ -294,7 +295,7 @@ package  axl.utils
 		
 		public function load():void
 		{
-			log("[Ldr][Queue] start. state:\n", Ldr.state);
+			log(tname+" start. state:\n", Ldr.state);
 			isLoading = true;
 			isPaused = false;
 			nextElement();
@@ -307,7 +308,7 @@ package  axl.utils
 		{
 			numCurrentSkipped++;
 			_numAllSkipped++;
-			log("[Ldr][Queue]["+filename+"] SKIPPED:("+ String(getTimer()- benchmarkTimer)+"ms):");
+			log(tname+"["+filename+"] SKIPPED:("+ String(getTimer()- benchmarkTimer)+"ms):");
 			element_complete();
 		}
 		
@@ -315,7 +316,7 @@ package  axl.utils
 		{
 			numCurrentLoaded++;
 			_numAllLoaded++;
-			log("[Ldr][Queue]["+filename+"] LOADED!:("+ String(getTimer()- benchmarkTimer)+"ms):", urlRequest.url);
+			log(tname+"["+filename+"] LOADED!:("+ String(getTimer()- benchmarkTimer)+"ms):", urlRequest.url);
 			element_complete();
 		}
 		
@@ -328,7 +329,7 @@ package  axl.utils
 			if(individualComplete is Function)
 				individualComplete(filename);
 			if(!eventProgress) // this is in case individualComplete DESTROYS this request
-				return
+				return;
 			dispatchEvent(eventProgress);
 			nextElement();
 		}
@@ -358,7 +359,7 @@ package  axl.utils
 			
 			//setup loaders and load
 			urlRequest.url = concatenatedPath;
-			log("[Ldr][Queue]["+filename+"] loading:("+ String(getTimer()- benchmarkTimer)+'ms):', urlRequest.url);
+			log(tname+"["+filename+"] loading:("+ String(getTimer()- benchmarkTimer)+'ms):', urlRequest.url);
 			this.requestTimeOutID = setTimeout(requestTimePassed, this.timeOut);
 			urlLoader.load(urlRequest);
 		}
@@ -379,18 +380,18 @@ package  axl.utils
 			{
 				var f:Object;
 				var path:String = getConcatenatedPath(storePrefix, savingPath);
-				log("[Ldr][Queue]["+filename+"][Save] saving:", path);
+				log(tname+"["+filename+"][Save] saving:", path);
 				//resolving file locating
 				try{ f= new FileClass(path) } 
-				catch (e:ArgumentError) { log("[Ldr][Queue]["+filename+"][Save] incorrect path. null file:",path,e) }
+				catch (e:ArgumentError) { log(tname+"["+filename+"][Save] incorrect path. null file:",path,e) }
 				
 				//validation and filters
 				if(validateSameDirs)
 				{
 					try { f = baseValidation(storeFilter(f, urlRequest.url), urlRequest.url) }
-					catch(e:*) { f = null, log("[Ldr][Queue]["+filename+"][Save][filter] error:", e) }
+					catch(e:*) { f = null, log(tname+"["+filename+"][Save][filter] error:", e) }
 					if(f == null)
-						return log("[Ldr][Queue]["+filename+"][Save] Storing criteria doesn't match, abort");
+						return log(tname+"["+filename+"][Save] Storing criteria doesn't match, abort");
 				}
 				
 				//writing to disc
@@ -400,8 +401,8 @@ package  axl.utils
 					fr.writeBytes(data);
 					fr.close();
 					fr = null;
-					log("[Ldr][Queue]["+filename+"][Save] SAVED:", f.exists,':', f.url, '['+ String(data.length / 1024) + 'kb]');
-				} catch (e:Error) { log("[Ldr][Queue]["+filename+"][Save] FAIL: cant save as:",f.url,'\n',e) }
+					log(tname+"["+filename+"][Save] SAVED:", f.exists,':', f.nativePath, '['+ String(data.length / 1024) + 'kb]');
+				} catch (e:Error) { log(tname+"["+filename+"][Save] FAIL: cant save as:",f.url,'\n',e) }
 				f = null;
 			}
 		}
@@ -420,7 +421,7 @@ package  axl.utils
 		
 		private function onError(e:Event):void
 		{
-			log("[Ldr][Queue]["+filename+"][Error]:("+ String(getTimer()- benchmarkTimer)+"ms):", e);
+			log(tname+"["+filename+"][Error]:("+ String(getTimer()- benchmarkTimer)+"ms):", e);
 			clearTimeout(this.requestTimeOutID);
 			bothLoadersComplete(null);
 		}
@@ -454,7 +455,7 @@ package  axl.utils
 		
 		private function onUrlLoaderComplete(e:Object):void
 		{
-			log("[Ldr][Queue]["+filename+"] instantiation..("+ String(getTimer()- benchmarkTimer)+"ms)");
+			log(tname+"["+filename+"] instantiation..("+ String(getTimer()- benchmarkTimer)+"ms)");
 			var bytes:ByteArray = urlLoader.data;
 			if(bytes) saveIfRequested(bytes, originalPath);
 			else return bothLoadersComplete(null);
@@ -514,11 +515,12 @@ package  axl.utils
 			{
 				loaderInfo.removeEventListener(IOErrorEvent.IO_ERROR, onError);
 				loaderInfo.removeEventListener(Event.COMPLETE, onLoaderComplete);
+				loaderInfo.uncaughtErrorEvents.removeEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, handleUncaughtErrors);
 			}
 			if((asset == null) && (++prefixIndex < numPrefixes))
 			{
 				pathList.push(originalPath);
-				log("[Ldr][Queue]["+filename+"] soft fail:", url, 
+				log(tname+"["+filename+"] soft fail:", url, 
 					'\n[Ldr][Queue]['+filename+"] Trying alternative dir:("+ String(getTimer()- benchmarkTimer)+"ms):", validatedPrefix);
 				nextElement();
 			}
@@ -579,7 +581,7 @@ package  axl.utils
 					f.resolvePath('.');
 					//return f.url.substr(0, f.url.indexOf('\%3F')); //ON MAC LOCAL RESOURCES URL REQUESTS WITH QUERY STRINGS CAUSE IOERROR
 					return f.url;
-				} catch (e:*) { log("[Ldr][Queue]["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
+				} catch (e:*) { log(tname+"["+filename+"] can not resolve path:",prefix + originalUrl, e, 'trying as URLloader')
 				} finally { f = null }
 			}
 			else
@@ -668,7 +670,7 @@ package  axl.utils
 		
 		protected function handleUncaughtErrors(e:UncaughtErrorEvent):void
 		{
-			U.log('[Ldr][Req][uncought error]',  e.error, e.error ? Error(e.error).message : '');
+			U.log(tname+'[uncaught error]',  e.error, e.error ? Error(e.error).message : '');
 			if(e.error is Error)
 				U.log(Error(e.error).getStackTrace());
 			onError(e);
@@ -685,11 +687,11 @@ package  axl.utils
 		private function baseValidation(file:Object, url:String):Object
 		{
 			if(!(file is FileClass) || file.isDirectory){
-				Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] file is not File");
+				Ldr.log(tname+"["+filename+"][Save][criteria] file is not File");
 				return null;
 			}
 			else if(file.url == url){
-				Ldr.log("[Ldr][Queue]["+filename+"][Save][criteria] store and load directiries are equal");
+				Ldr.log(tname+"["+filename+"][Save][criteria] store and load directiries are equal");
 				return null;
 			}
 			return file;
