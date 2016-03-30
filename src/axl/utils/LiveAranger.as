@@ -106,7 +106,7 @@ package axl.utils
 			var o:Object = e.changeList.length > 0 ? e.changeList.pop() : null;
 			U.log(tname, "[liveArangerAlreadyExists]", 'self?', o == this);
 			if(o.hasOwnProperty('destroy'))
-				o.destroy();
+				o.destroy(this);
 			o = null;
 		}
 		
@@ -433,7 +433,7 @@ package axl.utils
 				instance.destroy();
 		}
 		/** Removes all event listeners and destroys instance. Destroyed instance can not be reused.*/
-		public function destroy():void
+		public function destroy(v:Object=null):void
 		{
 			U.log(tname, "[DESTROY]");
 			U.STG.removeEventListener(MouseEvent.MOUSE_MOVE,mm);
@@ -442,7 +442,7 @@ package axl.utils
 			U.STG.removeEventListener(KeyboardEvent.KEY_UP, keyUp);
 			U.STG.removeEventListener(KeyboardEvent.KEY_DOWN, keyDown);
 			U.STG.loaderInfo.sharedEvents.removeEventListener('axl.utils.LiveAranger',liveArangerAlreadyExists);
-			//instance = null;
+			instance = v as LiveAranger;
 			
 			if(xselector)
 			{
