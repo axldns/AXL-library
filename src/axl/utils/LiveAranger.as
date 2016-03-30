@@ -74,6 +74,10 @@ package axl.utils
 		private var editorWindowOn:Boolean;
 		private var version:String = '2.0.2';
 		private var tname:String = "[LiveArranger "+ version + "]";
+		private var userKeyboarOpenSequenceCount:int;
+		/** Defines the sequence of key codes that activates/deactivates LiveArranger @default [117] - means F6 to toggle. 
+		 * [117,117,117] would require pressing F6 key three times to act/deactivate  */
+		public var userKeyboarOpenSequence:Array = [117];
 		
 		/** @see LiveAranger*/
 		public function LiveAranger()
@@ -95,6 +99,7 @@ package axl.utils
 		}
 		
 		//------------------EVENTS HANDLING------------------------//
+
 		protected function onUnload(event:Event):void { destroy() }
 		protected function liveArangerAlreadyExists(e:SyncEvent):void
 		{
@@ -150,10 +155,13 @@ package axl.utils
 		
 		protected function keyUp(e:KeyboardEvent):void
 		{
-			if(e.keyCode == 117)
+			if((e.keyCode) == userKeyboarOpenSequence[userKeyboarOpenSequenceCount++])
 			{
-				isOn = !isOn;
+				if(userKeyboarOpenSequenceCount >= userKeyboarOpenSequence.length)
+					isOn = !isOn
 			}
+			else
+				userKeyboarOpenSequenceCount =0;
 			if(!isOn && subject==null || (U.STG.focus is TextField && U.STG.focus.parent is Property)) 
 				return;
 			switch (e.keyCode)
@@ -417,6 +425,7 @@ package axl.utils
 				U.STG.removeEventListener(KeyboardEvent.KEY_DOWN, keyDown);
 			}
 		}
+		
 		/** Removes all event listeners and destroys instance. Destroyed instance can not be reused.*/
 		public static function destroyInstance():void
 		{
