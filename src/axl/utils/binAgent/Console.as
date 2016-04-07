@@ -31,7 +31,7 @@ package axl.utils.binAgent
 	
 	public class Console extends Sprite
 	{
-		public static const version:String = '0.0.19';
+		public static const version:String = '0.0.20';
 		private static const BBclassName:String = 'axl.ui.controllers::BoundBox'; 
 		private static const boundBoxClass:Class = ApplicationDomain.currentDomain.hasDefinition(BBclassName) ? getDefinitionByName(BBclassName) as Class : null;
 		private static var _instance:Console;
@@ -379,7 +379,7 @@ package axl.utils.binAgent
 			if(t.length < 1)
 				return;
 			
-			trrace('<font color="#FFDE9D">'+t+'</font>');
+			trrace(t);
 			bConsole.scrollV = bConsole.maxScrollV;
 			
 			try{ trrace(PARSE_INPUT(t))}
@@ -437,7 +437,7 @@ package axl.utils.binAgent
 		{
 			if(bConsole)
 			{	
-				bConsole.htmlText = totalString;
+				bConsole.text = totalString;
 				bConsole.scrollV = bConsole.maxScrollV;
 			}
 			if(boundBox != null && boundBox.percentageVertical != 1)

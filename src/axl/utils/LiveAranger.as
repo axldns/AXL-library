@@ -106,7 +106,10 @@ package axl.utils
 			var o:Object = e.changeList.length > 0 ? e.changeList.pop() : null;
 			U.log(tname, "[liveArangerAlreadyExists]", 'self?', o == this);
 			if(o.hasOwnProperty('destroy'))
-				o.destroy(this);
+			{
+				try { o.destroy(this) }
+				catch(e:Object) { o.destroy() }
+			}
 			o = null;
 		}
 		
