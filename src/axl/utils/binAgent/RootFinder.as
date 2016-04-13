@@ -11,6 +11,7 @@ package axl.utils.binAgent
 {
 	import flash.display.DisplayObject;
 	import flash.utils.getDefinitionByName;
+	import flash.utils.setInterval;
 	
 	public class RootFinder
 	{
@@ -84,6 +85,7 @@ package axl.utils.binAgent
 		 * </ul>
 		 * Does <b>not</b> support: 
 		 * <ul>
+		 * <li>package level functions</li>
 		 * <li>creating functions</li>
 		 * <li>if-else-if and switch blocks (can be achieved via ternary operators)</li>
 		 * <li>for-do-while loops</li>

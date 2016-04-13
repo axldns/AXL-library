@@ -27,14 +27,28 @@ package axl.utils.binAgent
 	import flash.utils.getDefinitionByName;
 	import flash.utils.getQualifiedClassName;
 	
-	//import axl.ui.controllers.BoundBox;
-	
+	/** Console class is where all framework’s logging is routed to, 
+	 * but it can be used completely stand-alone. It imitates real console/terminal
+	 * where all output is printed line by line. Can be filtered, opened, closed, diabled.
+	 * <h3>Open-close</h3>
+	 * Console window can be opened in three ways:
+	 * <ol>
+	 * <li>programatic: simple as <code>isOpen = true</code></li>
+	 * <li>with definable keyboard shortcut/sequence (default: ctrl+alt+right)</li>
+	 * <li>with adjustable gesture (default: four horizontal drags in top left corner area)</li>
+	 * </ol>
+	 * It can be controlled also via <code>allowKeyboardOpen</code> and <code>allowGestureOpen</code> flags.<br>
+	 * For any commercial use, please do change default settings, since this tool can cause serious harm to your business logic.
+	 * <h3>Filtering output</h3>
+	 * Entering to the input field text you’re looking for followed by a colon.
+	 * E.g. entering <i>:config</i> would display only lines that are containing <i>config</i> chunk.*/
 	public class Console extends Sprite
 	{
 		public static const version:String = '0.0.20';
 		private static const BBclassName:String = 'axl.ui.controllers::BoundBox'; 
 		private static const boundBoxClass:Class = ApplicationDomain.currentDomain.hasDefinition(BBclassName) ? getDefinitionByName(BBclassName) as Class : null;
 		private static var _instance:Console;
+		/** Static alternative for <code>trrace</code> method @see axl.utils.binAgent.Console#trrace() */
 		public static function log(...args):void {(instance != null) ? instance.trrace.apply(null, args) : trace("Console not set"); }
 		//window
 		private var console_textFormat:TextFormat = new TextFormat('Lucida Console', 12, 0xaaaaaa);
@@ -67,18 +81,28 @@ package axl.utils.binAgent
 		private var gestureRepetitions:int = 0;
 		private var nonRepsIndicator:int = 4;
 		private var boundBox:Object;
-		
+		/** Defines maximum number of characters stored in console window. 
+		 * Everything above the limit will trim the oldest lines. */
 		public var maxChars:uint = 80000;
+		/** Determines if console should always take up whole available stage width.*/
 		public var autoResize:Boolean = true;
+		/** Allows to override default trrace stream. Actively used during sync across domains. 
+		 * Should not be overriden by user. @default passNewText*/
 		public var passNewTextFunction:Function;
+		/** Determines if apart from logging to console, arguments are being passsed to native trace func. @default true */
 		public var regularTraceToo:Boolean = true;
+		/** Allows to define user keys sequence to open console window (overrides ctrl+alt+right). */
 		public var userKeyboarOpenSequence:String;
-		
-		public function get VERSION():String { return version };
+		/** Version of console */
+		public function get VERSION():String { return version }
+		/** Returns all console text */
 		public function get text():String { return totalString }
+		/** Returns original constructor argument. Root object should be your root display object
+		 * ideally, or at least display object which is added to stage. */
 		public function get rootObject():DisplayObject { return rootObj }
-		
-		
+		/** @param rootObject - your root display object
+		 * ideally, or at least display object which is added to stage 
+		 * @see axl.utils.binAgent.Console*/
 		public function Console(rootObject:DisplayObject)
 		{
 				className = flash.utils.getQualifiedClassName(this);
@@ -89,9 +113,10 @@ package axl.utils.binAgent
 				_instance = this;
 				trrace("==== BIN AGENT "+version+" ====");
 		}
-		
+		/** The only active instance of this class */
 		public static function get instance():Console { return _instance }
-		
+		/** Builds console in order: 
+		 * sets instance, builds output window, builds slider, builds input window, adds listeners, alings elements. */
 		protected function build():void
 		{
 			setInstance(this);
@@ -103,8 +128,6 @@ package axl.utils.binAgent
 			stg.addEventListener(MouseEvent.MOUSE_UP, mu);
 			allowKeyboardOpen = allowKeyboardOpen;
 			allowGestureOpen = allowGestureOpen;
-			align();
-			
 			align();
 			this.addEventListener(Event.ADDED_TO_STAGE, ats);
 			this.addEventListener(Event.REMOVED_FROM_STAGE, rfs);
@@ -227,7 +250,7 @@ package axl.utils.binAgent
 				build();
 			}
 		}
-		
+		/** internal */
 		protected function onBinAgentSyncEvent(e:SyncEvent):void
 		{
 			if(e.changeList && e.changeList.length > 0)
@@ -236,7 +259,7 @@ package axl.utils.binAgent
 				b.transferInstance(this);
 			}
 		}
-		
+		/** internal */
 		protected function transferInstance(parentConsole:Object):void
 		{
 			trrace(className, rootObj," transferInstance to", parentConsole.hasOwnProperty('rootObject') ? parentConsole.rootObject : 'unknown rootObject',  parentConsole);
@@ -248,7 +271,7 @@ package axl.utils.binAgent
 				destroy();
 			}
 		}
-		
+		/** internal */
 		protected function setInstance(v:Object):void { _instance = v as Console }
 		
 		private function uncaughtError(e:UncaughtErrorEvent):void
@@ -269,14 +292,14 @@ package axl.utils.binAgent
 		//-------------------------------------  END OF ROOT SETUP  ------------------------------------------  //
 		//-------
 		// ------------------------------------- WINDOW CONTROLL ------------------------------------- //
-		
+		/** internal */
 		protected function sliderEvent(e:Object=null):void
 		{
 			if(e is Event)
 				return;
 			bConsole.scrollV = boundBox.percentageVertical * bConsole.maxScrollV;
 		}
-		
+		/** internal */
 		protected function scrollEvent(e:Event):void
 		{
 			if(boundBox)
@@ -287,6 +310,7 @@ package axl.utils.binAgent
 					boundBox.setPercentageVertical(n,true,e);
 			}
 		}
+		/** internal */
 		protected function stageMouseDown(e:MouseEvent):void
 		{
 			if((e.stageY > nonKarea.height) || (e.stageX  > nonKarea.x))
@@ -319,7 +343,7 @@ package axl.utils.binAgent
 					openClose();
 			}
 		}
-		
+		/** internal */
 		protected function stageKeyDown(e:KeyboardEvent):void
 		{
 			if(userKeyboarOpenSequence!=null)
@@ -336,7 +360,6 @@ package axl.utils.binAgent
 				openClose();
 		}
 		
-		// uses parent a bin may be addaed anywhere..
 		private function openClose():void
 		{
 			if(bIsOpen)
@@ -348,7 +371,7 @@ package axl.utils.binAgent
 				stg.focus =bInput;
 			}
 		}
-		//----
+		/** internal */
 		protected function KEY_UP(e:KeyboardEvent):void
 		{
 			switch (e.keyCode)
@@ -360,7 +383,7 @@ package axl.utils.binAgent
 					break;
 			}
 		}
-		
+		/** internal. navigates through history of inputs */
 		protected function showPast(kc:int):void
 		{
 			if(past.length < 1) return;
@@ -372,7 +395,7 @@ package axl.utils.binAgent
 			bInput.text = past[pastIndex];	
 			bInput.setSelection(0, bInput.text.length);
 		}
-		
+		/** internal. outputs inputed text and saves it to input history */
 		protected function enterConsoleText():void
 		{
 			var t:String = bInput.text;
@@ -393,7 +416,12 @@ package axl.utils.binAgent
 			bInput.text = '';
 		}
 		
-		//------
+		/** Behaves simmilar to native trace function - accepts number of
+		 * arguments of any type, and prints out its stringified version. <br>
+		 * Main difference is output. For native trace it would be debugger console.
+		 * For this function, default output is console window of this class.
+		 * Differently, it prints out XML and XMLList string representation. 
+		 * @see #regularTraceToo @see #passNewText() @see #maxChars*/
 		public function trrace(...args):int
 		{
 			if(!bIsEnabled) return 0;
@@ -420,7 +448,7 @@ package axl.utils.binAgent
 			v=null;
 			return s.length;
 		}
-		
+		/** Does the same as trrace but unlike trrace accepts just one argument of type stirng. @see #trrace() */
 		public function passNewText(s:String):void
 		{
 			totalString += s;
@@ -480,9 +508,11 @@ package axl.utils.binAgent
 					stg.addEventListener(KeyboardEvent.KEY_DOWN, stageKeyDown);
 			}
 		}
-		
+		/** The textfield where all output is being appended to @see #trrace() */
 		public function get console():TextField { return bConsole }
+		/** The input textfield which allows to pass text to parser and output */
 		public function get input():TextField { return bInput}
+		/** Slider that controlls console window */
 		public function get slider():Sprite { return bSlider }
 		
 		/** enables or disables all trace (external and internal */
@@ -559,19 +589,19 @@ package axl.utils.binAgent
 			return output;
 		}
 		
-		/** executes flash.utils.describeType on object */
+		/** Outputs results of flash.utils.describeType on object */
 		public function desc(a:Object=null):void { trrace(flash.utils.describeType(a)) }
-		/** your pool. allows to asign elements to test quickly. */
+		/** Allows to asign elements to test quickly. */
 		public function get pool():Object { return _pool }
 		
-		//--- magic
+		/** Extend this method to parse text before it goes from input window to output window */
 		protected function PARSE_INPUT(s:String):Object
 		{
 			// allows to keep console only
 			// BinAgent which only extends this class overrides this one
 			return s;
 		}
-		
+		/** Destroys instance, removes all listeners and references */
 		protected function destroy():void
 		{
 			this.removeChildren();

@@ -164,7 +164,6 @@ package axl.utils
 					this[s] = props[s];
 				else throw new ArgumentError("[AO]" + subject + " Invalid property '"+s+"' or value: " + props[s]);  
 			}
-			
 		}
 		
 		// ----------------------------------------- PREPARE ----------------------------------- //

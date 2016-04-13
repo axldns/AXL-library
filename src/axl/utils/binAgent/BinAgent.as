@@ -15,10 +15,16 @@ package axl.utils.binAgent
 	import flash.events.MouseEvent;
 	import flash.ui.Keyboard;
 	import flash.utils.describeType;
-
+	/** Extends Console class by adding two main functionalites:
+	 * <ul>
+	 * <li>Parses / evaluates input text from input window and prints out result of this parsing </li>
+	 * <li>Evauluates input "as you type" and gives IDE-style code-completion hints </li>
+	 * </ul>
+	 * @see axl.utils.binAgent.Console */
 	public class BinAgent extends Console
 	{
 		public static const version:String = '0.0.18';
+		/** Static alternative for <code>trrace</code> method @see axl.utils.binAgent.Console#trrace() */
 		public static function log(...args):void {(instance != null) ? instance.trrace.apply(null, args) : trace("BinAgent not set"); }
 		private static var _instance:BinAgent;
 		private var hintContainer:Sprite;
@@ -40,7 +46,7 @@ package axl.utils.binAgent
 		public var hints:Boolean=true;
 		private var consoleSearched:Boolean;
 		private var lines:Array;
-		
+		/**@see axl.utils.binAgent.BinAgent */
 		public function BinAgent(rootObject:DisplayObject)
 		{
 			_instance = this;
@@ -64,7 +70,7 @@ package axl.utils.binAgent
 			assist = new Asist();
 			curRoot = userRoot;
 		}
-		
+		/** The only active instance of this class */
 		public static function get instance():BinAgent { return _instance }
 		
 		override protected function setInstance(v:Object):void { _instance = v as BinAgent }
@@ -84,9 +90,10 @@ package axl.utils.binAgent
 			userRoot = null;
 			assist = null;
 		}
-		
+		/** Instance of RootFinder which is the actual parser of input text. 
+		 * @see axl.utils.binAgent.RootFinder#parseInput() */
 		public function get parser():RootFinder { return rootFinder }
-		
+		/** @private */
 		protected function hintTouchMove(e:MouseEvent):void
 		{
 			if(numHints == 0 || !e.buttonDown) return;
@@ -207,8 +214,7 @@ package axl.utils.binAgent
 			selectedHint = Hint.atIndex(hintIndex);
 			selectedHint.selected = true;
 		}
-		
-		
+		/** @private */
 		protected function asYouType():void
 		{
 			if(input.text.length > 0 && input.text.charAt(0) == ':')
@@ -277,7 +283,7 @@ package axl.utils.binAgent
 			}
 			prevText = input.text;
 		}
-		
+		/** @private */
 		protected function consoleSearch(v:String):void
 		{
 			lines = totalString.split('\n');
@@ -290,7 +296,7 @@ package axl.utils.binAgent
 			console.text = out;
 			consoleSearched = true;
 		}
-		
+		/** @private */
 		private function findCurRoot():Object
 		{
 			return rootFinder.findCareteContext(input.text, input.caretIndex);

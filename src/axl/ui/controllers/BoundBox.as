@@ -76,6 +76,7 @@ package axl.ui.controllers
 		/** Top level of controll for 
 		 * <ul><li>Dispatching <code>Event.CHANGE</code> by this controller</li>
 		 * <li>Executeing <code>onChange</code> function (if defined)</li>
+		 * </ul>
 		 * @see #onChange */
 		public var changeNotifications:Boolean = true;
 		/**This property applies only if <code>changeNotifications = true</code><br> 
@@ -90,7 +91,7 @@ package axl.ui.controllers
 		public var omitDraggingAnimation:Boolean=true;
 		
 		
-		/** Easing function for animation curves. Applie it on BoundBox instance by setting easing property.
+		/** Easing function for animation curves. Apply it on BoundBox instance by setting easing property.
 		 * @see #animationTime @see #easing */
 		public static function get easgings():Easings { return AO.easing }
 		/**
@@ -652,7 +653,8 @@ package axl.ui.controllers
 		}
 		
 		/** Box movement can be smoothed by optimized animation of specific easing.<br>
-		 * Programatic movement of box (methods <code> setPercentage*, delta*, absolute*</code>)allow to controll animation on every box movement call.</br>
+		 * Programatic movement of box (methods <code> setPercentage, delta, absolute</code>)
+		 * allow to controll animation on every box movement call.</br>
 		 * Mouse triggered movements can be eased if <code>omitDraggingAnimation = false</code>
 		 * @see #omitDraggingAnimation
 		 * @default 0 */

@@ -37,12 +37,11 @@ package axl.utils
 		/** indicate tracings and bin agent instantiation*/
 		public static var DEBUG:Boolean = true;
 		public static var autoStageManaement:Boolean=true;
-		
+		public static var onStageAvailable:Function;
+		public static var onResize:Function;
 		/**indicates if stage is in full screen interactive mode or not<br>
 		 * indicates if <code>U.REC</code> is based on stage.fullScreen*W/H* or stage.stage*W/H*
 		 * <br>According to on playerType.match: /^(StandAlone|ActiveX|PlugIn)/i */
-		public static var onStageAvailable:Function;
-		public static var onResize:Function;
 		public static function get ISWEB():Boolean { return isWeb }
 		private static var isWeb:Boolean = (Capabilities.playerType.match(/^(StandAlone|ActiveX|PlugIn)/i) != null);
 		
@@ -372,12 +371,12 @@ package axl.utils
 			return bmd;
 		}
 		
-		/** Draws any flash.display.DisplayObject to BitmapData*/
+		/** Draws any flash.display.DisplayObject to BitmapData and wrapps it with new Bitmap object*/
 		public static function getBitmap(source:Object):Bitmap
 		{
 			var bmd:BitmapData = new BitmapData(Math.ceil(source.width), Math.ceil(source.height), true, 0x00000000);
 			bmd.draw(IBitmapDrawable(source));
-			return new Bitmap(bmd, 'auto', true);;
+			return new Bitmap(bmd, 'auto', true);
 		}
 		/** Draws any flash.display.DisplayObject to BitmapData @param clip - limits source to
 		 * specific slice - any object that has x,y,width,height*/
@@ -594,7 +593,8 @@ package axl.utils
 				uSTG.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
 			uSTG = uSTG;
 		}
-		
+		/** If BinAgent is instantiated, logs to console via <code>trrace</code><br>
+		 * Otherwise uses native trace @see axl.utils.binAgent.BinAgent#trrace() */
 		public static function log(...args):void
 		{
 			if(bin)
