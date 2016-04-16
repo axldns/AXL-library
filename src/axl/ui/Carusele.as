@@ -10,11 +10,18 @@
 package axl.ui
 {	
 	/**
+	 * Class provides carousel component. Ideal for scrollable lists galleries etc.
+	 * Supports children of different dimensions. Can be horizontal OR vertical.
+	 * Axles can be switched seamlessly (with children inside).
 	 * 
-	 * Class provides infinite paralax effect both horizontal and vertical. Supports gaps and allows to get "MIDDLE" child.
-	 * Ideal for scrollable lists galleries etc. Supports children of different dimensions. Due tu huge overhead and high precision
+	 * Children are bering distributed from most center point.
+	 * Set x and/or y properties of this object exactly where you want to see center of your carousel
+	 * (as carousel would be 1px wide and/or 1px high).
+	 * 
+	 *
+	 * Supports gaps and allows to get "MIDDLE" child.
+	 * Due tu huge overhead and high precision
 	 * of being --in the middle-- use <code> sortEvery </code> - never set it to 0.  use <code>addToRail</code> and <code>removeFromRail</code> to get the effect
-	 * <br><i>d.aleksandrowicz 2015</i>
 	 */
 	
 	import flash.display.DisplayObject;
@@ -154,7 +161,6 @@ package axl.ui
 			rail.addChild(lastChild);
 		}
 		
-		
 		public function removeFromRail(displayObject:DisplayObject):void
 		{
 			if(rail.contains(displayObject))
@@ -186,67 +192,53 @@ package axl.ui
 			firstChild =  rail.getChildAt(0);
 			lastChild = rail.getChildAt(railNumChildren-1);
 			var axl:String = mod.a, dim:String = mod.d;
-			var lastDim:Number = lastChild[dim] + gap;
-			var firstDim:Number  =firstChild[dim] + gap;
-			
+			var lastDim:Number;
+			var firstDim:Number;
 			var rearangeNeeded:Boolean;
-			
-			var nOffset:Number = railCenter + delta;
-			var nOffsetA:Number = Math.abs(nOffset);
-			var nra:Number = rail[axl] + delta;
+			var newRailCenter:Number = railCenter + delta;
+			var newRailCenterAbsolute:Number = Math.abs(newRailCenter);
+			var sum:Number = 0;
 			var sortEveryTemp:Number = _sortEvery;
-			if(nOffsetA > sortEveryTemp)
+			if(newRailCenterAbsolute > sortEveryTemp)
 			{
-				if(nOffset<0)
+				if(newRailCenter<0)
 				{
-					while(nOffsetA > 0)	// [ --------[----x----]|---------------------]
-					{					// [ -------------[----|x----]----------------]
-						nOffsetA -= firstDim;
-						nOffset += firstDim;
-						nra += lastDim;
-						firstToLast();
-						lastDim = lastChild[dim] + gap;
-						firstDim =firstChild[dim] + gap;
+					while(newRailCenterAbsolute > 0)	// [ --------[----x----]|---------------------]
+					{									// [ -------------[----|x----]----------------]
+						firstChild = rail.getChildAt(0);
+						firstDim  = firstChild[dim] + gap;
+						newRailCenterAbsolute -= firstDim;
+						sum += firstDim;
+						rail.setChildIndex(firstChild, railNumChildren-1);
 						rearangeNeeded = true;
 					}
 				}
-				else if(nOffset>0)
-				{
-					while(nOffsetA > 0)
+				else if(newRailCenter>0)	// [ -------------------|[...x...]-----------]
+				{							// [ -------------[...x|...]----------------]
+					while(newRailCenterAbsolute > 0)
 					{
-						nOffsetA -= lastDim;
-						nOffset -= lastDim;
-						nra -= lastDim;
-						lastToFirst();
+
+						lastChild = rail.getChildAt(railNumChildren-1);
 						lastDim = lastChild[dim] + gap;
-						firstDim =firstChild[dim] + gap;
-						rearangeNeeded = true
+						newRailCenterAbsolute -= lastDim;
+						sum -= lastDim;
+						rail.setChildIndex(lastChild, 0);
+						rearangeNeeded = true;
 					}
 				}
 			}
-			rail[axl] = nra;
-			bug += (nra - rail[axl]);
-			nra = rail[axl] + bug;
-			rail[axl] += bug;
-			bug = nra - rail[axl];
 			if(rearangeNeeded)
 				rearange();
+			var nw:Number = rail[axl] + delta + sum;
+			
+			rail[axl] = nw;
+			bug += (nw - rail[axl]);
+			nw = rail[axl] + bug;
+			rail[axl] += bug;
+			bug = nw - rail[axl];
+			
 			if(debug)
 				updateDebug();
-		}
-		
-		private function lastToFirst():void
-		{
-			lastChild = rail.getChildAt(railNumChildren-1);
-			rail.setChildIndex(lastChild, 0);
-			lastChild = rail.getChildAt(railNumChildren-1);
-		}
-		
-		private function firstToLast():void
-		{
-			firstChild = rail.getChildAt(0);
-			rail.setChildIndex(firstChild, railNumChildren-1);
-			firstChild = rail.getChildAt(0);
 		}
 		
 		/**
@@ -257,14 +249,14 @@ package axl.ui
 			var sum:Number = 0;
 			for(var i:int = 0; i < railNumChildren; i++)
 			{
-				lastChild = rail.getChildAt(i);
-				lastChild[mod.a] = sum;
-				sum += lastChild[mod.d]+GAP;
+				firstChild = rail.getChildAt(i);
+				firstChild[mod.a] = sum;
+				sum += firstChild[mod.d]+GAP;
 			}
 		}
 		
 		/**
-		 * returns array where 
+		 * Returns an array where 
 		 * <br><b>ZERO</b> element is rail display object closest to relative middle point of rail (0)
 		 * <br><b>FIRST</b> element is Number of offset to center (positive or negative)
 		 */
