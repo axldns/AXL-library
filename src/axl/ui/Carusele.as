@@ -9,36 +9,41 @@
  */
 package axl.ui
 {	
-	/**
-	 * Class provides carousel component. Ideal for scrollable lists galleries etc.
-	 * Supports children of different dimensions. Can be horizontal OR vertical.
-	 * Axles can be switched seamlessly (with children inside).
-	 * 
-	 * Children are bering distributed from most center point.
-	 * Set x and/or y properties of this object exactly where you want to see center of your carousel
-	 * (as carousel would be 1px wide and/or 1px high).
-	 * 
-	 *
-	 * Supports gaps and allows to get "MIDDLE" child.
-	 * Due tu huge overhead and high precision
-	 * of being --in the middle-- use <code> sortEvery </code> - never set it to 0.  use <code>addToRail</code> and <code>removeFromRail</code> to get the effect
-	 */
-	
 	import flash.display.DisplayObject;
 	import flash.display.Shape;
 	import flash.display.Sprite;
 	import flash.events.Event;
-	
+	/**
+	 * Class provides carousel component. Ideal for scrollable lists galleries etc.
+	 * Supports children of different dimensions. Can be horizontal OR vertical.
+	 * Axles can be switched seamlessly (with children inside).
+	 * <br><br>
+	 * Set x and/or y properties of this object exactly where you want to the see center of your carousel
+	 * (as carousel would be 1px wide and/or 1px high).
+	 * Children are being distributed from the most center point. Children indices are under control of this class.
+	 * <br><br>
+	 * Component is well optimized: whenever possible - updates container rather than each and every child separately.
+	 * Class does not provide animation or 'next element selection' utilities. 
+	 * Carousel provides only one method (<code>movementBit</code>) for propel, which accepts just one parameter (<code>delta</code>).
+	 * All further and higher level features should be added separately e.g. extending this class. 
+	 * <br><br>
+	 * Supports gaps and allows to get "MIDDLE" child.
+	 * @see #addToRail()
+	 * @see #movementBit()
+	 * @see #maxOffset
+	 * @see #getChildClosestToCenter()
+	 */
 	public class Carusele extends Sprite
 	{
-		private static const modH:Object = { a : 'x', d : 'width', p: 'pivotX', s: 'scaleX'};
-		private static const modV:Object = { a : 'y', d : 'height', p: 'pivotY', s: 'scaleY'};
+		private static const modH:Object = { a : 'x', d : 'width', s: 'scaleX'};
+		private static const modV:Object = { a : 'y', d : 'height', s: 'scaleY'};
 		
 		protected var mod:Object;
 		protected var modA:Object;
 		protected var rail:Sprite;
 		private var HOR:Boolean;
 		private var VER:Boolean;
+		private var bug:Number=0;
 		
 		protected var gap:Number;
 		protected var railNumChildren:int;
@@ -46,14 +51,15 @@ package axl.ui
 		protected var lastChild:DisplayObject;
 		protected var railDim:Number=0;
 		
-		protected var _sortEvery:Number=200;
-		private var _resetAxle:Boolean;
-		private var railPivot:Number;
-		private var roffset:Number;
-		
 		private var dbg:Shape;
+		/** If value is grater then 0, debug outlines of are drawn.
+		 * Color is determined by this value. @default 0*/
 		public var debug:uint=0;
-		private var bug:Number=0;
+		/** Determines max offset that rail container can have
+		 * before elements are re-sorted and rail gets re-positioned. This value is in
+		 * percentage (0-1).  @default 0.25*/
+		public var maxOffset:Number = 0.25;
+		
 		public function Carusele()
 		{
 			super();
@@ -68,15 +74,11 @@ package axl.ui
 		protected function elementAdded(e:Event):void
 		{
 			railDim = rail[mod.d];
-			railPivot = railDim>>1;
-			rail[mod.a] = -railPivot;
+			rail[mod.a] = railDim/-2;
+			rail[modA.a] = rail[modA.d]/-2;
 			rearange();
 			movementBit(0);
 		}
-		
-		public function get numRailChildren():int {	return railNumChildren }
-		/** container where all rail elements are displayed. Improper use can cause unpredictable effects */
-		public function get railElementsContainer():Sprite { return rail }
 
 		private function updateDebug():void
 		{
@@ -125,7 +127,7 @@ package axl.ui
 		{
 			var sum:Number = 0;
 			// was x now is y
-			var offset:Number = rail[modA.a]; // prev x loc
+			var prevCent:Number = (rail[modA.a] + (rail[modA.d] /2))/rail[modA.d];
 			for(var i:int = 0; i < railNumChildren; i++)
 			{
 				lastChild = rail.getChildAt(i);
@@ -133,9 +135,19 @@ package axl.ui
 				lastChild[modA.a] = 0;
 				sum += lastChild[mod.d]+GAP;
 			}
-			rail[mod.a] = rail[modA.a]; //temporary as need to be seemles
-			rail[modA.a] = -rail[modA.d]/2;
+			rail[modA.a] = -rail[modA.d]/2; //center opposite axle
+			rail[mod.a] = rail[mod.d]/-2 +  (prevCent * rail[mod.d]);
 		}
+		
+		private function get railCenter():Number
+		{
+			return rail[mod.a] + (rail[mod.d] /2);
+		}
+		
+		/** Returns current number elements in Carousel container*/
+		public function get numRailChildren():int {	return railNumChildren }
+		/** Container where all rail elements are displayed. Improper use can cause unpredictable effects */
+		public function get railElementsContainer():Sprite { return rail }
 		/** Allows to set carousel either horizontally or vertically */
 		public function get isHORIZONTAL():Boolean { return HOR }
 		/** Allows to set carousel either horizontally or vertically */
@@ -160,7 +172,7 @@ package axl.ui
 			railNumChildren++;
 			rail.addChild(lastChild);
 		}
-		
+		/** Removes element from and rearanges rail */
 		public function removeFromRail(displayObject:DisplayObject):void
 		{
 			if(rail.contains(displayObject))
@@ -168,23 +180,16 @@ package axl.ui
 				rail.removeChild(displayObject);
 				railNumChildren--;
 				railDim = rail[mod.d];
-				railPivot = railDim>>1;
 				rearange();
 			}
 		}
 		
-		private function get railCenter():Number
-		{
-			return rail[mod.a] + (rail[mod.d] /2);
-		}
-		
-		/**
-		 * Pass delta of momentary movement (e.g. on touch move event, or animation tick update) to move
-		 * elements added by <code>addToRail</code> function  in infinite paralax mode. children are being sorted (indexes) 
-		 * and not removed or added to display list. Very costful operation so use it wisely.
-		 * to optimize performance set <code>sortEvery</code> property passing how many pixels of ofset is ok for instance to have  beforeo re-sorting children. By default,
-		 * rail is as close to the middle (0) as possible.
-		 */
+		/** Pass delta of momentary movement (e.g. on touch move event, or animation tick update) to move
+		 * elements added by <code>addToRail</code>. Children are being sorted (indices) 
+		 * and not removed or added to display list.
+		 * To optimize performance set <code>maxOffset</code> property.
+		 * @param delta - number of pixels to move carousel elements right/down (positive delta) or left/up (negative delta)
+		 * @see #maxOffset */
 		public function movementBit(delta:Number):void
 		{
 			if(railNumChildren < 1)
@@ -198,8 +203,8 @@ package axl.ui
 			var newRailCenter:Number = railCenter + delta;
 			var newRailCenterAbsolute:Number = Math.abs(newRailCenter);
 			var sum:Number = 0;
-			var sortEveryTemp:Number = _sortEvery;
-			if(newRailCenterAbsolute > sortEveryTemp)
+			var percOffset:Number = newRailCenterAbsolute/railDim;
+			if(percOffset > maxOffset)
 			{
 				if(newRailCenter<0)
 				{
@@ -241,9 +246,7 @@ package axl.ui
 				updateDebug();
 		}
 		
-		/**
-		 * rearranges rail children. use it after setting all properties, or changed axle of carusele
-		 */
+		/** Redistributes carousel elements accordingly to GAP property */
 		public function rearange():void
 		{
 			var sum:Number = 0;
@@ -258,8 +261,7 @@ package axl.ui
 		/**
 		 * Returns an array where 
 		 * <br><b>ZERO</b> element is rail display object closest to relative middle point of rail (0)
-		 * <br><b>FIRST</b> element is Number of offset to center (positive or negative)
-		 */
+		 * <br><b>FIRST</b> element is Number of offset to center (positive or negative) */
 		public function getChildClosestToCenter():Array
 		{
 			if(rail.numChildren < 1)
@@ -283,15 +285,7 @@ package axl.ui
 			return (Math.abs(an) < Math.abs(n)) ? [lastChild, an] : [firstChild, n];
 		}
 		
-		/**
-		 * Determines what offset is acceptable for <i>rail</i> to have 
-		 * before paralax check.
-		 * <br>Usage is ighly recomended for performance improvement. If your Carusele has
-		 * 12 elements, but only three visible at the time, it should be ok to pass 5 x (element width/height +gap)
-		 */
-		public function get sortEvery():Number { return _sortEvery }
-		public function set sortEvery(value:Number):void { _sortEvery = value }
-		
+		/** Removes all children, sets gap to 0*/
 		public function clearRail():void
 		{
 			gap = 0;
