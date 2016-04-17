@@ -272,7 +272,7 @@ package axl.ui
 			var h:Number = rail[mod.d]/2;
 				h +=  ((h + rail[mod.a]) * (positive ? -1 : 1));
 			var i:int = 0;
-			while(n <= h && ( ++i < this.numRailChildren))
+			while(( ++i < this.numRailChildren) && n <= h )
 			{
 				firstChild = rail.getChildAt(i);
 				n = firstChild[mod.a] + firstChild[mod.d]/2;
