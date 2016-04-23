@@ -22,13 +22,16 @@ package axl.ui
 	 * (as carousel would be 1px wide and/or 1px high).
 	 * Children are being distributed from the most center point. Children indices are under control of this class.
 	 * <br><br>
-	 * Component is well optimized: whenever possible - updates container rather than each and every child separately.
+	 * Component is well optimized: whenever possible - updates inner container (<code>railElementsContainer</code>) 
+	 * rather than each and every child separately. Class overrides standard children manipulation methods
+	 * (addChild, addChildAt, removeChild, removeChildren, removeChildAt, getChildByName, getChildAt, swapChildren, 
+	 * swapChildrenAt, getChildIndex, setChildIndex, numChildren).
+	 * Requests of such will reffer to railElementsContainer, therefore using element's parent should be takien into special consideration.<br><br>
 	 * Class does not provide animation or 'next element selection' utilities. 
 	 * Carousel provides only one method (<code>movementBit</code>) for propel, which accepts just one parameter (<code>delta</code>).
 	 * All further and higher level features should be added separately e.g. extending this class. 
 	 * <br><br>
 	 * Supports gaps and allows to get "MIDDLE" child.
-	 * @see #addToRail()
 	 * @see #movementBit()
 	 * @see #maxOffset
 	 * @see #getChildClosestToCenter()
@@ -59,34 +62,48 @@ package axl.ui
 		 * before elements are re-sorted and rail gets re-positioned. This value is in
 		 * percentage (0-1).  @default 0.25*/
 		public var maxOffset:Number = 0.25;
-		
+		/** @see axl.ui.Carusele */
 		public function Carusele()
 		{
 			super();
 			gap = 0;
 			railNumChildren =0;
 			rail = new Sprite();
-			this.addChild(rail);
+			super.addChild(rail);
 			rail.addEventListener(Event.ADDED, elementAdded);
+			rail.addEventListener(Event.REMOVED,  onElementRemoved);
 			setAxle(true);
 		}
 		
+		protected function onElementRemoved(event:Event):void
+		{
+			railNumChildren--;
+			updateRail();
+		}
+		
 		protected function elementAdded(e:Event):void
+		{
+			railNumChildren++;
+			updateRail();
+		}
+		
+		private function updateRail():void
 		{
 			railDim = rail[mod.d];
 			rail[mod.a] = railDim/-2;
 			rail[modA.a] = rail[modA.d]/-2;
 			rearange();
 			movementBit(0);
+			updateDebug();
 		}
-
+		
 		private function updateDebug():void
 		{
 			if(!debug) return;
 			if(!dbg)
 			{
 				dbg = new Shape();
-				this.addChild(dbg);
+				super.addChild(dbg);
 			}
 			dbg.graphics.clear();
 			dbg.graphics.lineStyle(1, debug);
@@ -103,7 +120,6 @@ package axl.ui
 		{
 			if(HOR == v)
 				return;
-			
 			resetAxle(v);
 		}
 		
@@ -146,14 +162,12 @@ package axl.ui
 			this.updateDebug();
 		}
 		
-		private function get railCenter():Number
-		{
-			return rail[mod.a] + (rail[mod.d] /2);
-		}
+		private function get railCenter():Number { return rail[mod.a] + (rail[mod.d] /2) }
 		
 		/** Returns current number elements in Carousel container*/
 		public function get numRailChildren():int {	return railNumChildren }
-		/** Container where all rail elements are displayed. Improper use can cause unpredictable effects */
+		/** Container where all rail elements are displayed. Do not add elements to 
+		 * this container directly, use <code>addToRail</code> method @see #addToRail() */
 		public function get railElementsContainer():Sprite { return rail }
 		/** Allows to set carousel either horizontally or vertically */
 		public function get isHORIZONTAL():Boolean { return HOR }
@@ -165,35 +179,45 @@ package axl.ui
 		public function set GAP(v:Number):void { gap=v, rearange()}
 		/** Adds display object to carousel. If Carousele is horizontal, it manages objects "x" position,
 		 * If carouslee is vertical - it manges object's "y" property.
-		 * @param displayObject - new member of carousel
-		 * @param seemles - if true, object is added at the end of carousele and no immediate movement is noticable.
-		 * If false, objects are being re-aranged in order to deal with new dimensions of carousele.*/
-		public function addToRail(displayObject:DisplayObject, seemles:Boolean=false):void
+		 * @param child - new member of carousel
+		 * @param index - specific index on which child is going to be added*/
+		public function addToRail(child:DisplayObject, index:int=-1):DisplayObject
 		{
-			if(rail.contains(displayObject))
-				return;
-			if(!firstChild)
-				firstChild = displayObject;
-			lastChild = displayObject;
-			lastChild[mod.a] = railDim + (railNumChildren>0?GAP:0);
-			railNumChildren++;
-			rail.addChild(lastChild);
-		}
-		/** Removes element from and rearanges rail */
-		public function removeFromRail(displayObject:DisplayObject):void
-		{
-			if(rail.contains(displayObject))
-			{
-				rail.removeChild(displayObject);
-				railNumChildren--;
-				railDim = rail[mod.d];
-				rearange();
-			}
+			child[mod.a] = railDim + (railNumChildren>0?GAP:0);
+			if(index > -1 && rail.numChildren < index)
+				return rail.addChildAt(child,index);
+			else
+				return rail.addChild(child);
 		}
 		
+		override public function addChild(v:DisplayObject):DisplayObject { return addToRail(v) }
+		
+		override public function addChildAt(v:DisplayObject,i:int):DisplayObject { return addToRail(v,i) }
+		
+		override public function contains(child:DisplayObject):Boolean { return rail.contains(child) }
+		
+		override public function getChildAt(index:int):DisplayObject { return rail.getChildAt(index) }
+		
+		override public function getChildByName(name:String):DisplayObject { return rail.getChildByName(name) }
+		
+		override public function getChildIndex(child:DisplayObject):int { return rail.getChildIndex(child) 	}
+		
+		override public function get numChildren():int { return rail.numChildren }
+		
+		override public function removeChild(child:DisplayObject):DisplayObject { return rail.removeChild(child) }
+		
+		override public function removeChildAt(index:int):DisplayObject { return rail.removeChildAt(index) }
+		
+		override public function removeChildren(beginIndex:int=0, endIndex:int=2147483647):void { rail.removeChildren(beginIndex, endIndex) 	}
+		
+		override public function setChildIndex(child:DisplayObject, index:int):void { rail.setChildIndex(child, index) }
+		
+		override public function swapChildren(child1:DisplayObject, child2:DisplayObject):void { rail.swapChildren(child1, child2) }
+		
+		override public function swapChildrenAt(index1:int, index2:int):void { rail.swapChildrenAt(index1, index2) }
+		
 		/** Pass delta of momentary movement (e.g. on touch move event, or animation tick update) to move
-		 * elements added by <code>addToRail</code>. Children are being sorted (indices) 
-		 * and not removed or added to display list.
+		 * elements added to carousel.
 		 * To optimize performance set <code>maxOffset</code> property.
 		 * @param delta - number of pixels to move carousel elements right/down (positive delta) or left/up (negative delta)
 		 * @see #maxOffset */
@@ -300,20 +324,6 @@ package axl.ui
 			if(dif < 0.025)
 				return [p, ppos];
 			return (vp < vn) ? [p, ppos] : [n, pos];
-		}
-		
-		/** Removes all children, sets gap to 0*/
-		public function clearRail():void
-		{
-			gap = 0;
-			railNumChildren =0;
-			rail.removeChildren();
-			railNumChildren=0;
-			lastChild = null;
-			firstChild = null
-			railDim = 0;
-			rail[mod.a] = 0;
-			rail[modA.a] = 0;
 		}
 	}
 }
