@@ -268,28 +268,38 @@ package axl.ui
 		/**
 		 * Returns an array where 
 		 * <br><b>ZERO</b> element is rail display object closest to relative middle point of rail (0)
-		 * <br><b>FIRST</b> element is Number of offset to center (positive or negative) */
+		 * <br><b>FIRST</b> element is Number determining offset to center (positive or negative)<br>
+		 * Passing element's offset to <code>movementBit</code>, would center that object in carousel.<br>
+		 * If two elements have identical offset (difference < 0.025px), first element is 
+		 * returned (left one while horizontal and/or top one while vertical).
+		 * @see #movementBit() */
 		public function getChildClosestToCenter():Array
 		{
 			if(rail.numChildren < 1)
 				return null;
-			var n:Number=rail.getChildAt(0)[mod.a];
-			var an:Number=0;
-			var positive:Number = (rail[mod.a] > 0) ? 1 : -1;
-			var h:Number = rail[mod.d]/2;
-				h +=  ((h + rail[mod.a]) * (positive ? -1 : 1));
-			var i:int = 0;
-			while(n <= h && ( ++i < this.numRailChildren) )
+			var railOffset:Number = rail[mod.d]/2 + rail[mod.a];
+			var relativeCenter:Number =  rail[mod.d]/2 - railOffset;
+			if(rail.numChildren == 1)
+				return [rail.getChildAt(0),railOffset];
+			var i:int = -1;
+			var pos:Number= Number.MAX_VALUE*-1, ppos:Number;
+			var p:DisplayObject, n:DisplayObject;
+			while(++i < railNumChildren) 
 			{
-				firstChild = rail.getChildAt(i);
-				n = firstChild[mod.a] + firstChild[mod.d]/2;
+				n = rail.getChildAt(i);
+				pos = n[mod.a] + n[mod.d]/2 - relativeCenter;
+				if(pos > 0)
+					break;
 			}
-			
-			n += (firstChild[mod.a] * positive);
-			lastChild = rail.getChildAt(i-1);
-			an = h - lastChild[mod.a]  - (lastChild[mod.d]/2);
-			
-			return (Math.abs(an) < Math.abs(n)) ? [lastChild, an] : [firstChild, n];
+			// now get prev
+			p = rail.getChildAt(i-1);
+			ppos = p[mod.a] + p[mod.d]/2 - relativeCenter;
+			var vp:Number = Math.abs(ppos);
+			var vn:Number = Math.abs(pos);
+			var dif:Number = Math.abs(vn - vp);
+			if(dif < 0.025)
+				return [p, ppos];
+			return (vp < vn) ? [p, ppos] : [n, pos];
 		}
 		
 		/** Removes all children, sets gap to 0*/
