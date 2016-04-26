@@ -23,9 +23,11 @@ package axl.utils
 		private static var prevFrame:int;
 		
 		private static var animObjects:Vector.<AO> = new Vector.<AO>();
+		private static var allInstances:Vector.<AO> = new Vector.<AO>();
 		private static var easings:Easings = new Easings();
 		private static var defaultEasing:Function = easings.easeOutQuad;
 		private static var numObjects:int=0;
+		private static var numInstances:int = 0;
 		
 		//internal
 		private var propNames:Vector.<String>;
@@ -43,7 +45,6 @@ package axl.utils
 		private var direction:int=1;
 		private var cur:Number=0;
 		
-	
 		private var updateFunction:Function;
 		private var getValue:Function;
 		private var isPlaying:Boolean;
@@ -51,23 +52,69 @@ package axl.utils
 		private var id:int;
 		
 		// applying anytime
+		/** Indicates if animation is going to be played in reverse after reaching standard destination points.<br>
+		 * yoyo doubles the initial time of animation and extends length of <code>cycle</code>. Executes <code>onYoyoHalf</code> (if defined) 
+		 * on reaching original values (before going back). Reversed animation is played after each "half cycle" rather than after all cycles.<br>
+		 * <br>This property can be applied any time during animation and an effect is immediate.
+		 * @default false
+		 * @see #cycles */
 		public var yoyo:Boolean=false;
+		/** Determines how many times animation is repeated. Setting this value to 0 results in infinite number of cycles (object is animated
+		 * until stopped different way).<br>
+		 * Cycles without <code>yoyo</code> repeat animation from start values right after reaching end values.
+		 * When yoyo is set to true, cycle is repeated after reversed animation brings object's properties back to start values.
+		 * Executes <code>onCycle</code> if defined.
+		 * <br>This property can be applied any time during animation and an effect is immediate.
+		 * Requested during animation informs how many cycles remained till end. @default 1 
+		 * @see #interval @see #yoyo */
 		public var cycles:int=1;
+		/** Target of an animation. This can be DisplayObject but also can be anything else e.g. volume of sound object, proxy object.
+		 *  Requirement is that <code>subject</code> owns all properties to animate passed in <code>props</code> parameter.
+		 * Can be changed during animation. */
 		public var subject:Object;
+		/** Once animation is completed (all yoyo, all cycles) the sequence can be repeated. This property determines number of seconds after which 
+		 * is going to happen if <code>intervalRepetitions</code> &gt; 1 
+		 * @default 0  @see #yoyo @see #cycles @see #intervalRepetitions */
 		public var interval:Number=0;
+		/** Determines how many times entire animation sequence (incl. cycles and yoyo's) is going to be executed if <code>interval &gt; 0</code> 
+		 * @default 1 @see #interval @see #yoyo @see #cycles */
 		public var intervalRepetitions:int=1;
-		
+		/** When animation is about to start (e.g delayed or paused) <code>onStart</code> callback  can be fired. 
+		 * This vairable can hold an array of arguments for this callback. @see #onStart() */
 		public var onStartArgs:Array;
+		/** When animation is in progress, after every update on animation target it can fire <code>onUpdate</code> callback
+		 * (passed in <i>properties</i> object or set on AO instance). This vairable can hold an array of arguments for that callback. @see #onUpdate() */
 		public var onUpdateArgs:Array;
+		/** When animation is in progress and <code>yoyo=true</code>, every time object reaches destination values (before reversing to start values),
+		 *  <code>onYoyoHalf</code> callback can be fired (passed in <i>properties</i> object or set on AO instance). This vairable can hold
+		 *  an array of arguments for that callback. @see #yoyo @see #onYoyoHalf() */
 		public var onYoyoHalfArgs:Array;
+		/** Animation can be repeated number of times, defined by <code>cycles</code>. Each time one cycle is completed, <code>onCycle</code> callback
+		 * (passed in <i>properties</i> object or set on AO instance) can be fired. 
+		 * This variable can hold an array of arguments for that callback. @see #onCycle() */
 		public var onCycleArgs:Array;
+		/** Once animation is complete, <code>onComplete</code> callback can be fired. This variable can hold an array of arguments for that
+		 * callback. @see #onComplete() */
 		public var onCompleteArgs:Array;
-		
+		/** Callback to fire when animation is about to start (e.g. delayed or paused). Can be set on instance or passed in animation properties object.
+		 * @see #onStartArgs */
 		public var onStart:Function;
+		/** Callback to fire when object properties is updated during animation. Typically on every frame of animation. Not fired during delay or paused
+		 * states. Can be set on instance or passed in animation properties object @see #onUpdateArgs() */
 		public var onUpdate:Function;
+		/** Callback to fire every time object reaches destination values (before reversing to start values) <b>if</b> <code>yoyo=true</code> @see #onYoyoHalfArgs */
 		public var onYoyoHalf:Function;
+		/** Animation can be repeated number of times, defined by <code>cycles</code>. Each time one cycle is completed, <code>onCycle</code> callback
+		 * (passed in <i>properties</i> object or set on AO instance) can be fired. If <code>yoyo=true</code>, full cycle is when object
+		 * returns back to start values. When <code>yoyo=false</code> <i>onCycle</i> is fired when object values reach end values.
+		 *  @see #onCycleArgs() @see #yoyo */
 		public var onCycle:Function;
+		/** Callback to fire when animation is completed. If interval repetitions are defined, 
+		 * fires after all repetitons, otherwise after all cycles. @see #onCompleteArgs() @see #cycles @see #intervalRepetitions */
 		public var onComplete:Function;
+		/** Determines if animation instance is being disposed once animation is completed. AO instances created used <code>animate</code> method
+		 * set this property to true. Destroyed instance can't be re-used - calling <i>start</i>, <i>restart</i> on it will likely cause an error.
+		 * Instances which are not destroyed on complete, can be re-used. @default false  */
 		public var destroyOnComplete:Boolean = false;
 		
 		// applying only before start
@@ -95,13 +142,18 @@ package axl.utils
 		private var intervalPassed:Boolean;
 		private var intervalRepetitionsPassed:Boolean;
 		
-		
+		/** Destroys an instance and makes it un-usable.
+		 * <ul><li>stops any animation and removes it from pool (incl. stopped, paused and delayed ones)</li>
+		 * <li>disposes all internal objects</li>
+		 * <li>removes refference to the subject and to all callbacks</li>
+		 * </ul> @param executeOnComplete - determines if <code>onComplete</code> callback should be executed before destruction */
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
 			//# U.log('[AO][destroy]'+ subject);
 			clearTimeout(delayID)
 			delayID = 0;
 			removeFromPool();
+			removeFromInstances();
 			numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
 			propStartValues = propEndValues = propDifferences = remains =  prevs = null;
 			propNames = null;
@@ -118,9 +170,21 @@ package axl.utils
 			onComplete = null;
 		}
 		
+		private function removeFromInstances():void
+		{
+			var i:int = allInstances.indexOf(this);
+			if(i>-1) 
+			{
+				allInstances.splice(i,1);
+				numInstances--;
+				isPlaying = false;
+			}
+		}
+		
 		public function AO(subject:Object, seconds:Number, properties:Object) {
 			/*if(STG == null)
 				throw new Error("[AO]Stage not set up!");*/
+			allInstances[numInstances++] = this;
 			uSeconds = seconds;
 			uProps = properties;
 			if(uProps.hasOwnProperty('delay'))
@@ -218,6 +282,7 @@ package axl.utils
 			}
 		}
 		// ----------------------------------------- UPDATE ------------------------- //
+		/** Main propeller of animation engine. It's used to broadcast new frame and compute state of continuation.*/
 		protected function tick(milsecs:int):void
 		{
 			passedTotal += frameBased ? 1 : milsecs;
@@ -285,8 +350,6 @@ package axl.utils
 							if(onUpdate is Function)
 								onUpdate.apply(null, onUpdateArgs);
 						}
-						
-						
 					}
 					else // already locked so probably eased and resolved continuation
 					{
@@ -435,12 +498,12 @@ package axl.utils
 				if(direction > 0)
 				{
 					direction = -1;
+					dispatchHalfYoyo();
 					return true;
 				}
 				else
 				{
 					direction = 1;
-					completeYoyo();
 					return cycled();
 				}
 			} 
@@ -448,7 +511,7 @@ package axl.utils
 				return cycled();
 		}
 		
-		private function completeYoyo():void
+		private function dispatchHalfYoyo():void
 		{
 			if(onYoyoHalf is Function)
 				onYoyoHalf.apply(null, onYoyoHalfArgs);
@@ -529,20 +592,32 @@ package axl.utils
 			}
 		}
 		
-		
 		// ---------------------------------- public instance API------------------------------------------ //
+		/** Returns <code>true</code> if object is actively being updated every frame. 
+		 * Returns <code>false</code> for stopped, paused, completed and delayed (if delay hasn't pased yet) animations */
 		public function get isAnimating():Boolean { return isPlaying }
-		public function start():void
+		
+		/** Starts animation if not started yet, stopped or paused.
+		 * @param respectDelay - If there's a delay assigned to animation - respecting delay will cause delayed start, 
+		 * otherwise animation will start promptly */
+		public function start(respectDelay:Boolean=true):void
 		{
-			if(delay > 0)
+			if(delay > 0 && respectDelay)
 				delayID = flash.utils.setTimeout(perform, delay * 1000);
 			else
 				perform();
 		}
+		/** Starts or continues an animation without respecting delay assigned to it.  @see #start() */
+		public function resume():void { start(false) };
 		
-		public function resume():void { start() };
+		/** Pauses an animation immediately. Animation can be resumed from the moment it was paused by calling <code>resume</code> @see #resume() */
 		public function pause():void { removeFromPool() };
-		/** @param goToDirection: negative - start position, 0 - stays still, positive - end position */
+		
+		/** Stops an animation promptly and sets object values according to <code>goToDirection</code> parameter.
+		 *  @param goToDirection: 
+		 * <ul><li>negative - start (initial) values</li><li> 0 - stays still</li><li>positive - end values</li></ul>
+		 * @param readNchanges - determines if animation properties should be re-read before eventual calls 
+		 * to <i>start</i> or <i>resume</i> methods */
 		public function stop(goToDirection:int=0, readNchanges:Boolean=false):void
 		{
 			//# U.log('[AO][Stop]'+subject);
@@ -551,11 +626,20 @@ package axl.utils
 			else if(goToDirection < 0) gotoStart();
 			isSetup = !readNchanges;
 		}
+		
+		/** Restarts an animation instantly (stops it, goes to direction and calls start).
+		 *  @param goToDirection: 
+		 * <ul><li>negative - start (initial) values</li><li> 0 - stays still</li><li>positive - end values</li></ul>
+		 * @param  readNchanges - determines if animation properties should be re-read before start */
 		public function restart(goToDirection:int,readNchanges:Boolean=false):void
 		{
 			stop(goToDirection,readNchanges);
 			start();
 		}
+		
+		/** Stops animation before it's completed. 
+		 * @param completeImmediadely - if true - applies end values to subject of animation and fires <code>onComplete</code> callback
+		 * if defined. If false either pauses or destroys an instance - depending on <code>destroyOnComplete</code> flag.   */
 		public function finishEarly(completeImmediately:Boolean):void
 		{
 			//# U.log('[Easing][finishEarly]',completeImmediately);
@@ -568,63 +652,113 @@ package axl.utils
 		}
 		
 		// changes that require stop and re-read;
+		/** Determines if updates on target are applied with respect to its current momentum values (true) or as an absolute values (false).
+		 * When object properties are modified by more than one source (e.g. user interaction or multiple animation objects operates on the 
+		 * same property), non inctemental updates can cause jerkiness. Incremental updates allows to overcome that but require user to  
+		 * calculate destination values relatively to it's current position. */
 		public function get nIncremental():Boolean { return incremental }
 		public function set nIncremental(v:Boolean):void { uIncremental = v }
 		
+		/** Animations can be frame based or time based. 
+		 * <h3>Frame based animations</h3>
+		 * Can take longer to complete then time assigned to it.<br>
+		 * When performance drops down in the project - average frame time extends and so does animation time. In this case animation will be
+		 * slower but smooth because all "portions of animation" match number of frames and are rendered frame by frame. 
+		 * <h3>Time based animations</h3>
+		 * Time passed between each and every frame is calculated, object is updated accordingly. "Portions of animation"  are rated after each frame 
+		 * individually. In this case total animation duration matches animation time assigned, but in case of performance drop,
+		 *  it may become "jumpy" and may finish before expected or beofre other frame based animations (e.g. MovieClip). */
 		public function get nFrameBased():Boolean { return frameBased }
 		public function set nFrameBased(v:Boolean):void { uFrameBased = v }
 		
+		/** This property applies only for frame based animations (<code>nFrameBased = true</code>). Allows to pre-calculate frame values, which can
+		 *  improve overal performance during animation, moving calculations weight to the very first frame of it. Usefull for long animations on many
+		 *  properties. @see nFrameBased */
 		public function get nPrecalculateFrameValues():Boolean { return precalculateFrameValues }
 		public function set nPrecalculateFrameValues(v:Boolean):void {  uPrecalculateFrameValues = v }
 		
+		/** Key-value object containing keys as properties to animate (e.g. x,y,scale,rotation) 
+		 * and destination values for them PLUS public properties of this class from list bellow:
+		 * <ul>
+		 * <li>yoyo</li><li>cycles</li><li>subject</li>
+		 * <li>interval</li><li>intervalRepetitions</li><li>onStartArgs</li>
+		 * <li>onUpdateArgs</li><li>onYoyoHalfArgs</li><li>onCycleArgs</li>
+		 * <li>onCompleteArgs</li><li>onStart</li><li>onUpdate</li><li>onYoyoHalf</li>
+		 * <li>onCycle</li></ul> 
+		 * Every property passed in nProperties can override values set directly on instance or passed to <code>animate</code>
+		 * method.<br>
+		 * Example object: <code>{ x : 220, y : 100, rotation : 360, onUpdate : someFunction }</code> */
 		public function get nProperties():Object { return props }
 		public function set nProperties(v:Object):void { uProps = v }
 		
+		/** Duration of animation in seconds @see #nFrameBased */
 		public function get nSeconds():Number { return uSeconds }
 		public function set nSeconds(v:Number):void { uSeconds = v }
 		
+		/** Animations can be eased  by easing function. This can be custom function or one from predefined in
+		 * <code>axl.utils.Easings</code> class, also available as static property of this class.<br><br>
+		 * Custom easing functions needs to return Number based on four arguments function must accept:
+		 * current time, start value, change in value, duration.  
+		 * @see axl.utils.AO#easing */
 		public function get nEasing():Function { return easing }
 		public function set nEasing(v:Function):void { uEasing = v }
 		
+		/**Delay time in seconds before animation starts. Delay can be omitted by calling <code>start(false)</code> 
+		 * Delayed animations can be killed, stopped, paused and return <code>false</code> on queries 
+		 * <code>isAnimating</code> but <code>true</code> on queries  <code>AO.contains</code>*/
 		public function get delay():Number { return uDelay }
 		public function set delay(v:Number):void { uDelay = v }
 		
 		// -----------------------  PUBLIC STATIC ------------------- //
+		/** Exposes easing functions for animation easings @see axl.utils.Easing @see #nEasing*/
 		public static function get easing():Easings { return easings };
+		
+		/** Stops any existing animations assinged to target (including paused, stopped and delayed). 
+		 * If <code>destroyOnComplete = true</code> also destroys AO instance.
+		 * @param target - either object you animate or AO instance 
+		 * @param completeImmediately - determines if destination values should be assigned to target */
 		public static function killOff(target:Object, completeImmediately:Boolean=false):void
 		{
 			//# U.log('[Easing][killOff]', target);
 			var i:int = numObjects;
 			if(target is AO)
-				for(i= 0; i < numObjects;i++)
-					if(animObjects[i] == target)
-						animObjects[i--].finishEarly(completeImmediately);
+				for(i= 0; i < numInstances;i++)
+					if(allInstances[i] == target)
+						allInstances[i--].finishEarly(completeImmediately);
+					
 			if(!(target is AO))
-				for(i = 0; i < numObjects;i++)
-					if(animObjects[i].subject === target)
-						animObjects[i--].finishEarly(completeImmediately);
+				for(i = 0; i < numInstances;i++)
+					if(allInstances[i].subject === target)
+						allInstances[i--].finishEarly(completeImmediately);
 		}
-		
+		/** Returns true if target is subject of any animation (incl. delayed, paused, stopped), false otherwise */
 		public static function contains(target:Object):Boolean
 		{
-			var i:int = numObjects;
+			var i:int = numInstances;
 			if(target is AO)
 				while(i-->0)
-					if(animObjects[i] == target)
+					if(allInstances[i] == target)
 						return true;
 			if(!(target is AO))
 				while(i-->0)
-					if(animObjects[i].subject === target)
+					if(allInstances[i].subject === target)
 						return true;
 			return false;
 		}
 		
+		/** Allows to artificialy speed up all animations by dispatching fake enter frame.
+		 * @param frameTime for time based animations is number of milliseconnds that passed since last frame.
+		 * For frame based animations its 1, autimatically.
+		 * @see #nFrameBased @see #tick()  */
 		public static function broadcastFrame(frameTime:int):void
 		{
 			for(var i:int = 0; i < numObjects;i++)
 				animObjects[i].tick(frameTime);
 		}
 		
+		/** Setting stage to null can stop all animations instantly. Setting stage to the actual stage is 
+		 * needed in order for AO to work. This should be done as soon as possible in your project, since it's 
+		 * not available for this engine to work without stage reference. */
 		public static function set stage(v:Stage):void
 		{
 			if(STG != null) 
@@ -633,7 +767,7 @@ package axl.utils
 			if(STG != null) 
 				STG.addEventListener(Event.ENTER_FRAME, onEnterFrame);
 		}
-		
+		/** Receives frame, calculates time passed since last frame and broadcasts it to all AO instances */
 		protected static function onEnterFrame(event:Event):void
 		{
 			curFrame = getTimer();
@@ -642,6 +776,23 @@ package axl.utils
 			broadcastFrame(frameTime);
 		}
 		
+		/** Animates object according to parameters passed.<br>
+		 *  This is core static function to perform custom, complex animations without instantaiting AO manually, to do it 
+		 * in one line. By default all AO instances created by this function are going to be destroyed once animation
+		 * is completed.
+		 * @param subject - object you want to animate
+		 * @param seconds - duration of animation in seconds
+		 * @param props - key-values object of properties to animate and its destination values. E.g. 
+		 * <code>{ x : 220, y : 100, rotation : 360 }</code>
+		 * @param  onComplete - callback function to execute once animation is completed 
+		 * @param cycles - number of times to repeat animation instantly
+		 * @param yoyo - once reached destination values, determines if animation is going to play in reverse (back
+		 * to start values)
+		 * @param easingType - function to make your animation smooth, bouncy, elastic or other
+		 * @param incremental - determines if updates on object respect it's current values (adds the difference) or update with 
+		 * absolute values 
+		 * @param frameBased - determines if animation time is affected by performance 
+		 * @see #nProperties @see #onComplete @see #cycles  @see #yoyo @see #nEasing @see #nIncremental @see #nFrameBased*/
 		public static function animate(subject:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
 											   easingType:Object=null, incremental:Boolean=false,frameBased:Boolean=true):AO
 		{
