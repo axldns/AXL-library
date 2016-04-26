@@ -62,6 +62,9 @@ package axl.ui
 		 * before elements are re-sorted and rail gets re-positioned. This value is in
 		 * percentage (0-1).  @default 0.25*/
 		public var maxOffset:Number = 0.25;
+		/** Determines if rail's oppisite axle (v if horizontal and h if vertical) should be "center registered"
+		 * (shifted by half of its dimension against 0) (true) or left at 0 (false) @default true */
+		public var manageOppositeAxleCenter:Boolean=true;
 		/** @see axl.ui.Carusele */
 		public function Carusele()
 		{
@@ -91,7 +94,8 @@ package axl.ui
 		{
 			railDim = rail[mod.d];
 			rail[mod.a] = railDim/-2;
-			rail[modA.a] = rail[modA.d]/-2;
+			if(manageOppositeAxleCenter)
+				rail[modA.a] = rail[modA.d]/-2;
 			rearange();
 			movementBit(0);
 			updateDebug();
@@ -156,7 +160,10 @@ package axl.ui
 				firstChild[modA.a] = 0;
 				sum += firstChild[mod.d]+GAP;
 			}
-			rail[modA.a] = rail[modA.d]/-2;
+			if(manageOppositeAxleCenter)
+				rail[modA.a] = rail[modA.d]/-2;
+			else
+				rail[modA.a] = 0
 			rail[mod.a] = 0;
 			this.movementBit(- centerObj[mod.a]+objAbsoulteOffset);
 			this.updateDebug();
@@ -316,7 +323,7 @@ package axl.ui
 					break;
 			}
 			// now get prev
-			p = rail.getChildAt(i-1);
+			p = rail.getChildAt(i > 0 ? i-1 : i);
 			ppos = p[mod.a] + p[mod.d]/2 - relativeCenter;
 			var vp:Number = Math.abs(ppos);
 			var vn:Number = Math.abs(pos);
