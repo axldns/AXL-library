@@ -14,7 +14,26 @@ package axl.utils
 	import flash.utils.clearTimeout;
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
-
+	/** <h3>Tweening engine</h3>
+	 * Allows to animate any numeric property of any object within given time.<br>
+	 * Animations can be frame-based or time-based. Values can be updated "absolutely" or "incrementally".
+	 *  Supports:
+	 * <ul>
+	 * <li>delay</li>
+	 * <li>cycles</li>
+	 * <li>intervals</li>
+	 * <li>yoyo</li>
+	 * <li>callbacks and arguments for callbacks (onStart, onUpdate, onCycle, onYoyoHalf, onComplete)</li>
+	 * <li>pause, resume, restart</li>
+	 * <li>stop with go to start/end</li>
+	 * <li>pre-defined and custom easing functions</li>
+	 * <li>destruction or re-usage instances</li>
+	 * <li>frame values pre-calculation</li>
+	 * <li>dispatching fake frames</li>
+	 * <li>static method for creating one off animations - self disposing instances</li>
+	 * <li>static method for killing instances by target</li>
+	 * </ul>
+	 * Well optimized: 4 properties on 2000 objects at 60 FPS */
 	public class AO {
 		//general
 		private static var STG:Stage;
@@ -149,8 +168,8 @@ package axl.utils
 		 * </ul> @param executeOnComplete - determines if <code>onComplete</code> callback should be executed before destruction */
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
-			//# U.log('[AO][destroy]'+ subject);
-			clearTimeout(delayID)
+			//# trace('[AO][destroy]'+ subject);
+			clearTimeout(delayID);
 			delayID = 0;
 			removeFromPool();
 			removeFromInstances();
@@ -180,7 +199,17 @@ package axl.utils
 				isPlaying = false;
 			}
 		}
-		
+		/** Creates re-usable, not self starting AO instance. Requires to call <code>start</code>
+		 * after set up.
+		 * If you're not going to re-use it, use static method <code>AO.animate</code> which 
+		 * gives all options this instance would give but with just one line.<br>
+		 * Re-usable instances are good for optimization. Animations executed big number of times 
+		 * on the same target and/or with the same set of settings should be subject of optimization.
+		 * set of settings and executed. In all other cases static method is fine. 
+		 * @param subject - object you want to animate
+		 * @param properties - key-values object of properties to animate and its destination values. E.g. 
+		 * <code>{ x : 220, y : 100, rotation : 360 }</code> 
+		 * @see #start() @see axl.utils.AO#animate() */
 		public function AO(subject:Object, seconds:Number, properties:Object) {
 			/*if(STG == null)
 				throw new Error("[AO]Stage not set up!");*/
@@ -528,15 +557,15 @@ package axl.utils
 		}
 		
 		//-------------------- controll ------------------//
-		private function finish(dispatchComplete:Boolean):void { 
-			//# U.log('[Easing][finish]',subject);
+		private function finish(dispatchComplete:Boolean,forceDestroy:Boolean=false):void { 
+			//# U.log('[Easing][finish]',subject,destroyOnComplete);
 			clearTimeout(delayID);
-			if(destroyOnComplete)
+			if(destroyOnComplete || forceDestroy)
 				destroy(dispatchComplete);
 			else
 			{
 				pause();
-				if(onComplete != null)
+				if(onComplete != null && dispatchComplete)
 					onComplete.apply(null, onCompleteArgs);
 			}
 		}
@@ -640,15 +669,15 @@ package axl.utils
 		/** Stops animation before it's completed. 
 		 * @param completeImmediadely - if true - applies end values to subject of animation and fires <code>onComplete</code> callback
 		 * if defined. If false either pauses or destroys an instance - depending on <code>destroyOnComplete</code> flag.   */
-		public function finishEarly(completeImmediately:Boolean):void
+		public function finishEarly(completeImmediately:Boolean,forceDestroy:Boolean=false):void
 		{
 			//# U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
 			{
 				gotoEnd();
-				finish(true);
+				finish(true,forceDestroy);
 			}
-			else finish(false);
+			else finish(false,forceDestroy);
 		}
 		
 		// changes that require stop and re-read;
@@ -724,12 +753,12 @@ package axl.utils
 			if(target is AO)
 				for(i= 0; i < numInstances;i++)
 					if(allInstances[i] == target)
-						allInstances[i--].finishEarly(completeImmediately);
+						allInstances[i--].finishEarly(completeImmediately,true);
 					
 			if(!(target is AO))
 				for(i = 0; i < numInstances;i++)
 					if(allInstances[i].subject === target)
-						allInstances[i--].finishEarly(completeImmediately);
+						allInstances[i--].finishEarly(completeImmediately,true);
 		}
 		/** Returns true if target is subject of any animation (incl. delayed, paused, stopped), false otherwise */
 		public static function contains(target:Object):Boolean
