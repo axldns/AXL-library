@@ -68,7 +68,6 @@ package axl.utils
 		private var getValue:Function;
 		private var isPlaying:Boolean;
 		private var isSetup:Boolean;
-		private var id:int;
 		
 		// applying anytime
 		/** Indicates if animation is going to be played in reverse after reaching standard destination points.<br>
@@ -94,7 +93,7 @@ package axl.utils
 		/** Once animation is completed (all yoyo, all cycles) the sequence can be repeated. This property determines number of seconds after which 
 		 * is going to happen if <code>intervalRepetitions</code> &gt; 1 
 		 * @default 0  @see #yoyo @see #cycles @see #intervalRepetitions */
-		public var interval:Number=0;
+		public var interval:Number;
 		/** Determines how many times entire animation sequence (incl. cycles and yoyo's) is going to be executed if <code>interval &gt; 0</code> 
 		 * @default 1 @see #interval @see #yoyo @see #cycles */
 		public var intervalRepetitions:int=1;
@@ -156,7 +155,6 @@ package axl.utils
 		private var intervalRemaining:int;
 		private var ucycles:int=1;
 		private var intervalLock:Boolean;
-		public var intervalMinusDuration:Boolean;
 		private var durationPassed:Boolean;
 		private var intervalPassed:Boolean;
 		private var intervalRepetitionsPassed:Boolean;
@@ -317,136 +315,40 @@ package axl.utils
 			passedTotal += frameBased ? 1 : milsecs;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 			durationPassed = passedTotal >= duration;
-			var continues:Boolean;
-			if(interval > 0)
+		
+			if(durationPassed) // end of period
 			{
-				// ---------------- COMPUTING STATE -------------------- //
-				if(intervalMinusDuration)
-				{
-					intervalRemaining -= frameBased ? 1 : milsecs;
-				}
-				else if(intervalLock)
-				{
-					intervalRemaining -= frameBased ? 1 : milsecs;
-				}
-				intervalPassed = (intervalRemaining <= 0);
-				if(intervalPassed)
-				{
-					intervalRepetitions--
-				}
-				intervalRepetitionsPassed = (intervalRepetitions <= 0);
-				
-				// ----------------  TAKING ACTIONS ---------------- //
-				if(intervalRepetitionsPassed)
-				{
-					intervalLock = false;
-					finish(true);
-					return;
-				}
-				else if(intervalPassed)
-				{
-					// need to know if contunues? 
-					//no! as this is being decided on end of regular period
-					// simply restarts the animation
-					passedTotal = 0;
-					cycles = ucycles;
-					intervalLock  = false
-					intervalRemaining = intervalDuration;
-					
-				}
-				else // interval not passed but set
-				{
-					
-					if(!intervalLock) // for the first time!	
-					{
-						// need to know if to ease
-						//first need to know if regular animation or interval waiting
-						if(durationPassed)
-						{
-							continues = passedDuration(); // determines if to go back or smth
-							if(continues)
-							{
-								passedTotal = 0; // waits for another tick (yoyo e.g.
-							}
-							else
-							{
-								intervalLock = true; // eased, closed
-							}
-						}
-						else //  interval set but not locked, duration not passed, - regular tick dispatch
-						{
-							updateFunction();
-							if(onUpdate is Function)
-								onUpdate.apply(null, onUpdateArgs);
-						}
-					}
-					else // already locked so probably eased and resolved continuation
-					{
-						// just tick
-					}
-					
-				}
-			}
-			else // THIS HAS NOTHING TO DO WITH INTERVALS
-			{
-				if(durationPassed) // end of period
-				{
-					continues = passedDuration(); // determines if to go back or smth
-					if(continues)
-					{
-						passedTotal = 0; // waits for another tick (yoyo e.g.
-					}
-					else
-					{
+				if(!intervalLock && continuesCycles())
+					passedTotal = 0; // waits for another tick (yoyo e.g.
+				else if(intervalHasPassed(frameBased ? 1 : milsecs))
 						finish(true); // ends an animation
-					}
-				}
-				else // regular tick dispatch
-				{
-					updateFunction();
-					if(onUpdate is Function)
-						onUpdate.apply(null, onUpdateArgs);
-				}
 			}
-			
+			else // regular tick dispatch
+			{
+				updateFunction();
+				if(onUpdate is Function)
+					onUpdate.apply(null, onUpdateArgs);
+			}
 		}
 		
-		private function resolveInterval(ms:uint):void
+		private function intervalHasPassed(passed:Number):Boolean
 		{
-			if(intervalPassedd(ms))
-			{
-				intervalLock = false;
-				finish(true);
-			}
-			else
-			{
-				intervalLock = true;
-			}
-		}
-		private function intervalPassedd(milsecs:int):Boolean
-		{
-			if(interval <= 0)
+			if(isNaN(interval))
 				return true;
-			intervalRemaining -= frameBased ? 1 : milsecs;
-			if(intervalRemaining <= 0)
+			else if(intervalRemaining <= 0)
 			{
-				if(--intervalRepetitions < 0)
-					return true;
-				else
-				{
-					passedTotal = 0;
-					cycles = ucycles;
-					intervalLock  = false
-					intervalRemaining = intervalDuration;
-					return false
-				}
+				intervalRepetitions--;
+				intervalRemaining = intervalDuration;
+				passedTotal = 0;
+				cycles = ucycles;
+				intervalLock = false;
+				return intervalRepetitions == 0;
 			}
-			else
-			{
-				return false;
-			}
-		}		
-		
+			intervalLock = true;
+			intervalRemaining -= passed;
+			return false;
+		}
+			
 		//absolute
 		private function updateAbsolute():void
 		{
@@ -477,13 +379,6 @@ package axl.utils
 		private function getValueLive(i:int):Number
 		{
 			return easing(passedRelative, propStartValues[i], propDifferences[i], duration);
-		}
-		
-		private function passedDuration():Boolean
-		{
-			equalize();
-			if(onUpdate is Function) onUpdate.apply(null, onUpdateArgs);
-			return resolveContinuation();
 		}
 		
 		private function equalize():void
@@ -519,9 +414,10 @@ package axl.utils
 				subject[propNames[i]] = v[i];
 		}
 		
-		private function resolveContinuation():Boolean
+		private function continuesCycles():Boolean
 		{
 			//# U.log("------resolveContinuation----------");
+			equalize();
 			if(yoyo)
 			{
 				if(direction > 0)
@@ -667,8 +563,9 @@ package axl.utils
 		}
 		
 		/** Stops animation before it's completed. 
-		 * @param completeImmediadely - if true - applies end values to subject of animation and fires <code>onComplete</code> callback
-		 * if defined. If false either pauses or destroys an instance - depending on <code>destroyOnComplete</code> flag.   */
+		 * @param completeImmediately - if true - applies end values to subject of animation and fires <code>onComplete</code> callback
+		 * if defined. If false either pauses or destroys an instance - depending on <code>destroyOnComplete</code> flag.
+		 * @param forceDestroy - can force disposing instance even if <code>destroyOnComplete=false</code>   */
 		public function finishEarly(completeImmediately:Boolean,forceDestroy:Boolean=false):void
 		{
 			//# U.log('[Easing][finishEarly]',completeImmediately);
