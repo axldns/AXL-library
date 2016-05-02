@@ -23,12 +23,12 @@ package axl.utils
 	 * <li>cycles</li>
 	 * <li>intervals</li>
 	 * <li>yoyo</li>
+	 * <li>timeScale</li>
 	 * <li>callbacks and arguments for callbacks (onStart, onUpdate, onCycle, onYoyoHalf, onComplete)</li>
 	 * <li>pause, resume, restart</li>
 	 * <li>stop with go to start/end</li>
 	 * <li>pre-defined and custom easing functions</li>
 	 * <li>destruction or re-usage instances</li>
-	 * <li>frame values pre-calculation</li>
 	 * <li>dispatching fake frames</li>
 	 * <li>static method for creating one off animations - self disposing instances</li>
 	 * <li>static method for killing instances by target</li>
@@ -114,6 +114,10 @@ package axl.utils
 		/** Once animation is complete, <code>onComplete</code> callback can be fired. This variable can hold an array of arguments for that
 		 * callback. @see #onComplete() */
 		public var onCompleteArgs:Array;
+		/** Once animation is completed (all yoyo, all cycles) the sequence can be repeated if <code>interval</code> is set. This can fire 
+		 * <code>onInterval</code> callback. This property can hold an array of arguments for that callback.
+		 * @see #interval @see #onInterval */
+		public var onIntervalArgs:Array;
 		/** Callback to fire when animation is about to start (e.g. delayed or paused). Can be set on instance or passed in animation properties object.
 		 * @see #onStartArgs */
 		public var onStart:Function;
@@ -130,6 +134,9 @@ package axl.utils
 		/** Callback to fire when animation is completed. If interval repetitions are defined, 
 		 * fires after all repetitons, otherwise after all cycles. @see #onCompleteArgs() @see #cycles @see #intervalRepetitions */
 		public var onComplete:Function;
+		/** Callback to fire when time for one interval has passed.
+		 * @see #interval @see #intervalRepetitions */
+		public var onInterval:Function;
 		/** Determines if animation instance is being disposed once animation is completed. AO instances created used <code>animate</code> method
 		 * set this property to true. Destroyed instance can't be re-used - calling <i>start</i>, <i>restart</i> on it will likely cause an error.
 		 * Instances which are not destroyed on complete, can be re-used. @default false  */
@@ -310,7 +317,7 @@ package axl.utils
 			if(durationPassed) // end of period
 			{
 				if(!intervalLock && continuesCycles())
-					passedTotal = 0; // waits for another tick (yoyo e.g.
+					passedTotal -= duration; // waits for another tick (yoyo e.g.
 				else if(intervalHasPassed(frameBased ? 1 : milsecs))
 						finish(true); // ends an animation
 			}
@@ -329,10 +336,12 @@ package axl.utils
 			else if(intervalRemaining <= 0)
 			{
 				intervalRepetitions--;
-				intervalRemaining = intervalDuration;
-				passedTotal = 0;
+				intervalRemaining += intervalDuration;
+				passedTotal -= duration;
 				cycles = ucycles;
 				intervalLock = false;
+				if(onInterval != null)
+					onInterval.apply(null, onIntervalArgs);
 				return intervalRepetitions == 0;
 			}
 			intervalLock = true;
@@ -378,6 +387,8 @@ package axl.utils
 					applyValues(propStartValues);	// |[HERE] < < < < < < |
 			else 		
 				applyRemainings();
+			if(onUpdate is Function)
+				onUpdate.apply(null, onUpdateArgs);
 		}
 		/** this is for incrementals only **/
 		private function applyRemainings():void
@@ -506,8 +517,8 @@ package axl.utils
 		}
 		
 		// ---------------------------------- public instance API------------------------------------------ //
-		/** Returns <code>true</code> if object is actively being updated every frame. 
-		 * Returns <code>false</code> for stopped, paused, completed and delayed (if delay hasn't pased yet) animations */
+		/** Returns <code>true</code> if object is actively being updated every frame. Includes delayed. 
+		 * Returns <code>false</code> for stopped, paused, completed and  animations */
 		public function get isAnimating():Boolean { return isPlaying }
 		
 		/** Starts animation if not started yet, stopped or paused.
@@ -603,9 +614,12 @@ package axl.utils
 		public function get nEasing():Function { return easing }
 		public function set nEasing(v:Function):void { uEasing = v }
 		
-		/**Delay time in seconds before animation starts. Delay can be omitted by calling <code>start(false)</code> 
-		 * Delayed animations can be killed, stopped, paused and return <code>false</code> on queries 
-		 * <code>isAnimating</code> but <code>true</code> on queries  <code>AO.contains</code>*/
+		/**Delay time in seconds or number of frames (dependent on <code>frameBased</code> flag) before animation starts. 
+		 * Delay can be omitted by calling <code>start(false)</code> 
+		 * Delayed animations can be killed, stopped or  paused. 
+		 * <code>isAnimating()</code> will return true for delayed ones if they're not stopped or paused, false otherwise.
+		 * On queries <code>AO.contains</code> it will return true for all not destroyed instances, regardles of their playback state 
+		 * @see #isAnimating @see axl.utils.AO#contains() */
 		public function get delay():Number { return uDelay }
 		public function set delay(v:Number):void { uDelay = v }
 		
