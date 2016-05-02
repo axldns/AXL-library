@@ -606,9 +606,9 @@ package axl.utils
 		public function get nProperties():Object { return props }
 		public function set nProperties(v:Object):void { uProps = v }
 		
-		/** Duration of animation in seconds @see #nFrameBased */
-		public function get nSeconds():Number { return uSeconds }
-		public function set nSeconds(v:Number):void { uSeconds = v }
+		/** Duration of animation in seconds or frames number @see #nFrameBased */
+		public function get nTime():Number { return uSeconds }
+		public function set nTime(v:Number):void { uSeconds = v  }
 		
 		
 		/**Delay time in seconds or number of frames (dependent on <code>frameBased</code> flag) before animation starts. 
@@ -707,7 +707,7 @@ package axl.utils
 			ao.yoyo = yoyo;
 			ao.easing = (AO.easing.hasOwnProperty(easingType)) ?  AO.easing[easingType] : easingType as Function || AO.defaultEasing ;
 			ao.nIncremental = incremental;
-			ao.nFrameBased = frameBased;
+			ao.frameBased = frameBased;
 			ao.destroyOnComplete=true;
 			ao.start();
 			return ao;
