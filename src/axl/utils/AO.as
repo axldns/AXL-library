@@ -12,9 +12,7 @@ package axl.utils
 	import flash.display.Shape;
 	import flash.display.Stage;
 	import flash.events.Event;
-	import flash.utils.clearTimeout;
 	import flash.utils.getTimer;
-	import flash.utils.setTimeout;
 
 	/** <h3>Tweening engine</h3>
 	 * Allows to animate any numeric property of any object within given time.<br>
@@ -56,7 +54,6 @@ package axl.utils
 		private var propStartValues:Vector.<Number>;
 		private var propEndValues:Vector.<Number>;
 		private var propDifferences:Vector.<Number>;
-		private var eased:Vector.<Vector.<Number>>;
 		private var remains:Vector.<Number>;
 		private var prevs:Vector.<Number>;
 		
@@ -137,12 +134,13 @@ package axl.utils
 		 * set this property to true. Destroyed instance can't be re-used - calling <i>start</i>, <i>restart</i> on it will likely cause an error.
 		 * Instances which are not destroyed on complete, can be re-used. @default false  */
 		public var destroyOnComplete:Boolean = false;
-		
+		/** Allows to controll speed of animation during animation. Setting value of this property to 2 would speed it up twice. If set to 0.5 -
+		 * animation would be twice slower. @default 1*/
 		public var timeScale:Number=1;
 		
 		// applying only before start
 		private var uIncremental:Boolean=false;
-		private var uFrameBased:Boolean=true;
+		private var uFrameBased:Boolean=false;
 		private var uProps:Object;
 		private var uSeconds:Number;
 		private var uEasing:Function = defaultEasing;
@@ -150,10 +148,9 @@ package axl.utils
 		
 		// live copy 
 		private var incremental:Boolean=false;
-		private var frameBased:Boolean=true;
+		private var frameBased:Boolean=false;
 		private var props:Object;
 		private var easing:Function;
-		private var delayID:uint;
 		private var intervalDuration:Number;
 		private var intervalRemaining:int;
 		private var ucycles:int=1;
@@ -161,6 +158,7 @@ package axl.utils
 		private var durationPassed:Boolean;
 		private var intervalPassed:Boolean;
 		private var intervalRepetitionsPassed:Boolean;
+		private var delayRemaining:int;
 		
 		
 		/** Destroys an instance and makes it un-usable.
@@ -171,14 +169,11 @@ package axl.utils
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
 			//# trace('[AO][destroy]'+ subject);
-			clearTimeout(delayID);
-			delayID = 0;
 			removeFromPool();
 			removeFromInstances();
-			numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
+			delayRemaining = numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
 			propStartValues = propEndValues = propDifferences = remains =  prevs = null;
 			propNames = null;
-			eased = null;
 			direction = cycles = 1;
 			subject = props = uProps = null;
 			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = null;
@@ -219,8 +214,6 @@ package axl.utils
 			allInstances[numInstances++] = this;
 			uSeconds = time;
 			uProps = properties;
-			if(uProps.hasOwnProperty('delay'))
-				delay = uProps.delay;
 			this.subject = subject;
 		}
 		
@@ -289,21 +282,28 @@ package axl.utils
 		}
 		
 		private function prepareTimeBased():void {
-			duration  =  (uSeconds * 1000); 
+			duration  =  (uSeconds * 1000);
+			delayRemaining = uDelay * 1000;
 			intervalDuration = intervalRemaining = (interval * 1000);
 			getValue = getValueLive;
 		}
 		private function prepareFrameBased():void
 		{
 			duration =uSeconds; // no frames
-			intervalDuration = interval;
+			delayRemaining = uDelay;
+			intervalDuration = intervalRemaining = interval;
 			getValue = getValueLive;
 		}
 		// ----------------------------------------- UPDATE ------------------------- //
 		/** Main propeller of animation engine. It's used to broadcast new frame and compute state of continuation.*/
 		protected function tick(milsecs:int):void
 		{
-			passedTotal += (frameBased ? 1 : milsecs)*timeScale;
+			if(delayRemaining > 0)
+			{
+				delayRemaining -= (frameBased ? 1 : milsecs) * timeScale;
+				return;
+			}
+			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 			durationPassed = passedTotal >= duration;
 		
@@ -362,11 +362,7 @@ package axl.utils
 			}
 		}
 		
-		//common
-		private function getValueEased(i:int):Number
-		{
-			return eased[i][passedRelative];
-		}
+		
 		private function getValueLive(i:int):Number
 		{
 			return easing(passedRelative, propStartValues[i], propDifferences[i], duration);
@@ -392,7 +388,7 @@ package axl.utils
 				var bug:Number = subject[propNames[i]];
 				subject[propNames[i]] += add;
 				bug = (subject[propNames[i]] - add) - bug;
-				subject[propNames[i]] -= bug.toPrecision(6);
+				subject[propNames[i]] -= Number(bug.toPrecision(6));
 				remains[i] = propDifferences[i];
 			}
 			if(!yoyo || (yoyo && direction < 0))
@@ -450,7 +446,6 @@ package axl.utils
 		//-------------------- controll ------------------//
 		private function finish(dispatchComplete:Boolean,forceDestroy:Boolean=false):void { 
 			//# U.log('[Easing][finish]',subject,destroyOnComplete);
-			clearTimeout(delayID);
 			if(destroyOnComplete || forceDestroy)
 				destroy(dispatchComplete);
 			else
@@ -500,8 +495,6 @@ package axl.utils
 
 		private function perform():void 
 		{ 
-			clearTimeout(delayID);
-			delayID = 0;
 			if(!isSetup)
 				setUp();
 			if(!isPlaying)
@@ -522,10 +515,9 @@ package axl.utils
 		 * otherwise animation will start promptly */
 		public function start(respectDelay:Boolean=true):void
 		{
-			if(delay > 0 && respectDelay)
-				delayID = flash.utils.setTimeout(perform, delay * 1000);
-			else
-				perform();
+			if(!respectDelay)
+				delayRemaining = 0;
+			perform();
 		}
 		/** Starts or continues an animation without respecting delay assigned to it.  @see #start() */
 		public function resume():void { start(false) };
