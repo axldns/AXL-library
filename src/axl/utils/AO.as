@@ -144,20 +144,25 @@ package axl.utils
 		/** Allows to controll speed of animation during animation. Setting value of this property to 2 would speed it up twice. If set to 0.5 -
 		 * animation would be twice slower. @default 1*/
 		public var timeScale:Number=1;
+		/** Animations can be eased  by easing function. This can be custom function or one from predefined in
+		 * <code>axl.utils.Easings</code> class, also available as static property of this class.<br><br>
+		 * Custom easing functions needs to return Number based on four arguments function must accept:
+		 * current time, start value, change in value, duration.  
+		 * @see axl.utils.AO#easing */
+		public var easing:Function = defaultEasing;
 		
 		// applying only before start
 		private var uIncremental:Boolean=false;
 		private var uFrameBased:Boolean=false;
 		private var uProps:Object;
 		private var uSeconds:Number;
-		private var uEasing:Function = defaultEasing;
 		private var uDelay:Number;
 		
 		// live copy 
 		private var incremental:Boolean=false;
 		private var frameBased:Boolean=false;
 		private var props:Object;
-		private var easing:Function;
+		
 		private var intervalDuration:Number;
 		private var intervalRemaining:int;
 		private var ucycles:int=1;
@@ -184,7 +189,7 @@ package axl.utils
 			direction = cycles = 1;
 			subject = props = uProps = null;
 			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = null;
-			updateFunction = getValue = easing = uEasing = onUpdate = onYoyoHalf = onCycle = null;
+			updateFunction = getValue  = onUpdate = onYoyoHalf = onCycle = null;
 			
 			if(executeOnComplete && (onComplete != null))
 				onComplete.apply(null, onCompleteArgs);
@@ -247,7 +252,6 @@ package axl.utils
 			numProperties = duration = passedTotal = passedRelative = cur = intervalDuration= intervalRemaining = 0;
 			
 			props = uProps;
-			easing = uEasing || defaultEasing;
 			frameBased = uFrameBased;
 			incremental = uIncremental;
 			
@@ -606,13 +610,6 @@ package axl.utils
 		public function get nSeconds():Number { return uSeconds }
 		public function set nSeconds(v:Number):void { uSeconds = v }
 		
-		/** Animations can be eased  by easing function. This can be custom function or one from predefined in
-		 * <code>axl.utils.Easings</code> class, also available as static property of this class.<br><br>
-		 * Custom easing functions needs to return Number based on four arguments function must accept:
-		 * current time, start value, change in value, duration.  
-		 * @see axl.utils.AO#easing */
-		public function get nEasing():Function { return easing }
-		public function set nEasing(v:Function):void { uEasing = v }
 		
 		/**Delay time in seconds or number of frames (dependent on <code>frameBased</code> flag) before animation starts. 
 		 * Delay can be omitted by calling <code>start(false)</code> 
@@ -708,7 +705,7 @@ package axl.utils
 			ao.onComplete = onComplete || ao.onComplete;
 			ao.cycles = cycles;
 			ao.yoyo = yoyo;
-			ao.nEasing = (easing.hasOwnProperty(easingType)) ?  easing[easingType] : easingType as Function ;
+			ao.easing = (AO.easing.hasOwnProperty(easingType)) ?  AO.easing[easingType] : easingType as Function || AO.defaultEasing ;
 			ao.nIncremental = incremental;
 			ao.nFrameBased = frameBased;
 			ao.destroyOnComplete=true;
