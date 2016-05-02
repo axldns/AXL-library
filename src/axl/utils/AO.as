@@ -9,11 +9,13 @@
  */
 package axl.utils
 {
+	import flash.display.Shape;
 	import flash.display.Stage;
 	import flash.events.Event;
 	import flash.utils.clearTimeout;
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
+
 	/** <h3>Tweening engine</h3>
 	 * Allows to animate any numeric property of any object within given time.<br>
 	 * Animations can be frame-based or time-based. Values can be updated "absolutely" or "incrementally".
@@ -36,7 +38,6 @@ package axl.utils
 	 * Well optimized: 4 properties on 2000 objects at 60 FPS */
 	public class AO {
 		//general
-		private static var STG:Stage;
 		private static var curFrame:int;
 		private static var frameTime:int;
 		private static var prevFrame:int;
@@ -47,6 +48,8 @@ package axl.utils
 		private static var defaultEasing:Function = easings.easeOutQuad;
 		private static var numObjects:int=0;
 		private static var numInstances:int = 0;
+		private static var ticker:Shape = new Shape();
+		ticker.addEventListener("enterFrame", onEnterFrame);
 		
 		//internal
 		private var propNames:Vector.<String>;
@@ -92,9 +95,9 @@ package axl.utils
 		public var subject:Object;
 		/** Once animation is completed (all yoyo, all cycles) the sequence can be repeated. This property determines number of seconds after which 
 		 * is going to happen if <code>intervalRepetitions</code> &gt; 1 
-		 * @default 0  @see #yoyo @see #cycles @see #intervalRepetitions */
+		 * @see #yoyo @see #cycles @see #intervalRepetitions */
 		public var interval:Number;
-		/** Determines how many times entire animation sequence (incl. cycles and yoyo's) is going to be executed if <code>interval &gt; 0</code> 
+		/** Determines how many times entire animation sequence (incl. cycles and yoyo's) is going to be executed if <code>interval</code> is set 
 		 * @default 1 @see #interval @see #yoyo @see #cycles */
 		public var intervalRepetitions:int=1;
 		/** When animation is about to start (e.g delayed or paused) <code>onStart</code> callback  can be fired. 
@@ -135,10 +138,11 @@ package axl.utils
 		 * Instances which are not destroyed on complete, can be re-used. @default false  */
 		public var destroyOnComplete:Boolean = false;
 		
+		public var timeScale:Number=1;
+		
 		// applying only before start
 		private var uIncremental:Boolean=false;
 		private var uFrameBased:Boolean=true;
-		private var uPrecalculateFrameValues:Boolean=true;
 		private var uProps:Object;
 		private var uSeconds:Number;
 		private var uEasing:Function = defaultEasing;
@@ -147,7 +151,6 @@ package axl.utils
 		// live copy 
 		private var incremental:Boolean=false;
 		private var frameBased:Boolean=true;
-		private var precalculateFrameValues:Boolean;
 		private var props:Object;
 		private var easing:Function;
 		private var delayID:uint;
@@ -158,6 +161,7 @@ package axl.utils
 		private var durationPassed:Boolean;
 		private var intervalPassed:Boolean;
 		private var intervalRepetitionsPassed:Boolean;
+		
 		
 		/** Destroys an instance and makes it un-usable.
 		 * <ul><li>stops any animation and removes it from pool (incl. stopped, paused and delayed ones)</li>
@@ -205,14 +209,15 @@ package axl.utils
 		 * on the same target and/or with the same set of settings should be subject of optimization.
 		 * set of settings and executed. In all other cases static method is fine. 
 		 * @param subject - object you want to animate
+		 * @param time - duration of animation in seconds or number of frames
 		 * @param properties - key-values object of properties to animate and its destination values. E.g. 
 		 * <code>{ x : 220, y : 100, rotation : 360 }</code> 
 		 * @see #start() @see axl.utils.AO#animate() */
-		public function AO(subject:Object, seconds:Number, properties:Object) {
+		public function AO(subject:Object, time:Number, properties:Object) {
 			/*if(STG == null)
 				throw new Error("[AO]Stage not set up!");*/
 			allInstances[numInstances++] = this;
-			uSeconds = seconds;
+			uSeconds = time;
 			uProps = properties;
 			if(uProps.hasOwnProperty('delay'))
 				delay = uProps.delay;
@@ -243,7 +248,6 @@ package axl.utils
 			
 			props = uProps;
 			easing = uEasing || defaultEasing;
-			precalculateFrameValues = uPrecalculateFrameValues;
 			frameBased = uFrameBased;
 			incremental = uIncremental;
 			
@@ -291,28 +295,15 @@ package axl.utils
 		}
 		private function prepareFrameBased():void
 		{
-			duration = Math.ceil(STG.frameRate * uSeconds); // no frames
-			intervalDuration = intervalRemaining = Math.ceil(STG.frameRate * interval);
-			if(!precalculateFrameValues)
-				getValue = getValueLive;
-			else 
-			{
-				getValue = getValueEased;
-				eased = new Vector.<Vector.<Number>>(numProperties,true);
-				var i:int, j:int;
-				for(i=0;i<numProperties;i++)
-				{
-					eased[i] = new Vector.<Number>(duration,true);
-					for(j=0; j < duration;j++) 
-						eased[i][j] = easing(j, propStartValues[i], propDifferences[i], duration);
-				}
-			}
+			duration =uSeconds; // no frames
+			intervalDuration = interval;
+			getValue = getValueLive;
 		}
 		// ----------------------------------------- UPDATE ------------------------- //
 		/** Main propeller of animation engine. It's used to broadcast new frame and compute state of continuation.*/
 		protected function tick(milsecs:int):void
 		{
-			passedTotal += frameBased ? 1 : milsecs;
+			passedTotal += (frameBased ? 1 : milsecs)*timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 			durationPassed = passedTotal >= duration;
 		
@@ -397,7 +388,11 @@ package axl.utils
 		{
 			for(var i:int=0;i<numProperties;i++)
 			{
-				subject[propNames[i]] += remains[i] * direction;
+				var add:Number =  remains[i] * direction;
+				var bug:Number = subject[propNames[i]];
+				subject[propNames[i]] += add;
+				bug = (subject[propNames[i]] - add) - bug;
+				subject[propNames[i]] -= bug.toPrecision(6);
 				remains[i] = propDifferences[i];
 			}
 			if(!yoyo || (yoyo && direction < 0))
@@ -585,23 +580,10 @@ package axl.utils
 		public function get nIncremental():Boolean { return incremental }
 		public function set nIncremental(v:Boolean):void { uIncremental = v }
 		
-		/** Animations can be frame based or time based. 
-		 * <h3>Frame based animations</h3>
-		 * Can take longer to complete then time assigned to it.<br>
-		 * When performance drops down in the project - average frame time extends and so does animation time. In this case animation will be
-		 * slower but smooth because all "portions of animation" match number of frames and are rendered frame by frame. 
-		 * <h3>Time based animations</h3>
-		 * Time passed between each and every frame is calculated, object is updated accordingly. "Portions of animation"  are rated after each frame 
-		 * individually. In this case total animation duration matches animation time assigned, but in case of performance drop,
-		 *  it may become "jumpy" and may finish before expected or beofre other frame based animations (e.g. MovieClip). */
+		/** Determines if "time" attribute is defined in seconds (false) or in number of frames (true) */
 		public function get nFrameBased():Boolean { return frameBased }
 		public function set nFrameBased(v:Boolean):void { uFrameBased = v }
 		
-		/** This property applies only for frame based animations (<code>nFrameBased = true</code>). Allows to pre-calculate frame values, which can
-		 *  improve overal performance during animation, moving calculations weight to the very first frame of it. Usefull for long animations on many
-		 *  properties. @see nFrameBased */
-		public function get nPrecalculateFrameValues():Boolean { return precalculateFrameValues }
-		public function set nPrecalculateFrameValues(v:Boolean):void {  uPrecalculateFrameValues = v }
 		
 		/** Key-value object containing keys as properties to animate (e.g. x,y,scale,rotation) 
 		 * and destination values for them PLUS public properties of this class from list bellow:
@@ -682,16 +664,10 @@ package axl.utils
 				animObjects[i].tick(frameTime);
 		}
 		
-		/** Setting stage to null can stop all animations instantly. Setting stage to the actual stage is 
-		 * needed in order for AO to work. This should be done as soon as possible in your project, since it's 
-		 * not available for this engine to work without stage reference. */
+		/** depreciated */
 		public static function set stage(v:Stage):void
 		{
-			if(STG != null) 
-				STG.removeEventListener(Event.ENTER_FRAME, onEnterFrame);
-			STG = v;
-			if(STG != null) 
-				STG.addEventListener(Event.ENTER_FRAME, onEnterFrame);
+			//depreciated
 		}
 		/** Receives frame, calculates time passed since last frame and broadcasts it to all AO instances */
 		protected static function onEnterFrame(event:Event):void
@@ -707,7 +683,7 @@ package axl.utils
 		 * in one line. By default all AO instances created by this function are going to be destroyed once animation
 		 * is completed.
 		 * @param subject - object you want to animate
-		 * @param seconds - duration of animation in seconds
+		 * @param time - duration of animation in seconds or number of frames if <code>frameBased true</code>
 		 * @param props - key-values object of properties to animate and its destination values. E.g. 
 		 * <code>{ x : 220, y : 100, rotation : 360 }</code>
 		 * @param  onComplete - callback function to execute once animation is completed 
@@ -717,14 +693,12 @@ package axl.utils
 		 * @param easingType - function to make your animation smooth, bouncy, elastic or other
 		 * @param incremental - determines if updates on object respect it's current values (adds the difference) or update with 
 		 * absolute values 
-		 * @param frameBased - determines if animation time is affected by performance 
+		 * @param frameBased - determines if time is specified in frames or seconds
 		 * @see #nProperties @see #onComplete @see #cycles  @see #yoyo @see #nEasing @see #nIncremental @see #nFrameBased*/
-		public static function animate(subject:Object, seconds:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
-											   easingType:Object=null, incremental:Boolean=false,frameBased:Boolean=true):AO
+		public static function animate(subject:Object, time:Number, props:Object, onComplete:Function=null, cycles:int=1,yoyo:Boolean=false,
+											   easingType:Object=null, incremental:Boolean=false,frameBased:Boolean=false):AO
 		{
-			if(STG == null)
-				throw new Error("[AO]Stage not set");
-			var ao:AO = new AO(subject, seconds, props);
+			var ao:AO = new AO(subject, time, props);
 			ao.onComplete = onComplete || ao.onComplete;
 			ao.cycles = cycles;
 			ao.yoyo = yoyo;
