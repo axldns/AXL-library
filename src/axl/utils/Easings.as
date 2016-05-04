@@ -104,28 +104,28 @@ package axl.utils
 			if ((t/=d/2) < 1) return c/2 * Math.pow(2, 10 * (t - 1)) + b;
 			return c/2 * (-Math.pow(2, -10 * --t) + 2) + b;
 		}
-		public const easeInElastic:Function = function (t:Number, b:Number, c:Number, d:Number, a:Number=1, p:Number=1):Number
+		public const easeInElastic:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 		{
-			var s:Number;
-			if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*.3;
-			if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-			else s = p/PI_M2 * Math.asin (c/a);
+			if (t == 0) return b;
+			if ((t /= d) == 1) return b + c;
+			var s:Number, p:Number = d *.3, a:Number=1;
+			a < Math.abs(c) ? (a=c, s=p/4) : s = p / PI_M2 * Math.asin(c / a);
 			return -(a*Math.pow(2,10*(t-=1)) * sin3( (t*d-s)*PI_M2/p )) + b;
 		}
-		public const easeOutElastic:Function = function (t:Number, b:Number, c:Number, d:Number, a:Number=1, p:Number=1):Number
+		public const easeOutElastic:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 		{
-			var s:Number;
-			if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*.3;
-			if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-			else s = p/PI_M2 * Math.asin (c/a);
-			return (a*Math.pow(2,-10*t) * sin3( (t*d-s)*PI_M2/p ) + c + b);
+			if (t == 0) return b;
+			if ((t /= d) == 1) return b + c;
+			var s:Number, p:Number = d *.3, a:Number=1;
+			a < Math.abs(c) ? (a=c, s=p/4) : s = p / PI_M2 * Math.asin(c / a);
+			return a * Math.pow(2, -10 * t) * sin3((t * d - s) * PI_M2 / p ) + c + b;
 		}
-		public const easeInOutElastic:Function = function (t:Number, b:Number, c:Number, d:Number, a:Number=1, p:Number=1):Number
+		public const easeInOutElastic:Function = function (t:Number, b:Number, c:Number, d:Number):Number
 		{
-			var s:Number;
-			if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(.3*1.5);
-			if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-			else s = p/PI_M2 * Math.asin (c/a);
+			if (t == 0) return b;
+			if ((t /= d/2) == 2) return b + c;
+			var s:Number, p:Number = d*.3*1.5, a:Number=1;
+			a < Math.abs(c) ? (a=c, s=p/4) : s = p / PI_M2 * Math.asin(c / a);
 			if (t < 1) return -.5*(a*Math.pow(2,10*(t-=1)) * sin3( (t*d-s)*PI_M2/p )) + b;
 			return a*Math.pow(2,-10*(t-=1)) * sin3( (t*d-s)*PI_M2/p )*.5 + c + b;
 		}
