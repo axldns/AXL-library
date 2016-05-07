@@ -54,7 +54,7 @@ package axl.utils
 		private var propStartValues:Vector.<Number>;
 		private var propEndValues:Vector.<Number>;
 		private var propDifferences:Vector.<Number>;
-		private var remains:Vector.<Number>;
+		private var incSum:Vector.<Number>;
 		private var prevs:Vector.<Number>;
 		
 		private var numProperties:int=0
@@ -184,7 +184,7 @@ package axl.utils
 			removeFromPool();
 			removeFromInstances();
 			delayRemaining = numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
-			propStartValues = propEndValues = propDifferences = remains =  prevs = null;
+			propStartValues = propEndValues = propDifferences = incSum =  prevs = null;
 			propNames = null;
 			direction = cycles = 1;
 			subject = props = uProps = null;
@@ -269,14 +269,14 @@ package axl.utils
 		private function prepareIncremental():void
 		{
 			if(prevs) prevs.length = 0; else prevs = new Vector.<Number>();
-			if(remains) remains.length = 0; else remains = new Vector.<Number>();
+			if(incSum) incSum.length = 0; else incSum = new Vector.<Number>();
 			updateFunction = updateIncremental;
 			for(var i:int=0; i<numProperties;i++)
 			{
 				propDifferences[i] = props[propNames[i]];
 				propStartValues[i] = subject[propNames[i]];
 				propEndValues[i] = propStartValues[i] + propDifferences[i];
-				remains[i] = propDifferences[i];
+				incSum[i] = 0;
 				prevs[i] = propStartValues[i];
 			}
 		}
@@ -316,14 +316,46 @@ package axl.utils
 			}
 			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
-			durationPassed = passedTotal >= duration;
-		
+			durationPassed = passedTotal >= duration || passedTotal <= 0;
+			//trace('dur passsed', durationPassed, passedTotal,'/',duration);
 			if(durationPassed) // end of period
 			{
 				if(!intervalLock && continuesCycles())
-					passedTotal -= duration; // waits for another tick (yoyo e.g.
+				{
+					if(passedTotal > 0) // waits for another tick (yoyo e.g.
+					{
+						passedTotal -= duration;
+					}
+					else
+					{
+						passedTotal += duration
+					}
+					passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
+					if(incremental)
+					{
+						for(var i:int=0;i<numProperties;i++)
+						{
+							/*var mis:Number = propDifferences[i] - incSum[i]*direction*-1;
+							var n:Number = getValue(i) - prevs[i];
+							subject[propNames[i]] += mis -n-mis; 
+							*/
+							var mis:Number = propDifferences[i] - incSum[i]*direction*-1
+							prevs[i] = direction < 0 ? 0 : propDifferences[i] * -1;
+							prevs[i] -= mis;
+							trace(direction,'SUM', incSum[i], 'passedTotal',passedTotal,'pas rel', passedRelative, 'dur', duration,"MIS", mis);
+							incSum[i] = mis * direction;
+						}
+					}
+					updateFunction();
+					if(onUpdate is Function)
+						onUpdate.apply(null, onUpdateArgs);
+					
+				}
 				else if(intervalHasPassed(frameBased ? 1 : milsecs))
-						finish(true); // ends an animation
+				{
+					equalize(direction);
+					finish(true); // ends an animation
+				}
 			}
 			else // regular tick dispatch
 			{
@@ -370,8 +402,9 @@ package axl.utils
 				var bug:Number = subject[propNames[i]];
 				subject[propNames[i]] += add;
 				bug = (subject[propNames[i]] - add) - bug;
-				remains[i] += (-add * direction) - bug;
-				prevs[i] = cur;
+				incSum[i] += (add + bug);
+				trace('cur', cur,'prev', prevs[i],'add', add,'val', subject[propNames[i]],'bug', bug,':sum', incSum[i], '/',propDifferences[i]);
+				prevs[i] = subject[propNames[i]];
 			}
 		}
 		
@@ -381,32 +414,32 @@ package axl.utils
 			return easing(passedRelative, propStartValues[i], propDifferences[i], duration);
 		}
 		
-		private function equalize():void
+		private function equalize(dir:int):void
 		{
 			//# U.log('[AO][equalize]' + subject ,'|cycle:'+ +cycles+'|direction:'+ direction);
 			if(!incremental) 
-				if(direction > 0) 
+				if(dir > 0) 
 					applyValues(propEndValues); 	// | > > > > > > [HERE]|
 				else				
 					applyValues(propStartValues);	// |[HERE] < < < < < < |
 			else 		
-				applyRemainings();
+				applyRemainings(dir);
 			if(onUpdate is Function)
 				onUpdate.apply(null, onUpdateArgs);
 		}
 		/** this is for incrementals only **/
-		private function applyRemainings():void
+		private function applyRemainings(dir:int):void
 		{
 			for(var i:int=0;i<numProperties;i++)
 			{
-				var add:Number =  remains[i] * direction;
+				var add:Number =  incSum[i] * direction;
 				var bug:Number = subject[propNames[i]];
 				subject[propNames[i]] += add;
 				bug = (subject[propNames[i]] - add) - bug;
 				subject[propNames[i]] -= Number(bug.toPrecision(6));
-				remains[i] = propDifferences[i];
+				incSum[i] = propDifferences[i];
 			}
-			if(!yoyo || (yoyo && direction < 0))
+			if(dir < 0)
 				for(i=0; i < numProperties; i++)
 					prevs[i] = propStartValues[i];
 			else
@@ -423,7 +456,6 @@ package axl.utils
 		private function continuesCycles():Boolean
 		{
 			//# U.log("------resolveContinuation----------");
-			equalize();
 			if(yoyo)
 			{
 				if(direction > 0)
@@ -474,12 +506,7 @@ package axl.utils
 		private function gotoEnd():void
 		{
 			//# U.log('[Easing][gotoEND]',subject);
-			equalize();
-			if(yoyo && (direction > 0))
-			{
-				direction = -1;
-				equalize();
-			}
+			equalize(yoyo ? -1 : 1);
 			direction = 1;
 			passedTotal = 0;
 		}
@@ -487,12 +514,7 @@ package axl.utils
 		private function gotoStart():void
 		{
 			//# U.log('[Easing][gotoSTART]',subject);
-			equalize();
-			if(direction > 0)
-			{
-				direction = -1;
-				equalize();
-			}
+			equalize(-1);
 			direction = 1;
 			passedTotal = 0;
 		}
