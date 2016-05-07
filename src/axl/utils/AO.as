@@ -335,11 +335,6 @@ package axl.utils
 					{
 						for(var i:int=0;i<numProperties;i++)
 						{
-							/*var mis:Number = propDifferences[i] - incSum[i]*direction*-1;
-							var n:Number = getValue(i) - prevs[i];
-							subject[propNames[i]] += mis -n-mis; 
-							*/
-							// Number((cur - prevs[i]).toPrecision(12));
 							var mis:Number;
 							if(yoyo)
 							{
@@ -347,12 +342,12 @@ package axl.utils
 								if(direction < 0)
 								{
 									trace("DIR IS < 0 NOW, going backward",'pr',prevs[i])
-									prevs[i]= propDifferences[i];
+									prevs[i]= propEndValues[i];
 								}
 								else
 								{
 									trace("DIR IS > 0 NOW",'pr',prevs[i])
-									prevs[i]= 0;//propDifferences[i]*-1;
+									prevs[i]= propStartValues[i];//propDifferences[i]*-1;
 								}
 								prevs[i] = Number((prevs[i]-mis* direction * -1).toPrecision(12));
 								incSum[i] = mis * direction;
@@ -426,7 +421,7 @@ package axl.utils
 				subject[propNames[i]] = Number((subject[propNames[i]]+ add).toPrecision(12));
 				bug = (subject[propNames[i]] - add) - bug;
 				
-				incSum[i] =   Number((incSum[i]+ add + bug).toPrecision(12));
+				incSum[i] = Number((incSum[i]+ add + bug).toPrecision(12));
 				trace('cur', cur,'prev', prevs[i],'add', add,'val', subject[propNames[i]],'bug',bug,':sum', incSum[i], '/',propDifferences[i],'pt',passedTotal);
 				prevs[i] = cur + bug;
 			}
