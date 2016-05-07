@@ -360,7 +360,7 @@ package axl.utils
 							else
 							{
 								mis =Number((Math.abs(propDifferences[i]) - incSum[i]).toPrecision(12));
-								incSum[i]=prevs[i]-mis;
+								incSum[i]=Number((prevs[i]-mis).toPrecision(12));
 							}
 							
 							
@@ -428,7 +428,7 @@ package axl.utils
 				
 				incSum[i] =   Number((incSum[i]+ add + bug).toPrecision(12));
 				trace('cur', cur,'prev', prevs[i],'add', add,'val', subject[propNames[i]],'bug',bug,':sum', incSum[i], '/',propDifferences[i],'pt',passedTotal);
-				prevs[i] = cur;
+				prevs[i] = cur + bug;
 			}
 		}
 		
