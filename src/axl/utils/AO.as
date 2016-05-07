@@ -359,17 +359,8 @@ package axl.utils
 							}
 							else
 							{
-								if(direction < 0)
-								{
-									trace("DIR IS < 0 NOW, going backward",'pr',prevs[i])
-									prevs[i]= propDifferences[i];
-								}
-								else
-								{
-									trace("DIR IS > 0 NOW",'pr',prevs[i])
-									//prevs[i]*=-1;
-								}
-								incSum[i] = 0;
+								mis =Number((Math.abs(propDifferences[i]) - incSum[i]).toPrecision(12));
+								incSum[i]=prevs[i]-mis;
 							}
 							
 							
@@ -430,9 +421,13 @@ package axl.utils
 			{
 				cur = getValue(i);
 				var add:Number = Number((cur - prevs[i]).toPrecision(12));
+				var bug:Number = subject[propNames[i]];
+				
 				subject[propNames[i]] = Number((subject[propNames[i]]+ add).toPrecision(12));
-				incSum[i] =   Number((incSum[i]+ add).toPrecision(12));
-				trace('cur', cur,'prev', prevs[i],'add', add,'val', subject[propNames[i]],':sum', incSum[i], '/',propDifferences[i],'pt',passedTotal);
+				bug = (subject[propNames[i]] - add) - bug;
+				
+				incSum[i] =   Number((incSum[i]+ add + bug).toPrecision(12));
+				trace('cur', cur,'prev', prevs[i],'add', add,'val', subject[propNames[i]],'bug',bug,':sum', incSum[i], '/',propDifferences[i],'pt',passedTotal);
 				prevs[i] = cur;
 			}
 		}
