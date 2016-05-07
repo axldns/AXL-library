@@ -316,7 +316,7 @@ package axl.utils
 			}
 			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
-			durationPassed = passedTotal >= duration || passedTotal <= 0;
+			durationPassed = passedTotal > duration || passedTotal < 0;
 			//trace('dur passsed', durationPassed, passedTotal,'/',duration);
 			if(durationPassed) // end of period
 			{
@@ -340,20 +340,41 @@ package axl.utils
 							subject[propNames[i]] += mis -n-mis; 
 							*/
 							// Number((cur - prevs[i]).toPrecision(12));
-							var mis:Number = Number((propDifferences[i] - incSum[i]*direction*-1).toPrecision(12));
-							if(direction < 0)
+							var mis:Number;
+							if(yoyo)
 							{
-								trace("DIR IS < 0 NOW, going backward",'pr',prevs[i])
-								prevs[i]= propDifferences[i];
+								mis = Number((propDifferences[i] - incSum[i]*direction*-1).toPrecision(12));
+								if(direction < 0)
+								{
+									trace("DIR IS < 0 NOW, going backward",'pr',prevs[i])
+									prevs[i]= propDifferences[i];
+								}
+								else
+								{
+									trace("DIR IS > 0 NOW",'pr',prevs[i])
+									prevs[i]= 0;//propDifferences[i]*-1;
+								}
+								prevs[i] = Number((prevs[i]-mis* direction * -1).toPrecision(12));
+								incSum[i] = mis * direction;
 							}
 							else
 							{
-								trace("DIR IS > 0 NOW",'pr',prevs[i])
-								prevs[i]= 0;//propDifferences[i]*-1;
+								if(direction < 0)
+								{
+									trace("DIR IS < 0 NOW, going backward",'pr',prevs[i])
+									prevs[i]= propDifferences[i];
+								}
+								else
+								{
+									trace("DIR IS > 0 NOW",'pr',prevs[i])
+									//prevs[i]*=-1;
+								}
+								incSum[i] = 0;
 							}
-							prevs[i] = Number((prevs[i]-mis* direction * -1).toPrecision(12));
+							
+							
 							trace(direction,'SUM', incSum[i], 'passedTotal',passedTotal,'pas rel', passedRelative, 'dur', duration,"MIS", mis);
-							incSum[i] = mis * direction;
+							
 						}
 					}
 					updateFunction();
