@@ -317,52 +317,18 @@ package axl.utils
 			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 			durationPassed = passedTotal > duration || passedTotal < 0;
-			//trace('dur passsed', durationPassed, passedTotal,'/',duration);
+			trace('dur passsed', durationPassed, passedTotal,'/',duration, intervalLock);
 			if(durationPassed) // end of period
 			{
-				if(!intervalLock && continuesCycles())
+				if(!intervalLock && continuesCycles()) // waits for another tick (yoyo e.g.
 				{
-					if(passedTotal > 0) // waits for another tick (yoyo e.g.
-					{
+					if(passedTotal > 0) 
 						passedTotal -= duration;
-					}
 					else
-					{
 						passedTotal += duration
-					}
 					passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 					if(incremental)
-					{
-						for(var i:int=0;i<numProperties;i++)
-						{
-							var mis:Number;
-							if(yoyo)
-							{
-								mis = Number((propDifferences[i] - incSum[i]*direction*-1).toPrecision(12));
-								if(direction < 0)
-								{
-									trace("DIR IS < 0 NOW, going backward",'pr',prevs[i])
-									prevs[i]= propEndValues[i];
-								}
-								else
-								{
-									trace("DIR IS > 0 NOW",'pr',prevs[i])
-									prevs[i]= propStartValues[i];//propDifferences[i]*-1;
-								}
-								prevs[i] = Number((prevs[i]-mis* direction * -1).toPrecision(12));
-								incSum[i] = mis * direction;
-							}
-							else
-							{
-								mis =Number((Math.abs(propDifferences[i]) - incSum[i]).toPrecision(12));
-								incSum[i]=Number((prevs[i]-mis).toPrecision(12));
-							}
-							
-							
-							trace(direction,'SUM', incSum[i], 'passedTotal',passedTotal,'pas rel', passedRelative, 'dur', duration,"MIS", mis);
-							
-						}
-					}
+						loanIncrementalsNextCycle()
 					updateFunction();
 					if(onUpdate is Function)
 						onUpdate.apply(null, onUpdateArgs);
@@ -384,6 +350,7 @@ package axl.utils
 		
 		private function intervalHasPassed(passed:Number):Boolean
 		{
+			trace("intervalHasPassed?", passed, intervalRemaining);
 			if(isNaN(interval))
 				return true;
 			else if(intervalRemaining <= 0)
@@ -392,6 +359,7 @@ package axl.utils
 				intervalRemaining += intervalDuration;
 				passedTotal -= duration;
 				cycles = ucycles;
+				trace("intervallock false");
 				intervalLock = false;
 				if(onInterval != null)
 					onInterval.apply(null, onIntervalArgs);
@@ -442,21 +410,46 @@ package axl.utils
 				else				
 					applyValues(propStartValues);	// |[HERE] < < < < < < |
 			else 		
-				applyRemainings(dir);
+				applyRemainingIncrementals(dir);
 			if(onUpdate is Function)
 				onUpdate.apply(null, onUpdateArgs);
 		}
-		/** this is for incrementals only **/
-		private function applyRemainings(dir:int):void
+		
+		private function loanIncrementalsNextCycle():void
 		{
-			for(var i:int=0;i<numProperties;i++)
+			for(var i:int=0,mis:Number;i<numProperties;i++)
 			{
-				var add:Number =  incSum[i] * direction;
-				var bug:Number = subject[propNames[i]];
-				subject[propNames[i]] += add;
-				bug = (subject[propNames[i]] - add) - bug;
-				subject[propNames[i]] -= Number(bug.toPrecision(6));
-				incSum[i] = propDifferences[i];
+				if(yoyo)
+				{
+					mis = Number((propDifferences[i] - incSum[i]*direction*-1).toPrecision(12));
+					prevs[i] = (direction < 0) ? propEndValues[i] : propStartValues[i];
+					prevs[i] = Number((prevs[i]-mis* direction * -1).toPrecision(12));
+					incSum[i] = mis * direction;
+				}
+				else
+				{
+					mis =Number((Math.abs(propDifferences[i]) - incSum[i]).toPrecision(12));
+					incSum[i]=Number((propStartValues[i]-mis ).toPrecision(12));
+				}
+			}
+		}
+		
+		/** this is for incrementals only **/
+		private function applyRemainingIncrementals(dir:int):void
+		{
+			for(var i:int=0,mis:Number;i<numProperties;i++)
+			{
+				if(dir < 0)
+					subject[propNames[i]] -= incSum[i];
+				else
+				{
+					if(yoyo)
+						mis = incSum[i] *-1 + propDifferences[i]*-dir;
+					else
+						mis =Number((propEndValues[i]- (propStartValues[i] + incSum[i])).toPrecision(12));
+					subject[propNames[i]] += mis;
+				}
+				incSum[i] =0;
 			}
 			if(dir < 0)
 				for(i=0; i < numProperties; i++)
