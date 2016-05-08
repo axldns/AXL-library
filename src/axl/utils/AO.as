@@ -317,7 +317,6 @@ package axl.utils
 			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 			durationPassed = passedTotal > duration || passedTotal < 0;
-			trace('dur passsed', durationPassed, passedTotal,'/',duration, intervalLock);
 			if(durationPassed) // end of period
 			{
 				if(!intervalLock && continuesCycles()) // waits for another tick (yoyo e.g.
@@ -350,21 +349,21 @@ package axl.utils
 		
 		private function intervalHasPassed(passed:Number):Boolean
 		{
-			trace("intervalHasPassed?", passed, intervalRemaining);
 			if(isNaN(interval))
 				return true;
 			else if(intervalRemaining <= 0)
 			{
 				intervalRepetitions--;
+				passedTotal =intervalRemaining*-1;
 				intervalRemaining += intervalDuration;
-				passedTotal -= duration;
 				cycles = ucycles;
-				trace("intervallock false");
 				intervalLock = false;
 				if(onInterval != null)
 					onInterval.apply(null, onIntervalArgs);
 				return intervalRepetitions == 0;
 			}
+			if(!intervalLock)
+				equalize(1);
 			intervalLock = true;
 			intervalRemaining -= passed;
 			return false;
@@ -385,12 +384,9 @@ package axl.utils
 				cur = getValue(i);
 				var add:Number = Number((cur - prevs[i]).toPrecision(12));
 				var bug:Number = subject[propNames[i]];
-				
 				subject[propNames[i]] = Number((subject[propNames[i]]+ add).toPrecision(12));
 				bug = (subject[propNames[i]] - add) - bug;
-				
 				incSum[i] = Number((incSum[i]+ add + bug).toPrecision(12));
-				trace('cur', cur,'prev', prevs[i],'add', add,'val', subject[propNames[i]],'bug',bug,':sum', incSum[i], '/',propDifferences[i],'pt',passedTotal);
 				prevs[i] = cur + bug;
 			}
 		}
