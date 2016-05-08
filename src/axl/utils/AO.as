@@ -672,6 +672,14 @@ package axl.utils
 					if(allInstances[i].subject === target)
 						allInstances[i--].finishEarly(completeImmediately,true);
 		}
+		/** Stops all tweens propeled by this class (including paused, stopped and delayed). 
+		 * If <code>destroyOnComplete = true</code> also destroys AO instance.
+		 * @param completeImmediately - determines if destination values should be assigned to target */
+		public static function killAll(completeImmediately:Boolean=false):void
+		{
+			while(allInstances.length)
+				allInstances.pop().finishEarly(completeImmediately,true);
+		}
 		/** Returns true if target is subject of any animation (incl. delayed, paused, stopped), false otherwise */
 		public static function contains(target:Object):Boolean
 		{
