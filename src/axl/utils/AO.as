@@ -17,13 +17,13 @@ package axl.utils
 	/** <h3>Tweening engine</h3>
 	 * Allows to animate any numeric property of any object within given time.<br>
 	 * Animations can be frame-based or time-based. Values can be updated "absolutely" or "incrementally".
-	 *  Supports:
+	 * Supports:
 	 * <ul>
 	 * <li>delay</li>
 	 * <li>cycles</li>
 	 * <li>intervals</li>
 	 * <li>yoyo</li>
-	 * <li>timeScale</li>
+	 * <li>live timeScale</li>
 	 * <li>callbacks and arguments for callbacks (onStart, onUpdate, onCycle, onYoyoHalf, onComplete)</li>
 	 * <li>pause, resume, restart</li>
 	 * <li>stop with go to start/end</li>
@@ -141,8 +141,9 @@ package axl.utils
 		 * set this property to true. Destroyed instance can't be re-used - calling <i>start</i>, <i>restart</i> on it will likely cause an error.
 		 * Instances which are not destroyed on complete, can be re-used. @default false  */
 		public var destroyOnComplete:Boolean = false;
-		/** Allows to controll speed of animation during animation. Setting value of this property to 2 would speed it up twice. If set to 0.5 -
-		 * animation would be twice slower. @default 1*/
+		/** Allows to controll speed and direction of animation during animation. 
+		 * Setting value of this property to 2 would speed it up twice. If set to 0.5 -
+		 * animation would be twice slower. Setting -1 would cause playing backward at normal speed @default 1*/
 		public var timeScale:Number=1;
 		/** Animations can be eased  by easing function. This can be custom function or one from predefined in
 		 * <code>axl.utils.Easings</code> class, also available as static property of this class.<br><br>
@@ -390,7 +391,6 @@ package axl.utils
 				prevs[i] = cur + bug;
 			}
 		}
-		
 		
 		private function getValueLive(i:int):Number
 		{
