@@ -234,13 +234,24 @@ package axl.utils
 		{
 			//# U.log('[AO][setup]' + subject);
 			prepareCommon();
-			if(incremental) prepareIncremental();
-			else prepareAbsolute();
+			prepareDurations();
 			
-			if(frameBased) prepareFrameBased();
-			else prepareTimeBased();
+			if(!delay)
+				calculateValues();
 			isSetup = true;
 			ucycles = cycles;
+		}
+		
+		private function prepareDurations():void
+		{
+			if(frameBased) prepareFrameBased();
+			else prepareTimeBased();
+		}
+		
+		private function calculateValues():void
+		{
+			if(incremental) prepareIncremental();
+			else prepareAbsolute();
 		}
 		
 		private function prepareCommon():void
@@ -293,7 +304,8 @@ package axl.utils
 			}
 		}
 		
-		private function prepareTimeBased():void {
+		private function prepareTimeBased():void 
+		{
 			duration  =  (uSeconds * 1000);
 			delayRemaining = uDelay * 1000;
 			intervalDuration = intervalRemaining = (interval * 1000);
@@ -312,8 +324,9 @@ package axl.utils
 		{
 			if(delayRemaining > 0)
 			{
-				delayRemaining -= (frameBased ? 1 : milsecs) * timeScale;
-				return;
+				if((delayRemaining -= (frameBased ? 1 : milsecs) * timeScale) > 0)
+					return;
+				calculateValues();
 			}
 			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
@@ -336,7 +349,7 @@ package axl.utils
 				}
 				else if(intervalHasPassed(frameBased ? 1 : milsecs))
 				{
-					equalize(direction);
+					equalize(yoyo ? -1 : direction);
 					finish(true); // ends an animation
 				}
 			}
@@ -364,7 +377,7 @@ package axl.utils
 				return intervalRepetitions == 0;
 			}
 			if(!intervalLock)
-				equalize(1);
+				equalize(yoyo ? -1 : 1);
 			intervalLock = true;
 			intervalRemaining -= passed;
 			return false;
@@ -401,10 +414,12 @@ package axl.utils
 		{
 			//# U.log('[AO][equalize]' + subject ,'|cycle:'+ +cycles+'|direction:'+ direction);
 			if(!incremental) 
+			{
 				if(dir > 0) 
 					applyValues(propEndValues); 	// | > > > > > > [HERE]|
 				else				
 					applyValues(propStartValues);	// |[HERE] < < < < < < |
+			}
 			else 		
 				applyRemainingIncrementals(dir);
 			if(onUpdate is Function)
@@ -542,6 +557,8 @@ package axl.utils
 		{ 
 			if(!isSetup)
 				setUp();
+			else
+				prepareDurations();
 			if(!isPlaying)
 			{
 				AO.animObjects[numObjects++] = this;
@@ -560,9 +577,9 @@ package axl.utils
 		 * otherwise animation will start promptly */
 		public function start(respectDelay:Boolean=true):void
 		{
+			perform();
 			if(!respectDelay)
 				delayRemaining = 0;
-			perform();
 		}
 		/** Starts or continues an animation without respecting delay assigned to it.  @see #start() */
 		public function resume():void { start(false) };
