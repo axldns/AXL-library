@@ -62,7 +62,6 @@ package axl.utils
 		private var passedTotal:Number=0;
 		private var passedRelative:Number=0;
 		private var direction:int=1;
-		//private var cur:Number=0;
 		
 		private var updateFunction:Function;
 		private var isPlaying:Boolean;
@@ -164,7 +163,6 @@ package axl.utils
 		private var xcycles:int=1;
 		
 		private var xtime:Number;
-		private var durationPassed:Boolean;
 		
 		private var xdelay:Number;
 		private var delayRemaining:Number;
@@ -316,19 +314,19 @@ package axl.utils
 		/** Main propeller of animation engine. It's used to broadcast new frame and compute state of continuation.*/
 		protected function tick(milsecs:int):void
 		{
+			var val:int = (frameBased ? 1 : milsecs);
 			if(delayRemaining > 0)
 			{
-				delayRemaining -=((frameBased ? 1 : milsecs)* Math.abs(timeScale));
+				delayRemaining -=(val* Math.abs(timeScale));
 				if(delayRemaining > 0)
 					return;
 				if(!valuesCalculated)
 					calculateValues();
 			}
-			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
+			passedTotal += val * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
-			durationPassed = passedTotal > duration || passedTotal < 0;
 			
-			if(durationPassed) // end of period
+			if(passedTotal > duration || passedTotal < 0) // duration passed end of period
 			{
 				if(!intervalLock && continuesCycles()) // waits for another tick (yoyo e.g.
 				{
@@ -342,7 +340,7 @@ package axl.utils
 					updateFunction();
 					
 				}
-				else if(intervalHasPassed(frameBased ? 1 : milsecs))
+				else if(intervalHasPassed(val))
 				{
 					equalize(yoyo ? -1 : direction);
 					finish(true); // ends an animation
