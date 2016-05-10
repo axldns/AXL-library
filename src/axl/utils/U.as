@@ -30,7 +30,7 @@ package axl.utils
 	 */
 	public class U
 	{
-		private static var version:String = '1.0.5';
+		private static var version:String = '1.0.6';
 		public static function get VERSION():String { return version}
 		private static var tname:String = '[U ' + version + ']';
 		Ldr.verbose = log;
@@ -512,7 +512,6 @@ package axl.utils
 					flashRoot.removeEventListener(Event.ADDED_TO_STAGE, stageAvailable);
 				uSTG = flashRoot.stage;
 				STG.addEventListener(Event.RESIZE, setGeometry);
-				AO.stage = STG;
 				setStageProperties();
 				setGeometry();
 				

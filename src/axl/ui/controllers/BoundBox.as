@@ -496,7 +496,7 @@ package axl.ui.controllers
 			aoo.subject = box;
 			aoo.cycles = 1;
 			aoo.easing = easingFunc;
-			aoo.nTime = animTime;
+			aoo.time = animTime;
 			if(inited)
 				aoo.restart(0,true);
 			else

@@ -10,7 +10,6 @@
 package axl.utils
 {
 	import flash.display.Shape;
-	import flash.display.Stage;
 	import flash.events.Event;
 	import flash.utils.getTimer;
 
@@ -23,6 +22,7 @@ package axl.utils
 	 * <li>cycles</li>
 	 * <li>intervals</li>
 	 * <li>yoyo</li>
+	 * <li>yoyo delay</li>
 	 * <li>live timeScale</li>
 	 * <li>callbacks and arguments for callbacks (onStart, onUpdate, onCycle, onYoyoHalf, onComplete)</li>
 	 * <li>pause, resume, restart</li>
@@ -33,7 +33,7 @@ package axl.utils
 	 * <li>static method for creating one off animations - self disposing instances</li>
 	 * <li>static method for killing instances by target</li>
 	 * </ul>
-	 * Well optimized: 4 properties on 2000 objects at 60 FPS */
+	 * Well optimized: 4 properties on 2500 objects at 60 FPS */
 	public class AO {
 		//general
 		private static var curFrame:int;
@@ -43,6 +43,7 @@ package axl.utils
 		private static var animObjects:Vector.<AO> = new Vector.<AO>();
 		private static var allInstances:Vector.<AO> = new Vector.<AO>();
 		private static var easings:Easings = new Easings();
+
 		private static var defaultEasing:Function = easings.easeOutQuad;
 		private static var numObjects:int=0;
 		private static var numInstances:int = 0;
@@ -59,8 +60,8 @@ package axl.utils
 		
 		private var numProperties:int=0
 		private var duration:int=0;
-		private var passedTotal:int=0;
-		private var passedRelative:int=0;
+		private var passedTotal:Number=0;
+		private var passedRelative:Number=0;
 		private var direction:int=1;
 		private var cur:Number=0;
 		
@@ -77,23 +78,10 @@ package axl.utils
 		 * @default false
 		 * @see #cycles */
 		public var yoyo:Boolean=false;
-		/** Determines how many times animation is repeated. Setting this value to 0 results in infinite number of cycles (object is animated
-		 * until stopped different way).<br>
-		 * Cycles without <code>yoyo</code> repeat animation from start values right after reaching end values.
-		 * When yoyo is set to true, cycle is repeated after reversed animation brings object's properties back to start values.
-		 * Executes <code>onCycle</code> if defined.
-		 * <br>This property can be applied any time during animation and an effect is immediate.
-		 * Requested during animation informs how many cycles remained till end. @default 1 
-		 * @see #interval @see #yoyo */
-		public var cycles:int=1;
 		/** Target of an animation. This can be DisplayObject but also can be anything else e.g. volume of sound object, proxy object.
 		 *  Requirement is that <code>subject</code> owns all properties to animate passed in <code>props</code> parameter.
 		 * Can be changed during animation. */
 		public var subject:Object;
-		/** Once animation is completed (all yoyo, all cycles) the sequence can be repeated. This property determines number of seconds after which 
-		 * is going to happen if <code>intervalRepetitions</code> &gt; 1 
-		 * @see #yoyo @see #cycles @see #intervalRepetitions */
-		public var interval:Number;
 		/** Determines how many times entire animation sequence (incl. cycles and yoyo's) is going to be executed if <code>interval</code> is set 
 		 * @default 1 @see #interval @see #yoyo @see #cycles */
 		public var intervalRepetitions:int=1;
@@ -145,6 +133,9 @@ package axl.utils
 		 * Setting value of this property to 2 would speed it up twice. If set to 0.5 -
 		 * animation would be twice slower. Setting -1 would cause playing backward at normal speed @default 1*/
 		public var timeScale:Number=1;
+		/** Defines number of frames or seconds which target will be hold on destination values before going back to start values
+		 * if <code>yoyo=true</code> @see #yoyo*/
+		public var yoyoDelay:Number;
 		/** Animations can be eased  by easing function. This can be custom function or one from predefined in
 		 * <code>axl.utils.Easings</code> class, also available as static property of this class.<br><br>
 		 * Custom easing functions needs to return Number based on four arguments function must accept:
@@ -156,23 +147,27 @@ package axl.utils
 		private var uIncremental:Boolean=false;
 		private var uFrameBased:Boolean=false;
 		private var uProps:Object;
-		private var uSeconds:Number;
-		private var uDelay:Number;
 		
 		// live copy 
 		private var incremental:Boolean=false;
 		private var frameBased:Boolean=false;
 		private var props:Object;
 		
+		private var xinterval:Number;
 		private var intervalDuration:Number;
 		private var intervalRemaining:int;
-		private var ucycles:int=1;
-		private var intervalLock:Boolean;
-		private var durationPassed:Boolean;
 		private var intervalPassed:Boolean;
-		private var intervalRepetitionsPassed:Boolean;
-		private var delayRemaining:int;
+		private var intervalLock:Boolean;
 		
+		private var cyclesRemaining:int=1;
+		private var xcycles:int=1;
+		
+		private var xtime:Number;
+		private var durationPassed:Boolean;
+		
+		private var xdelay:Number;
+		private var delayRemaining:Number;
+		private var valuesCalculated:Boolean;
 		
 		/** Destroys an instance and makes it un-usable.
 		 * <ul><li>stops any animation and removes it from pool (incl. stopped, paused and delayed ones)</li>
@@ -184,13 +179,13 @@ package axl.utils
 			//# trace('[AO][destroy]'+ subject);
 			removeFromPool();
 			removeFromInstances();
-			delayRemaining = numProperties = duration = passedTotal = passedRelative = cur = uSeconds = 0;
+			delayRemaining = numProperties = duration = passedTotal = passedRelative = cur = xtime = xdelay = 0;
 			propStartValues = propEndValues = propDifferences = incSum =  prevs = null;
 			propNames = null;
 			direction = cycles = 1;
 			subject = props = uProps = null;
-			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = null;
-			updateFunction = getValue  = onUpdate = onYoyoHalf = onCycle = null;
+			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = onIntervalArgs = null;
+			getValue  = onUpdate = onYoyoHalf = onCycle = onInterval =  null;
 			
 			if(executeOnComplete && (onComplete != null))
 				onComplete.apply(null, onCompleteArgs);
@@ -222,24 +217,21 @@ package axl.utils
 		 * <code>{ x : 220, y : 100, rotation : 360 }</code> 
 		 * @see #start() @see axl.utils.AO#animate() */
 		public function AO(subject:Object, time:Number, properties:Object) {
-			/*if(STG == null)
-				throw new Error("[AO]Stage not set up!");*/
 			allInstances[numInstances++] = this;
-			uSeconds = time;
+			xtime = time;
 			uProps = properties;
 			this.subject = subject;
 		}
 		
 		private function setUp():void
 		{
-			//# U.log('[AO][setup]' + subject);
 			prepareCommon();
 			prepareDurations();
 			
 			if(!delay)
 				calculateValues();
 			isSetup = true;
-			ucycles = cycles;
+			cyclesRemaining = xcycles;
 		}
 		
 		private function prepareDurations():void
@@ -252,6 +244,7 @@ package axl.utils
 		{
 			if(incremental) prepareIncremental();
 			else prepareAbsolute();
+			valuesCalculated = true;
 		}
 		
 		private function prepareCommon():void
@@ -266,6 +259,8 @@ package axl.utils
 			props = uProps;
 			frameBased = uFrameBased;
 			incremental = uIncremental;
+
+			updateFunction = incremental ?  updateIncremental : updateAbsolute;
 			
 			for(var s:String in props)
 			{
@@ -282,7 +277,7 @@ package axl.utils
 		{
 			if(prevs) prevs.length = 0; else prevs = new Vector.<Number>();
 			if(incSum) incSum.length = 0; else incSum = new Vector.<Number>();
-			updateFunction = updateIncremental;
+			
 			for(var i:int=0; i<numProperties;i++)
 			{
 				propDifferences[i] = props[propNames[i]];
@@ -295,7 +290,6 @@ package axl.utils
 		
 		private function prepareAbsolute():void
 		{
-			updateFunction = updateAbsolute;
 			for(var i:int=0; i<numProperties;i++)
 			{
 				propStartValues[i] = subject[propNames[i]];
@@ -306,15 +300,15 @@ package axl.utils
 		
 		private function prepareTimeBased():void 
 		{
-			duration  =  (uSeconds * 1000);
-			delayRemaining = uDelay * 1000;
+			duration  =  (xtime * 1000);
+			delayRemaining = xdelay * 1000;
 			intervalDuration = intervalRemaining = (interval * 1000);
 			getValue = getValueLive;
 		}
 		private function prepareFrameBased():void
 		{
-			duration =uSeconds; // no frames
-			delayRemaining = uDelay;
+			duration =xtime; // no frames
+			delayRemaining = xdelay;
 			intervalDuration = intervalRemaining = interval;
 			getValue = getValueLive;
 		}
@@ -324,34 +318,38 @@ package axl.utils
 		{
 			if(delayRemaining > 0)
 			{
-				if((delayRemaining -= (frameBased ? 1 : milsecs) * timeScale) > 0)
+				delayRemaining -=((frameBased ? 1 : milsecs)* Math.abs(timeScale));
+				if(delayRemaining > 0)
 					return;
-				calculateValues();
+				if(!valuesCalculated)
+					calculateValues();
 			}
 			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 			durationPassed = passedTotal > duration || passedTotal < 0;
+			
 			if(durationPassed) // end of period
 			{
+				
 				if(!intervalLock && continuesCycles()) // waits for another tick (yoyo e.g.
 				{
 					if(passedTotal > 0) 
 						passedTotal -= duration;
 					else
-						passedTotal += duration
+						passedTotal += duration;
 					passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
 					if(incremental)
-						loanIncrementalsNextCycle()
+						loanIncrementalsNextCycle();
 					updateFunction();
 					if(onUpdate is Function)
 						onUpdate.apply(null, onUpdateArgs);
-					
 				}
 				else if(intervalHasPassed(frameBased ? 1 : milsecs))
 				{
 					equalize(yoyo ? -1 : direction);
 					finish(true); // ends an animation
 				}
+				//else its interval so do nothing
 			}
 			else // regular tick dispatch
 			{
@@ -363,14 +361,13 @@ package axl.utils
 		
 		private function intervalHasPassed(passed:Number):Boolean
 		{
-			if(isNaN(interval))
-				return true;
+			if(isNaN(interval)) return true;
 			else if(intervalRemaining <= 0)
 			{
 				intervalRepetitions--;
 				passedTotal =intervalRemaining*-1;
 				intervalRemaining += intervalDuration;
-				cycles = ucycles;
+				cyclesRemaining = xcycles;
 				intervalLock = false;
 				if(onInterval != null)
 					onInterval.apply(null, onIntervalArgs);
@@ -484,6 +481,8 @@ package axl.utils
 				if(direction > 0)
 				{
 					direction = -1;
+					if(yoyoDelay > 0)
+						delayRemaining = (nFrameBased ? yoyoDelay : (yoyoDelay * 1000));
 					dispatchHalfYoyo();
 					return true;
 				}
@@ -505,17 +504,17 @@ package axl.utils
 		
 		private function cycled():Boolean
 		{
-			--cycles;
+			--cyclesRemaining;
 			if(onCycle is Function) 
 				onCycle.apply(null, onCycleArgs);
-			if(cycles == 0)
+			if(cyclesRemaining == 0)
 				return false;
 			return true
 		}
 		
 		//-------------------- controll ------------------//
-		private function finish(dispatchComplete:Boolean,forceDestroy:Boolean=false):void { 
-			//# U.log('[Easing][finish]',subject,destroyOnComplete);
+		private function finish(dispatchComplete:Boolean,forceDestroy:Boolean=false):void 
+		{ 
 			if(destroyOnComplete || forceDestroy)
 				destroy(dispatchComplete);
 			else
@@ -638,7 +637,6 @@ package axl.utils
 		public function get nFrameBased():Boolean { return frameBased }
 		public function set nFrameBased(v:Boolean):void { uFrameBased = v }
 		
-		
 		/** Key-value object containing keys as properties to animate (e.g. x,y,scale,rotation) 
 		 * and destination values for them PLUS public properties of this class from list bellow:
 		 * <ul>
@@ -654,18 +652,46 @@ package axl.utils
 		public function set nProperties(v:Object):void { uProps = v }
 		
 		/** Duration of animation in seconds or frames number @see #nFrameBased */
-		public function get nTime():Number { return uSeconds }
-		public function set nTime(v:Number):void { uSeconds = v  }
+		public function get time():Number { return xtime }
+		public function set time(v:Number):void { 
+			xtime = v;
+			duration = (nFrameBased ? v :  (v * 1000));
+		}
 		
-		
-		/**Delay time in seconds or number of frames (dependent on <code>frameBased</code> flag) before animation starts. 
+		/**Delay time in seconds or number of frames (dependent on <code>frameBased</code> flag) before animation starts.
+		 * Delay applied during animation causes immediate delay of whatever is being set to.
 		 * Delay can be omitted by calling <code>start(false)</code> 
 		 * Delayed animations can be killed, stopped or  paused. 
 		 * <code>isAnimating()</code> will return true for delayed ones if they're not stopped or paused, false otherwise.
 		 * On queries <code>AO.contains</code> it will return true for all not destroyed instances, regardles of their playback state 
 		 * @see #isAnimating @see axl.utils.AO#contains() */
-		public function get delay():Number { return uDelay }
-		public function set delay(v:Number):void { uDelay = v }
+		public function get delay():Number { return xdelay }
+		public function set delay(v:Number):void 
+		{ 
+			xdelay = v;
+			delayRemaining = (nFrameBased ? v : (v * 1000));
+		}
+		
+		/** Determines how many times animation is repeated. Setting this value to 0 results in infinite number of cycles (object is animated
+		 * until stopped different way).<br>
+		 * Cycles without <code>yoyo</code> repeat animation from start values right after reaching end values.
+		 * When yoyo is set to true, cycle is repeated after reversed animation brings object's properties back to start values.
+		 * Executes <code>onCycle</code> if defined.
+		 * <br>This property can be applied any time during animation and an effect is immediate.
+		 * Requested during animation informs how many cycles remained till end. @default 1 
+		 * @see #interval @see #yoyo */
+		public function get cycles():int { return xcycles;	}
+		public function set cycles(value:int):void { xcycles = cyclesRemaining =  value }
+		
+		/** Once animation is completed (all yoyo, all cycles) the sequence can be repeated. This property determines number of seconds after which 
+		 * is going to happen if <code>intervalRepetitions</code> &gt; 1 
+		 * @see #yoyo @see #cycles @see #intervalRepetitions */
+		public function get interval():Number {	return xinterval;}
+		public function set interval(value:Number):void
+		{
+			xinterval = value;
+			intervalDuration = intervalRemaining = (nFrameBased ? value :  (value * 1000));
+		}
 		
 		// -----------------------  PUBLIC STATIC ------------------- //
 		/** Exposes easing functions for animation easings @see axl.utils.Easing @see #nEasing*/
@@ -722,11 +748,6 @@ package axl.utils
 				animObjects[i].tick(frameTime);
 		}
 		
-		/** depreciated */
-		public static function set stage(v:Stage):void
-		{
-			//depreciated
-		}
 		/** Receives frame, calculates time passed since last frame and broadcasts it to all AO instances */
 		protected static function onEnterFrame(event:Event):void
 		{
