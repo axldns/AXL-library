@@ -278,10 +278,11 @@ package axl.utils
 			if(prevs) prevs.length = 0; else prevs = new Vector.<Number>();
 			if(incSum) incSum.length = 0; else incSum = new Vector.<Number>();
 			
-			for(var i:int=0; i<numProperties;i++)
+			for(var i:int=0,pn:String,np:int=numProperties,nval:Number; i<np;i++)
 			{
-				propDifferences[i] = props[propNames[i]];
-				propStartValues[i] = subject[propNames[i]];
+				pn = propNames[i],nval = props[pn];
+				propDifferences[i] = nval;
+				propStartValues[i] = subject[pn];
 				propEndValues[i] = propStartValues[i] + propDifferences[i];
 				incSum[i] = 0;
 				prevs[i] = propStartValues[i];
@@ -290,11 +291,12 @@ package axl.utils
 		
 		private function prepareAbsolute():void
 		{
-			for(var i:int=0; i<numProperties;i++)
+			for(var i:int=0,pn:String,np:int=numProperties,nval:Number; i<np;i++)
 			{
-				propStartValues[i] = subject[propNames[i]];
-				propEndValues[i] = props[propNames[i]];
-				propDifferences[i] = props[propNames[i]] - subject[propNames[i]];
+				pn = propNames[i],nval = props[pn];
+				propStartValues[i] = subject[pn];
+				propEndValues[i] = nval;
+				propDifferences[i] =nval - subject[pn];
 			}
 		}
 		
