@@ -36,6 +36,7 @@ package axl.utils
 	 * Well optimized: 4 properties on 2500 objects at 60 FPS */
 	public class AO {
 		//general
+		public static const version:String = '1.0';
 		private static var curFrame:int;
 		private static var frameTime:int;
 		private static var prevFrame:int;
@@ -136,6 +137,9 @@ package axl.utils
 		/** Defines number of frames or seconds which target will be hold on destination values before going back to start values
 		 * if <code>yoyo=true</code> @see #yoyo*/
 		public var yoyoDelay:Number;
+		/** Defines number of frames or seconds which target will be hold on destination values (if <code>yoyo=false</code>) 
+		 * or on start values (if <code>yoyo=true</code>), before starting new cycle @see #cycles @see #yoyo*/
+		public var cycleDelay:Number;
 		/** Animations can be eased  by easing function. This can be custom function or one from predefined in
 		 * <code>axl.utils.Easings</code> class, also available as static property of this class.<br><br>
 		 * Custom easing functions needs to return Number based on four arguments function must accept:
@@ -176,16 +180,15 @@ package axl.utils
 		 * </ul> @param executeOnComplete - determines if <code>onComplete</code> callback should be executed before destruction */
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
-			//# trace('[AO][destroy]'+ subject);
 			removeFromPool();
 			removeFromInstances();
-			delayRemaining = numProperties = duration = passedTotal = passedRelative = cur = xtime = xdelay = 0;
+			delayRemaining = xinterval = intervalDuration = intervalRemaining =cyclesRemaining = 
+				numProperties = duration = passedTotal = passedRelative = cur = xtime = xdelay = direction = xcycles = yoyoDelay = 0;
 			propStartValues = propEndValues = propDifferences = incSum =  prevs = null;
 			propNames = null;
-			direction = cycles = 1;
 			subject = props = uProps = null;
-			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = onIntervalArgs = null;
-			getValue  = onUpdate = onYoyoHalf = onCycle = onInterval =  null;
+			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = onIntervalArgs = onStartArgs = null;
+			onStart = getValue  = onUpdate = onYoyoHalf = onCycle = onInterval =  null;
 			
 			if(executeOnComplete && (onComplete != null))
 				onComplete.apply(null, onCompleteArgs);
@@ -330,7 +333,6 @@ package axl.utils
 			
 			if(durationPassed) // end of period
 			{
-				
 				if(!intervalLock && continuesCycles()) // waits for another tick (yoyo e.g.
 				{
 					if(passedTotal > 0) 
@@ -409,7 +411,6 @@ package axl.utils
 		
 		private function equalize(dir:int):void
 		{
-			//# U.log('[AO][equalize]' + subject ,'|cycle:'+ +cycles+'|direction:'+ direction);
 			if(!incremental) 
 			{
 				if(dir > 0) 
@@ -436,8 +437,8 @@ package axl.utils
 				}
 				else
 				{
-					mis =Number((Math.abs(propDifferences[i]) - incSum[i]).toPrecision(12));
-					incSum[i]=Number((propStartValues[i]-mis ).toPrecision(12));
+					mis =Number((propDifferences[i] - incSum[i]).toPrecision(12));
+					incSum[i]=Number((mis*-1 + propDifferences[i]).toPrecision(12));
 				}
 			}
 		}
@@ -447,16 +448,13 @@ package axl.utils
 		{
 			for(var i:int=0,mis:Number;i<numProperties;i++)
 			{
-				if(dir < 0)
-					subject[propNames[i]] -= incSum[i];
-				else
-				{
-					if(yoyo)
-						mis = incSum[i] *-1 + propDifferences[i]*-dir;
-					else
-						mis =Number((propEndValues[i]- (propStartValues[i] + incSum[i])).toPrecision(12));
-					subject[propNames[i]] += mis;
-				}
+				if(yoyo)
+					mis = Number(((propDifferences[i] + incSum[i]) *-1).toPrecision(12));
+				else if(dir > 0)
+					mis =Number((propEndValues[i]- (propStartValues[i] + incSum[i])).toPrecision(12));
+				else if  (dir < 0)
+					mis =Number((incSum[i]*-1).toPrecision(12));
+				subject[propNames[i]] += mis;
 				incSum[i] =0;
 			}
 			if(dir < 0)
@@ -475,7 +473,6 @@ package axl.utils
 		
 		private function continuesCycles():Boolean
 		{
-			//# U.log("------resolveContinuation----------");
 			if(yoyo)
 			{
 				if(direction > 0)
@@ -509,6 +506,8 @@ package axl.utils
 				onCycle.apply(null, onCycleArgs);
 			if(cyclesRemaining == 0)
 				return false;
+			if(cycleDelay > 0)
+				delayRemaining = (nFrameBased ? cycleDelay : (cycleDelay * 1000));
 			return true
 		}
 		
@@ -527,7 +526,6 @@ package axl.utils
 		
 		private function gotoEnd():void
 		{
-			//# U.log('[Easing][gotoEND]',subject);
 			equalize(yoyo ? -1 : 1);
 			direction = 1;
 			passedTotal = 0;
@@ -535,7 +533,6 @@ package axl.utils
 		
 		private function gotoStart():void
 		{
-			//# U.log('[Easing][gotoSTART]',subject);
 			equalize(-1);
 			direction = 1;
 			passedTotal = 0;
@@ -593,7 +590,6 @@ package axl.utils
 		 * to <i>start</i> or <i>resume</i> methods */
 		public function stop(goToDirection:int=0, readNchanges:Boolean=false):void
 		{
-			//# U.log('[AO][Stop]'+subject);
 			removeFromPool();
 			if(goToDirection > 0) gotoEnd();
 			else if(goToDirection < 0) gotoStart();
@@ -616,7 +612,6 @@ package axl.utils
 		 * @param forceDestroy - can force disposing instance even if <code>destroyOnComplete=false</code>   */
 		public function finishEarly(completeImmediately:Boolean,forceDestroy:Boolean=false):void
 		{
-			//# U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
 			{
 				gotoEnd();
@@ -703,7 +698,6 @@ package axl.utils
 		 * @param completeImmediately - determines if destination values should be assigned to target */
 		public static function killOff(target:Object, completeImmediately:Boolean=false):void
 		{
-			//# U.log('[Easing][killOff]', target);
 			var i:int = numObjects;
 			if(target is AO)
 				for(i= 0; i < numInstances;i++)
