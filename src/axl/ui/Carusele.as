@@ -49,7 +49,6 @@ package axl.ui
 		private var bug:Number=0;
 		
 		protected var gap:Number;
-		protected var railNumChildren:int;
 		protected var firstChild:DisplayObject;
 		protected var lastChild:DisplayObject;
 		protected var railDim:Number=0;
@@ -70,7 +69,6 @@ package axl.ui
 		{
 			super();
 			gap = 0;
-			railNumChildren =0;
 			rail = new Sprite();
 			super.addChild(rail);
 			rail.addEventListener(Event.ADDED, elementAdded);
@@ -80,13 +78,11 @@ package axl.ui
 		
 		protected function onElementRemoved(event:Event):void
 		{
-			railNumChildren--;
 			updateRail();
 		}
 		
 		protected function elementAdded(e:Event):void
 		{
-			railNumChildren++;
 			updateRail();
 		}
 		
@@ -152,8 +148,7 @@ package axl.ui
 			var objAbsoulteOffset:Number = railOffset - objCenterOffset;
 			var opositeOffset:Number = rail[modA.d]/2 - centerObj[modA.a];
 			setAxle(v);
-			var sum:Number = 0;
-			for(var i:int = 0; i < railNumChildren; i++)
+			for(var i:int=0, n:int=rail.numChildren, sum:Number=0; i < n; i++)
 			{
 				firstChild = rail.getChildAt(i);
 				firstChild[mod.a] = sum;
@@ -172,7 +167,7 @@ package axl.ui
 		private function get railCenter():Number { return rail[mod.a] + (rail[mod.d] /2) }
 		
 		/** Returns current number elements in Carousel container*/
-		public function get numRailChildren():int {	return railNumChildren }
+		public function get numRailChildren():int {	return rail.numChildren }
 		/** Container where all rail elements are displayed. Do not add elements to 
 		 * this container directly, use <code>addToRail</code> method @see #addToRail() */
 		public function get railElementsContainer():Sprite { return rail }
@@ -190,8 +185,9 @@ package axl.ui
 		 * @param index - specific index on which child is going to be added*/
 		public function addToRail(child:DisplayObject, index:int=-1):DisplayObject
 		{
-			child[mod.a] = railDim + (railNumChildren>0?GAP:0);
-			if(index > -1 && rail.numChildren < index)
+			var n:int = numRailChildren;
+			child[mod.a] = railDim + (n>0?GAP:0);
+			if(index > -1 && n < index)
 				return rail.addChildAt(child,index);
 			else
 				return rail.addChild(child);
@@ -230,10 +226,10 @@ package axl.ui
 		 * @see #maxOffset */
 		public function movementBit(delta:Number):void
 		{
-			if(railNumChildren < 1)
-				return
+			var n:int = numRailChildren;
+			if(!n) return;
 			firstChild =  rail.getChildAt(0);
-			lastChild = rail.getChildAt(railNumChildren-1);
+			lastChild = rail.getChildAt(n-1);
 			var axl:String = mod.a, dim:String = mod.d;
 			var lastDim:Number;
 			var firstDim:Number;
@@ -252,7 +248,7 @@ package axl.ui
 						firstDim  = firstChild[dim] + gap;
 						newRailCenterAbsolute -= firstDim;
 						sum += firstDim;
-						rail.setChildIndex(firstChild, railNumChildren-1);
+						rail.setChildIndex(firstChild, n-1);
 						rearangeNeeded = true;
 					}
 				}
@@ -261,7 +257,7 @@ package axl.ui
 					while(newRailCenterAbsolute > 0)
 					{
 
-						lastChild = rail.getChildAt(railNumChildren-1);
+						lastChild = rail.getChildAt(n-1);
 						lastDim = lastChild[dim] + gap;
 						newRailCenterAbsolute -= lastDim;
 						sum -= lastDim;
@@ -287,8 +283,7 @@ package axl.ui
 		/** Redistributes carousel elements accordingly to GAP property */
 		public function rearange():void
 		{
-			var sum:Number = 0;
-			for(var i:int = 0; i < railNumChildren; i++)
+			for(var i:int = 0,n:int=rail.numChildren,sum:Number=0; i < n; i++)
 			{
 				firstChild = rail.getChildAt(i);
 				firstChild[mod.a] = sum;
@@ -306,7 +301,8 @@ package axl.ui
 		 * @see #movementBit() */
 		public function getChildClosestToCenter():Array
 		{
-			if(rail.numChildren < 1)
+			var num:int = numRailChildren;
+			if(num < 1)
 				return null;
 			var railOffset:Number = rail[mod.d]/2 + rail[mod.a];
 			var relativeCenter:Number =  rail[mod.d]/2 - railOffset;
@@ -315,7 +311,7 @@ package axl.ui
 			var i:int = -1;
 			var pos:Number= Number.MAX_VALUE*-1, ppos:Number;
 			var p:DisplayObject, n:DisplayObject;
-			while(++i < railNumChildren) 
+			while(++i < num) 
 			{
 				n = rail.getChildAt(i);
 				pos = n[mod.a] + n[mod.d]/2 - relativeCenter;
