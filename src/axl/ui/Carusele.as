@@ -38,8 +38,10 @@ package axl.ui
 	 */
 	public class Carusele extends Sprite
 	{
+		public static const version:Number = 1.0;
 		private static const modH:Object = { a : 'x', d : 'width', s: 'scaleX'};
 		private static const modV:Object = { a : 'y', d : 'height', s: 'scaleY'};
+		public function get version():Number { return Carusele.version }
 		
 		protected var mod:Object;
 		protected var modA:Object;
@@ -141,27 +143,34 @@ package axl.ui
 		
 		private function resetAxle(v:Boolean):void
 		{
-			var centerarr:Array = getChildClosestToCenter();
-			var centerObj:DisplayObject = centerarr[0];
-			var railOffset:Number =rail[mod.d]/2 + rail[mod.a];
-			var objCenterOffset:Number = rail[mod.d]/2 - centerObj[mod.a];
-			var objAbsoulteOffset:Number = railOffset - objCenterOffset;
-			var opositeOffset:Number = rail[modA.d]/2 - centerObj[modA.a];
-			setAxle(v);
-			for(var i:int=0, n:int=rail.numChildren, sum:Number=0; i < n; i++)
+			var can:Boolean = numRailChildren > 0;
+			if(can)
 			{
-				firstChild = rail.getChildAt(i);
-				firstChild[mod.a] = sum;
-				firstChild[modA.a] = 0;
-				sum += firstChild[mod.d]+GAP;
+					var centerarr:Array = getChildClosestToCenter();
+				var centerObj:DisplayObject = centerarr[0];
+				var railOffset:Number =rail[mod.d]/2 + rail[mod.a];
+				var objCenterOffset:Number = rail[mod.d]/2 - centerObj[mod.a];
+				var objAbsoulteOffset:Number = railOffset - objCenterOffset;
+				var opositeOffset:Number = rail[modA.d]/2 - centerObj[modA.a];
 			}
-			if(manageOppositeAxleCenter)
-				rail[modA.a] = rail[modA.d]/-2;
-			else
-				rail[modA.a] = 0
-			rail[mod.a] = 0;
-			this.movementBit(- centerObj[mod.a]+objAbsoulteOffset);
-			this.updateDebug();
+			setAxle(v);
+			if(can)
+			{
+				for(var i:int=0, n:int=rail.numChildren, sum:Number=0; i < n; i++)
+				{
+					firstChild = rail.getChildAt(i);
+					firstChild[mod.a] = sum;
+					firstChild[modA.a] = 0;
+					sum += firstChild[mod.d]+GAP;
+				}
+				if(manageOppositeAxleCenter)
+					rail[modA.a] = rail[modA.d]/-2;
+				else
+					rail[modA.a] = 0
+				rail[mod.a] = 0;
+				this.movementBit(- centerObj[mod.a]+objAbsoulteOffset);
+				this.updateDebug();
+			}
 		}
 		
 		private function get railCenter():Number { return rail[mod.a] + (rail[mod.d] /2) }
