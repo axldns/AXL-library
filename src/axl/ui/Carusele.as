@@ -146,26 +146,35 @@ package axl.ui
 		private function resetAxle(v:Boolean):void
 		{
 			var centerarr:Array = getChildClosestToCenter();
-			var centerObj:DisplayObject = centerarr[0];
-			var railOffset:Number =rail[mod.d]/2 + rail[mod.a];
-			var objCenterOffset:Number = rail[mod.d]/2 - centerObj[mod.a];
-			var objAbsoulteOffset:Number = railOffset - objCenterOffset;
-			var opositeOffset:Number = rail[modA.d]/2 - centerObj[modA.a];
-			setAxle(v);
-			var sum:Number = 0;
-			for(var i:int = 0; i < railNumChildren; i++)
+			var can:Boolean = centerarr && centerarr.length;
+			if(can)
 			{
-				firstChild = rail.getChildAt(i);
-				firstChild[mod.a] = sum;
-				firstChild[modA.a] = 0;
-				sum += firstChild[mod.d]+GAP;
+				var centerObj:DisplayObject = centerarr[0];
+				var railOffset:Number =rail[mod.d]/2 + rail[mod.a];
+				var objCenterOffset:Number = rail[mod.d]/2 - centerObj[mod.a];
+				var objAbsoulteOffset:Number = railOffset - objCenterOffset;
+				var opositeOffset:Number = rail[modA.d]/2 - centerObj[modA.a];
 			}
-			if(manageOppositeAxleCenter)
-				rail[modA.a] = rail[modA.d]/-2;
-			else
-				rail[modA.a] = 0
-			rail[mod.a] = 0;
-			this.movementBit(- centerObj[mod.a]+objAbsoulteOffset);
+			
+			setAxle(v);
+			if(can)
+			{
+				var sum:Number = 0;
+				for(var i:int = 0; i < railNumChildren; i++)
+				{
+					firstChild = rail.getChildAt(i);
+					firstChild[mod.a] = sum;
+					firstChild[modA.a] = 0;
+					sum += firstChild[mod.d]+GAP;
+				}
+				if(manageOppositeAxleCenter)
+					rail[modA.a] = rail[modA.d]/-2;
+				else
+					rail[modA.a] = 0
+				rail[mod.a] = 0;
+				this.movementBit(- centerObj[mod.a]+objAbsoulteOffset);
+			}
+			
 			this.updateDebug();
 		}
 		

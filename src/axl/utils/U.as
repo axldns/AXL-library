@@ -30,7 +30,7 @@ package axl.utils
 	 */
 	public class U
 	{
-		private static var version:String = '1.0.7';
+		private static var version:String = '1.0.9';
 		public static function get VERSION():String { return version}
 		private static var tname:String = '[U ' + version + ']';
 		Ldr.verbose = log;
