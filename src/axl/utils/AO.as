@@ -36,7 +36,7 @@ package axl.utils
 	 * Well optimized: 4 properties on 2500 objects at 60 FPS */
 	public class AO {
 		//general
-		public static const version:String = '1.0';
+		public static const version:String = '1.1';
 		private static var prevFrame:int;
 		
 		private static var animObjects:Vector.<AO> = new Vector.<AO>();
@@ -540,8 +540,8 @@ package axl.utils
 			var i:int = animObjects.indexOf(this);
 			if(i>-1) 
 			{
-				animObjects.splice(i,1);
 				numObjects--;
+				animObjects.splice(i,1);
 				isPlaying = false;
 			}
 		}
@@ -736,8 +736,7 @@ package axl.utils
 		public static function broadcastFrame(frameTime:int):void
 		{
 			var ao:Vector.<AO> = animObjects;
-			var no:int = numObjects;
-			for(var i:int = 0; i < no;i++)
+			for(var i:int = 0; i < numObjects;i++)
 				ao[i].tick(frameTime);
 		}
 		
