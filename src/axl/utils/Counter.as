@@ -56,7 +56,7 @@ package axl.utils {
 		private var tillChangePortions:Array;
 		
 		private var maxIndex:uint;
-		private var xTime:Number=0;
+		private var xTime:Number;
 		private var xTiming:Array;
 		private var xTimeIndex:int=-2;
 		private var xname:String;
@@ -72,12 +72,11 @@ package axl.utils {
 		 * @param v - number of seconds e.g utc timestamp @see #originaltime*/
 		public function set time(v:Number):void 
 		{
-			if(isNaN(xTime)) 
+			if(isNaN(v)) 
 			{
 				if(debug) log(tname+"[time] CAN'T BE NaN");
 				return;
 			}
-			xTimeIndex = -2;
 			clearTimeout(timeoutID);
 			xTime = v;
 			initTime = getTimer();
@@ -88,7 +87,7 @@ package axl.utils {
 		{
 			if(!isNaN(xTime))
 				return xTime + Math.round((getTimer() - initTime)/1000);
-			return null; 
+			return NaN; 
 		}
 		
 		/** Returns original server time assigned without time offset since passed. @see #time*/
