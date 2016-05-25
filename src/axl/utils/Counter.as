@@ -35,7 +35,7 @@ package axl.utils {
 	{
 		private static var regexp:RegExp = /y+|w+|M+|d+|m+|h+|'.+?'|s+|S+|\s+|\W+/g;
 		/** Default value for <code>tillNext()</code> time formatting. @see #tillNext() */
-		public var defaultFormat:String='hh : mm : ss';
+		public var defaultFormat:String="hh'h' mm'm' ss's'";
 		/** Function to execute when timeIndex changes. @see #timeIndex */
 		public var onTimeIndexChange:Object;
 		/** Function to execute when max timeIndex is reached @see #timeIndex*/
@@ -485,11 +485,11 @@ package axl.utils {
 					case "y": out += yearsTillNext(null,mod,l); break;
 					case "M": out += monthsTillNext(bm.y?'y':null,mod,l); break;
 					case "w": out += weeksTillNext(bm.M?'M':(bm.y?'y':null),mod,l); break;
-					case "d": out += daysTillNext(bm.w?'w':(bm.m?'M':(bm.y?'y':null)),mod,l); break;
-					case "h": out += hoursTillNext(bm.d?'d':(bm.w?'w':(bm.m?'M':(bm.y?'y':null))),mod,l); break;
-					case "m": out += minutesTillNext(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.m?'M':(bm.y?'y':null)))),mod,l); break;
-					case "s": out += secondsTillNext(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.m?'M':(bm.y?'y':null))))),mod,l); break;
-					case "S": out += millisecondsTillNext(bm.s?'s':(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.m?'M':(bm.y?'y':null)))))),mod,l); break;
+					case "d": out += daysTillNext(bm.w?'w':(bm.M?'M':(bm.y?'y':null)),mod,l); break;
+					case "h": out += hoursTillNext(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null))),mod,l); break;
+					case "m": out += minutesTillNext(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null)))),mod,l); break;
+					case "s": out += secondsTillNext(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null))))),mod,l); break;
+					case "S": out += millisecondsTillNext(bm.s?'s':(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null)))))),mod,l); break;
 					default: out +=a[i];
 				}
 			}
