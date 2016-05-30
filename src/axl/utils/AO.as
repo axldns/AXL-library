@@ -36,7 +36,8 @@ package axl.utils
 	 * Well optimized: 4 properties on 2500 objects at 60 FPS */
 	public class AO {
 		//general
-		public static const version:String = '1.1';
+		private static var curFrame:int;
+		private static var frameTime:int;
 		private static var prevFrame:int;
 		
 		private static var animObjects:Vector.<AO> = new Vector.<AO>();
@@ -62,8 +63,10 @@ package axl.utils
 		private var passedTotal:Number=0;
 		private var passedRelative:Number=0;
 		private var direction:int=1;
+		private var cur:Number=0;
 		
 		private var updateFunction:Function;
+		private var getValue:Function;
 		private var isPlaying:Boolean;
 		private var isSetup:Boolean;
 		
@@ -133,9 +136,6 @@ package axl.utils
 		/** Defines number of frames or seconds which target will be hold on destination values before going back to start values
 		 * if <code>yoyo=true</code> @see #yoyo*/
 		public var yoyoDelay:Number;
-		/** Defines number of frames or seconds which target will be hold on destination values (if <code>yoyo=false</code>) 
-		 * or on start values (if <code>yoyo=true</code>), before starting new cycle @see #cycles @see #yoyo*/
-		public var cycleDelay:Number;
 		/** Animations can be eased  by easing function. This can be custom function or one from predefined in
 		 * <code>axl.utils.Easings</code> class, also available as static property of this class.<br><br>
 		 * Custom easing functions needs to return Number based on four arguments function must accept:
@@ -163,6 +163,7 @@ package axl.utils
 		private var xcycles:int=1;
 		
 		private var xtime:Number;
+		private var durationPassed:Boolean;
 		
 		private var xdelay:Number;
 		private var delayRemaining:Number;
@@ -175,15 +176,16 @@ package axl.utils
 		 * </ul> @param executeOnComplete - determines if <code>onComplete</code> callback should be executed before destruction */
 		public function destroy(executeOnComplete:Boolean=false):void
 		{
+			//# trace('[AO][destroy]'+ subject);
 			removeFromPool();
 			removeFromInstances();
-			delayRemaining = xinterval = intervalDuration = intervalRemaining =cyclesRemaining = 
-				numProperties = duration = passedTotal = passedRelative  = xtime = xdelay = direction = xcycles = yoyoDelay = 0;
+			delayRemaining = numProperties = duration = passedTotal = passedRelative = cur = xtime = xdelay = 0;
 			propStartValues = propEndValues = propDifferences = incSum =  prevs = null;
 			propNames = null;
+			direction = cycles = 1;
 			subject = props = uProps = null;
-			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = onIntervalArgs = onStartArgs = null;
-			onStart = onUpdate = onYoyoHalf = onCycle = onInterval =  null;
+			onUpdateArgs = onYoyoHalfArgs = onCycleArgs = onIntervalArgs = null;
+			getValue  = onUpdate = onYoyoHalf = onCycle = onInterval =  null;
 			
 			if(executeOnComplete && (onComplete != null))
 				onComplete.apply(null, onCompleteArgs);
@@ -252,7 +254,7 @@ package axl.utils
 			if(propEndValues) propEndValues.length = 0; else propEndValues = new Vector.<Number>();
 			if(propDifferences) propDifferences.length = 0; else propDifferences = new Vector.<Number>();
 			
-			numProperties = duration = passedTotal = passedRelative = intervalDuration= intervalRemaining = 0;
+			numProperties = duration = passedTotal = passedRelative = cur = intervalDuration= intervalRemaining = 0;
 			
 			props = uProps;
 			frameBased = uFrameBased;
@@ -276,11 +278,10 @@ package axl.utils
 			if(prevs) prevs.length = 0; else prevs = new Vector.<Number>();
 			if(incSum) incSum.length = 0; else incSum = new Vector.<Number>();
 			
-			for(var i:int=0,pn:String,np:int=numProperties,nval:Number; i<np;i++)
+			for(var i:int=0; i<numProperties;i++)
 			{
-				pn = propNames[i],nval = props[pn];
-				propDifferences[i] = nval;
-				propStartValues[i] = subject[pn];
+				propDifferences[i] = props[propNames[i]];
+				propStartValues[i] = subject[propNames[i]];
 				propEndValues[i] = propStartValues[i] + propDifferences[i];
 				incSum[i] = 0;
 				prevs[i] = propStartValues[i];
@@ -289,12 +290,11 @@ package axl.utils
 		
 		private function prepareAbsolute():void
 		{
-			for(var i:int=0,pn:String,np:int=numProperties,nval:Number; i<np;i++)
+			for(var i:int=0; i<numProperties;i++)
 			{
-				pn = propNames[i],nval = props[pn];
-				propStartValues[i] = subject[pn];
-				propEndValues[i] = nval;
-				propDifferences[i] =nval - subject[pn];
+				propStartValues[i] = subject[propNames[i]];
+				propEndValues[i] = props[propNames[i]];
+				propDifferences[i] = props[propNames[i]] - subject[propNames[i]];
 			}
 		}
 		
@@ -303,31 +303,34 @@ package axl.utils
 			duration  =  (xtime * 1000);
 			delayRemaining = xdelay * 1000;
 			intervalDuration = intervalRemaining = (interval * 1000);
+			getValue = getValueLive;
 		}
 		private function prepareFrameBased():void
 		{
 			duration =xtime; // no frames
 			delayRemaining = xdelay;
 			intervalDuration = intervalRemaining = interval;
+			getValue = getValueLive;
 		}
 		// ----------------------------------------- UPDATE ------------------------- //
 		/** Main propeller of animation engine. It's used to broadcast new frame and compute state of continuation.*/
 		protected function tick(milsecs:int):void
 		{
-			var val:int = (frameBased ? 1 : milsecs);
 			if(delayRemaining > 0)
 			{
-				delayRemaining -=(val* Math.abs(timeScale));
+				delayRemaining -=((frameBased ? 1 : milsecs)* Math.abs(timeScale));
 				if(delayRemaining > 0)
 					return;
 				if(!valuesCalculated)
 					calculateValues();
 			}
-			passedTotal += val * timeScale;
+			passedTotal += (frameBased ? 1 : milsecs) * timeScale;
 			passedRelative = (direction < 0) ? (duration - passedTotal) : passedTotal;
+			durationPassed = passedTotal > duration || passedTotal < 0;
 			
-			if(passedTotal > duration || passedTotal < 0) // duration passed end of period
+			if(durationPassed) // end of period
 			{
+				
 				if(!intervalLock && continuesCycles()) // waits for another tick (yoyo e.g.
 				{
 					if(passedTotal > 0) 
@@ -338,9 +341,10 @@ package axl.utils
 					if(incremental)
 						loanIncrementalsNextCycle();
 					updateFunction();
-					
+					if(onUpdate is Function)
+						onUpdate.apply(null, onUpdateArgs);
 				}
-				else if(intervalHasPassed(val))
+				else if(intervalHasPassed(frameBased ? 1 : milsecs))
 				{
 					equalize(yoyo ? -1 : direction);
 					finish(true); // ends an animation
@@ -350,6 +354,8 @@ package axl.utils
 			else // regular tick dispatch
 			{
 				updateFunction();
+				if(onUpdate is Function)
+					onUpdate.apply(null, onUpdateArgs);
 			}
 		}
 		
@@ -377,28 +383,23 @@ package axl.utils
 		//absolute
 		private function updateAbsolute():void
 		{
-			for(var i:int=0,ni:int=numProperties,pi:Vector.<String>=propNames;i<ni;i++)
-				subject[pi[i]] = getValueLive(i);
-			if(onUpdate != null)
-				onUpdate.apply(null, onUpdateArgs);
+			for(var i:int=0;i<numProperties;i++)
+				subject[propNames[i]] = getValue(i);
 		}
 		
 		//inctemental
 		private function updateIncremental():void
 		{
-			for(var i:int=0,ni:int=numProperties,pi:Vector.<String>=propNames;i<ni;i++)
+			for(var i:int=0;i<numProperties;i++)
 			{
-				var cv:Number = getValueLive(i);
-				var pn:String = pi[i];
-				var add:Number = Number((cv - prevs[i]).toPrecision(12));
-				var bug:Number = subject[pn];
-				subject[pn] = Number((subject[pn]+ add).toPrecision(12));
-				bug = (subject[pn] - add) - bug;
+				cur = getValue(i);
+				var add:Number = Number((cur - prevs[i]).toPrecision(12));
+				var bug:Number = subject[propNames[i]];
+				subject[propNames[i]] = Number((subject[propNames[i]]+ add).toPrecision(12));
+				bug = (subject[propNames[i]] - add) - bug;
 				incSum[i] = Number((incSum[i]+ add + bug).toPrecision(12));
-				prevs[i] = cv + bug;
+				prevs[i] = cur + bug;
 			}
-			if(onUpdate != null)
-				onUpdate.apply(null, onUpdateArgs);
 		}
 		
 		private function getValueLive(i:int):Number
@@ -408,6 +409,7 @@ package axl.utils
 		
 		private function equalize(dir:int):void
 		{
+			//# U.log('[AO][equalize]' + subject ,'|cycle:'+ +cycles+'|direction:'+ direction);
 			if(!incremental) 
 			{
 				if(dir > 0) 
@@ -434,8 +436,8 @@ package axl.utils
 				}
 				else
 				{
-					mis =Number((propDifferences[i] - incSum[i]).toPrecision(12));
-					incSum[i]=Number((mis*-1 + propDifferences[i]).toPrecision(12));
+					mis =Number((Math.abs(propDifferences[i]) - incSum[i]).toPrecision(12));
+					incSum[i]=Number((propStartValues[i]-mis ).toPrecision(12));
 				}
 			}
 		}
@@ -445,13 +447,16 @@ package axl.utils
 		{
 			for(var i:int=0,mis:Number;i<numProperties;i++)
 			{
-				if(yoyo)
-					mis = Number(((propDifferences[i] + incSum[i]) *-1).toPrecision(12));
-				else if(dir > 0)
-					mis =Number((propEndValues[i]- (propStartValues[i] + incSum[i])).toPrecision(12));
-				else if  (dir < 0)
-					mis =Number((incSum[i]*-1).toPrecision(12));
-				subject[propNames[i]] += mis;
+				if(dir < 0)
+					subject[propNames[i]] -= incSum[i];
+				else
+				{
+					if(yoyo)
+						mis = incSum[i] *-1 + propDifferences[i]*-dir;
+					else
+						mis =Number((propEndValues[i]- (propStartValues[i] + incSum[i])).toPrecision(12));
+					subject[propNames[i]] += mis;
+				}
 				incSum[i] =0;
 			}
 			if(dir < 0)
@@ -470,6 +475,7 @@ package axl.utils
 		
 		private function continuesCycles():Boolean
 		{
+			//# U.log("------resolveContinuation----------");
 			if(yoyo)
 			{
 				if(direction > 0)
@@ -503,8 +509,6 @@ package axl.utils
 				onCycle.apply(null, onCycleArgs);
 			if(cyclesRemaining == 0)
 				return false;
-			if(cycleDelay > 0)
-				delayRemaining = (nFrameBased ? cycleDelay : (cycleDelay * 1000));
 			return true
 		}
 		
@@ -523,6 +527,7 @@ package axl.utils
 		
 		private function gotoEnd():void
 		{
+			//# U.log('[Easing][gotoEND]',subject);
 			equalize(yoyo ? -1 : 1);
 			direction = 1;
 			passedTotal = 0;
@@ -530,6 +535,7 @@ package axl.utils
 		
 		private function gotoStart():void
 		{
+			//# U.log('[Easing][gotoSTART]',subject);
 			equalize(-1);
 			direction = 1;
 			passedTotal = 0;
@@ -540,8 +546,8 @@ package axl.utils
 			var i:int = animObjects.indexOf(this);
 			if(i>-1) 
 			{
-				numObjects--;
 				animObjects.splice(i,1);
+				numObjects--;
 				isPlaying = false;
 			}
 		}
@@ -587,6 +593,7 @@ package axl.utils
 		 * to <i>start</i> or <i>resume</i> methods */
 		public function stop(goToDirection:int=0, readNchanges:Boolean=false):void
 		{
+			//# U.log('[AO][Stop]'+subject);
 			removeFromPool();
 			if(goToDirection > 0) gotoEnd();
 			else if(goToDirection < 0) gotoStart();
@@ -609,6 +616,7 @@ package axl.utils
 		 * @param forceDestroy - can force disposing instance even if <code>destroyOnComplete=false</code>   */
 		public function finishEarly(completeImmediately:Boolean,forceDestroy:Boolean=false):void
 		{
+			//# U.log('[Easing][finishEarly]',completeImmediately);
 			if(completeImmediately)
 			{
 				gotoEnd();
@@ -695,16 +703,17 @@ package axl.utils
 		 * @param completeImmediately - determines if destination values should be assigned to target */
 		public static function killOff(target:Object, completeImmediately:Boolean=false):void
 		{
-			var ai:Vector.<AO> = allInstances,i:int;
+			//# U.log('[Easing][killOff]', target);
+			var i:int = numObjects;
 			if(target is AO)
 				for(i= 0; i < numInstances;i++)
-					if(ai[i] == target)
-						ai[i--].finishEarly(completeImmediately,true);
+					if(allInstances[i] == target)
+						allInstances[i--].finishEarly(completeImmediately,true);
 					
 			if(!(target is AO))
 				for(i = 0; i < numInstances;i++)
-					if(ai[i].subject === target)
-						ai[i--].finishEarly(completeImmediately,true);
+					if(allInstances[i].subject === target)
+						allInstances[i--].finishEarly(completeImmediately,true);
 		}
 		/** Stops all tweens propeled by this class (including paused, stopped and delayed). 
 		 * If <code>destroyOnComplete = true</code> also destroys AO instance.
@@ -735,16 +744,15 @@ package axl.utils
 		 * @see #nFrameBased @see #tick()  */
 		public static function broadcastFrame(frameTime:int):void
 		{
-			var ao:Vector.<AO> = animObjects;
 			for(var i:int = 0; i < numObjects;i++)
-				ao[i].tick(frameTime);
+				animObjects[i].tick(frameTime);
 		}
 		
 		/** Receives frame, calculates time passed since last frame and broadcasts it to all AO instances */
 		protected static function onEnterFrame(event:Event):void
 		{
-			var curFrame:int = getTimer();
-			var frameTime:int = curFrame - prevFrame;
+			curFrame = getTimer();
+			frameTime = curFrame - prevFrame;
 			prevFrame = curFrame;
 			broadcastFrame(frameTime);
 		}
