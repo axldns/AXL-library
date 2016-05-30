@@ -21,6 +21,12 @@ package axl.ui.controllers
 	import axl.utils.AO;
 	import axl.utils.Easings;
 	
+	/**
+	 * <h3>Decorator style coordinates controller</h3>
+	 * Allows to controll coordinates of two display objects against each other: <code>box</code> and <code>bound</code> 
+	 * according to <code>horizontalBehavior</code> and <code>verticalBehavior</code> rules.
+	 * Usefull for UI elements like sliders, scrollbars, toggle switches, scrollable text areas, panning areas,
+	 * windows etc. @see #horizontalBehavior @see #verticalBehavior @see #box @see #bound */
 	public class BoundBox  extends EventDispatcher
 	{
 		public static const inscribed:String = 'inscribed';
@@ -94,9 +100,10 @@ package axl.ui.controllers
 		/** Easing function for animation curves. Apply it on BoundBox instance by setting easing property.
 		 * @see #animationTime @see #easing */
 		public static function get easgings():Easings { return AO.easing }
+		
 		/**
 		 * <h3>Decorator style coordinates controller</h3>
-		 *  Allows to controll coordinates of two display objects against each other: <code>box</code> and <code>bound</code> 
+		 * Allows to controll coordinates of two display objects against each other: <code>box</code> and <code>bound</code> 
 		 * according to <code>horizontalBehavior</code> and <code>verticalBehavior</code> rules.
 		 * Usefull for UI elements like sliders, scrollbars, toggle switches, scrollable text areas, panning areas etc.
 		 * @see #horizontalBehavior @see #verticalBehavior @see #box @see #bound */
@@ -408,7 +415,7 @@ package axl.ui.controllers
 			boundMouseDown = true;
 			startMouse.x = bx.width/2;
 			startMouse.y = bx.height/2;
-			updateBoxToMousePosition(liveChanges);
+			updateBoxToMousePosition(this);
 			if(box is IEventDispatcher)
 				box.dispatchEvent(e);
 		}
@@ -416,7 +423,7 @@ package axl.ui.controllers
 		protected function onBoxMouseMove(e:MouseEvent):void
 		{
 			if(e.buttonDown && boxMouseDown && !boundMouseDown)
-				updateBoxToMousePosition(liveChanges);
+				updateBoxToMousePosition(this);
 			else
 				finishBoxMovement();
 		}
@@ -424,7 +431,7 @@ package axl.ui.controllers
 		protected function onBoundMouseMove(e:MouseEvent):void
 		{
 			if(e.buttonDown && boundMouseDown)
-				updateBoxToMousePosition(liveChanges);
+				updateBoxToMousePosition(this);
 			else
 				finishBoundMovement();
 		}
