@@ -108,8 +108,7 @@ package axl.utils {
 		 * <li>After another 50 seconds: timeIndex changes from 1 to 2, <i>onTimeIndexChange(2)</i> is fired</li>
 		 * <li>After 90 seconds since time/timing was set: timeIndex changes from 2 to 3, <i>onTimeIndexChange(3)</i> is fired</li>
 		 * <li>After another 310 seconds: timeIndex changes from 3 to 4, <i>onTimeIndexChange(4)</i> is fired,
-		 * <i>onComplete</i> is fired</li></ul> @see #timeIndex
-		 *  */
+		 * <i>onComplete</i> is fired</li></ul> @see #timeIndex  */
 		public function get timing():Array { return xTiming }
 		public function set timing(v:Array):void
 		{
@@ -125,7 +124,7 @@ package axl.utils {
 		 * values.<br> Returns <ul>
 		 * <li><b>-2</b> if timing or time is not set</li>
 		 * <li><b>-1</b> if time value is less than first value in timing array</li>
-		 * <li>other int equal to index of last value in timing array which is smaller than <i>time</i></li>
+		 * <li>other int equal to index of last value in timing array which is smaller than <i>time</i></li></ul>
 		 * @see #timing */
 		public function get timeIndex():int { return xTimeIndex }
 		
@@ -438,7 +437,7 @@ package axl.utils {
 		/** Returns time remaining to next period.  Alias to (y|M|w|d|h|s|S)tillNext functions.
 		 * @param scale - portion of time to express time remaining - one of (y,M,w,d,h,m,s,S)
 		 * @param nextSybiling: <ul><li>null - returns absolute portion remaining</li><li>one of 
-		 * (<i>y,M,w,d,h,m,s,S</i>) - returns value relative to next sybiling e.g.<br>
+		 * (<i>y,M,w,d,h,m,s,S</i>) - returns value relative to next sybiling. E.g.</li></ul>
 		 * <pre>tillNextBit('M',null) // 13<br>tillNextBit('M','y') // 1</pre>
 		 * @param mod (default 1) : <ul><li>positive: next period defined as timeIndex + mod</li>
 		 * <li>negative: next period defined as timing.length + mod (-1 would take "end" value)</li></ul>
@@ -462,11 +461,12 @@ package axl.utils {
 		}
 		/** Returns well formatted time remaining to next period. Combines (y|M|w|d|h|s|S)tillNext functions.<br>
 		 * Custom formating can be defined similarly to flash.globalization.DateTimeFormatter manner.<br>
-		 * <pre>time = 0;<br>timing = [3667];<br>tillNext("'time left:' dd : hh : mm : s"); // time left 00 : 01 : 01 : 7<br>tillNext("mm 'minutes ' ss 'seconds left'"); // 61 minutes  07 seconds left</pre>
+		 * <code>time = 0;<br>timing = [3667];<br>tillNext("'time left:' dd : hh : mm : s"); </code>// time left 00 : 01 : 01 : 7<br>
+		 * <code>tillNext("mm 'minutes' ss 'seconds left'"); </code>// 61 minutes  07 seconds left
 		 * @param format  - format pattern stirng. Any "non-time" values must be wrapped in a single quotes.
 		 * @param mod (default 1) : <ul><li>positive: next period defined as timeIndex + mod</li>
 		 * <li>negative: next period defined as timing.length + mod (-1 would take "end" value)</li></ul>
-		 * </pre> @see #timing @see #timeIndex */
+		 * @see #timing @see #timeIndex */
 		public function tillNext(format:String=null,mod:int=1):String
 		{
 			updateRemaining();
