@@ -302,7 +302,7 @@ package axl.utils.binAgent
 		/** internal */
 		protected function scrollEvent(e:Event):void
 		{
-			if(boundBox)
+			if(boundBox && bConsole.stage)
 			{
 				var n:Number = bConsole.scrollV /  bConsole.maxScrollV;
 				var dif:Number = Math.abs(n - boundBox.percentageVertical);
@@ -468,10 +468,12 @@ package axl.utils.binAgent
 				bConsole.text = totalString;
 				bConsole.scrollV = bConsole.maxScrollV;
 			}
-			if(boundBox != null && boundBox.percentageVertical != 1)
-				boundBox.percentageVertical = 1;
 			if(this.parent)
 				this.parent.setChildIndex(this, this.parent.numChildren-1);
+			else
+				return;
+			if(boundBox != null && boundBox.percentageVertical != 1)
+				boundBox.percentageVertical = 1;
 		}
 		
 		//-------------------------------------  	    PUBLIC API  ------------------------------------------  //
