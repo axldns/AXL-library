@@ -11,7 +11,6 @@ package axl.utils.binAgent
 {
 	import flash.display.DisplayObject;
 	import flash.utils.getDefinitionByName;
-	import flash.utils.setInterval;
 	
 	public class RootFinder
 	{
