@@ -305,7 +305,7 @@ package axl.ui
 		 * <br><b>ZERO</b> element is rail display object closest to relative middle point of rail (0)
 		 * <br><b>FIRST</b> element is Number determining offset to center (positive or negative)<br>
 		 * Passing element's offset to <code>movementBit</code>, would center that object in carousel.<br>
-		 * If two elements have identical offset (difference < 0.025px), first element is 
+		 * If two elements have identical offset (difference &lt; 0.025px), first element is 
 		 * returned (left one while horizontal and/or top one while vertical).
 		 * @see #movementBit() */
 		public function getChildClosestToCenter():Array
