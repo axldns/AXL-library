@@ -165,7 +165,6 @@ package axl.ui.controllers
 		
 		private function updatePercentage(axle:String):void
 		{
-			
 			percentage[axle] = (box[axle]-min[axle]) / (max[axle] - min[axle]);
 			if(!isFinite(percentage[axle]))
 				percentage[axle] = 0;
@@ -207,7 +206,7 @@ package axl.ui.controllers
 				return;
 			calculateMinMax(mods[a]);
 			normalizeMovable(a);
-			if(box[a] == rmovable[a])
+			if(box[a] === rmovable[a])
 				return;
 			if(animTime > 0 && !omitAnimation)
 				setupAO(changesArgument);
@@ -216,6 +215,8 @@ package axl.ui.controllers
 				box[a] = rmovable[a];
 				if(changesArgument)
 					changeNotify(a,null,changesArgument);
+				else
+					updatePercentages();
 			}
 		}
 		
@@ -235,23 +236,27 @@ package axl.ui.controllers
 				box.y = rmovable.y;
 				if(changesArgument)
 					changeNotify('x','y',changesArgument);
+				else
+					updatePercentages();
 			}
 		}
 		
 		private function changeNotify(axis:String,axis2:String=null,changesArgument:Object=null):void
 		{
-			if(axis2!=null)
-			{
-				updatePercentage('x');
-				updatePercentage('y');
-			}
-			else
-				updatePercentage(axis);
+			updatePercentages();
 			if(!changeNotifications)
 				return;
 			dispatchChange(changesArgument);
 			if(onChange != null)
 				changesArgument ? onChange(changesArgument) : onChange();
+		}
+		
+		private function updatePercentages():void
+		{
+			if(horizontal)
+				updatePercentage('x');
+			if(vertical)
+				updatePercentage('y');
 		}
 		//------------------ MOVEMENT ------------------- //
 		private function setPercentage(v:Number, mod:Object,omitAnimation:Boolean=false,changesArgument:Object=null):void
