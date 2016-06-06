@@ -721,7 +721,7 @@ package axl.utils
 		public static function killAll(completeImmediately:Boolean=false):void
 		{
 			while(allInstances.length)
-				allInstances.pop().finishEarly(completeImmediately,true);
+				allInstances[0].finishEarly(completeImmediately,true);
 		}
 		/** Returns true if target is subject of any animation (incl. delayed, paused, stopped), false otherwise */
 		public static function contains(target:Object):Boolean
