@@ -27,7 +27,7 @@ package axl.ui.controllers
 	 * according to <code>horizontalBehavior</code> and <code>verticalBehavior</code> rules.
 	 * Usefull for UI elements like sliders, scrollbars, toggle switches, scrollable text areas, panning areas,
 	 * windows etc. @see #horizontalBehavior @see #verticalBehavior @see #box @see #bound */
-	public class BoundBox  extends EventDispatcher
+	public class BoundBox extends EventDispatcher
 	{
 		public static const inscribed:String = 'inscribed';
 		public static const described:String = 'described';
@@ -95,6 +95,8 @@ package axl.ui.controllers
 		public var onChange:Function;
 		/** Determines if dragging box is eased with animation */
 		public var omitDraggingAnimation:Boolean=true;
+		/** Determines if after bound touch, objects are "magnetted" to their central position or to the edges*/
+		public var snapCentral:Boolean = true;
 		
 		
 		/** Easing function for animation curves. Apply it on BoundBox instance by setting easing property.
@@ -418,8 +420,16 @@ package axl.ui.controllers
 			boundStage.addEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
 			boundStage.addEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
 			boundMouseDown = true;
-			startMouse.x = bx.width/2;
-			startMouse.y = bx.height/2;
+			if(snapCentral)
+			{
+				startMouse.x = bx.width/2;
+				startMouse.y = bx.height/2;
+			}
+			else
+			{
+				startMouse.x = 0;
+				startMouse.y = 0;
+			}
 			updateBoxToMousePosition(this);
 			if(box is IEventDispatcher)
 				box.dispatchEvent(e);
