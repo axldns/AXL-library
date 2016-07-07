@@ -81,7 +81,10 @@ package axl.utils {
 			xTime = v;
 			initTime = getTimer();
 			if(timing != null)
+			{
+				xTimeIndex = -2;
 				findTimeIndex();
+			}
 		}
 		public function get time():Number 
 		{
@@ -115,8 +118,6 @@ package axl.utils {
 			xTiming = v;
 			xTimeIndex = -2;
 			clearTimeout(timeoutID);
-			if(!xTiming)
-				return;
 			findTimeIndex();
 		}
 		
@@ -131,10 +132,16 @@ package axl.utils {
 		private function findTimeIndex():void
 		{
 			if(isNaN(time) || !timing)
+			{
+				if(debug) log(tname+"[findTimeIndex][BREAK] - no time or no timing", time, timing);
 				return;
+			}
 			maxIndex = timing.length-1;
 			if(maxIndex < 0)
+			{
+				if(debug) log(tname+"[findTimeIndex][BREAK] - max timeIndex < 0");
 				return;
+			}
 			var newTimeIndex:int = -1;
 			var server:Number = time;
 			if(debug) log(tname+"[findTimeIndex] time:", server, 'current time index', timeIndex,"max time index", maxIndex);			
@@ -147,7 +154,7 @@ package axl.utils {
 			newTimeIndex = i-1;
 			if(newTimeIndex == timeIndex)
 			{
-				if(debug) log(tname+"[findTimeIndex][NO TIME INDEX CHANGE]", newTimeIndex, timeIndex);
+				if(debug) log(tname+"[findTimeIndex][BREAK] - no timeIndex change", newTimeIndex, timeIndex);
 				return;
 			}
 			else if(debug)
@@ -243,10 +250,7 @@ package axl.utils {
 				onUpdate();
 		}
 		
-		private function updateRemaining():void
-		{
-			xremaining = time;
-		}
+		private function updateRemaining():void	{ xremaining = time }
 		
 		//---------------------------------------------- INTERVAL SECTION -----------------------------------//
 		//---------------------------------------------- API SECTION -----------------------------------//
