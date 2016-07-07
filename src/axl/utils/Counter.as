@@ -250,6 +250,29 @@ package axl.utils {
 		
 		//---------------------------------------------- INTERVAL SECTION -----------------------------------//
 		//---------------------------------------------- API SECTION -----------------------------------//
+		/** Stops onUpdate interval, stops time index changes, set, sets timeIndex to -2.<br>
+		 * After this call neither onUpdate, nor onTimeIndexChange, nor
+		 * onComplete will be called. Does not remove references to these functions, does not clear timing array.<br>
+		 * Unlike tillNext functions, requesting <code>time</code>  still return right value. @see #destroy() */
+		public function stopAll():void
+		{
+			clearInterval(intervalID);
+			clearTimeout(this.timeoutID);
+			this.xTimeIndex = -2;
+			this.timeoutID = 0;
+			this.intervalID = 0;
+		}
+		/** Stops all counters, removes all callbacks references, names, timing arrays. @see #stopAll() */
+		public function destroy():void
+		{
+			stopAll();
+			this.defaultFormat = xname = null;
+			this.initTime = xremaining = intervalValue = xTime = maxIndex = 0;
+			this.log = null;
+			this.onComplete = this.onTimeIndexChange = this.onUpdate = null;
+			this.tillChangePortions = xTiming = null;
+			
+		}
 		/** Returns number of miliseconds till next period defined in timing array.
 		 * @param nextSybiling (default s) : <ul><li>null - returns absolute number remaining</li><li>one of 
 		 * (<i>s,m,h,d,w,M,y</i>) - returns value relative to next sybiling e.g. 1h 3590000 ms</li></ul>
