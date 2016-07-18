@@ -357,15 +357,21 @@ package axl.ui.controllers
 		private function removeBoxListeners():void
 		{
 			box.removeEventListener(flash.events.MouseEvent.MOUSE_DOWN, onBoxMouseDown);
-			boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, onBoxMouseMove);
-			boxStage.removeEventListener(MouseEvent.MOUSE_UP, onBoxMouseUp);
+			if(boxStage)
+			{
+				boxStage.removeEventListener(MouseEvent.MOUSE_MOVE, onBoxMouseMove);
+				boxStage.removeEventListener(MouseEvent.MOUSE_UP, onBoxMouseUp);
+			}
 		}
 		
 		private function removeBoundListeners():void
 		{
 			bound.removeEventListener(flash.events.MouseEvent.MOUSE_DOWN, onBoundMouseDown);
-			boundStage.removeEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
-			boundStage.removeEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
+			if(boundStage)
+			{
+				boundStage.removeEventListener(MouseEvent.MOUSE_MOVE, onBoundMouseMove);
+				boundStage.removeEventListener(MouseEvent.MOUSE_UP, onBoundMouseUp);
+			}
 		}
 		//--------------STAGE------------//
 		protected function boxOnStage(e:Event=null):void
