@@ -7,7 +7,7 @@
  * in accordance with the terms of the accompanying license agreement.
  *
  */
-package axl.utils
+package axl.utils.liveArrange
 {
 	import flash.display.DisplayObject;
 	import flash.display.DisplayObjectContainer;
@@ -20,9 +20,8 @@ package axl.utils
 	import flash.text.TextField;
 	import flash.ui.Keyboard;
 	
-	import axl.utils.liveArange.EditorWindow;
-	import axl.utils.liveArange.Property;
-	import axl.utils.liveArange.Selector;
+	import axl.utils.Ldr;
+	import axl.utils.U;
 
 	/**
 	 * Class that allows onscreen edit display objects.
@@ -53,9 +52,9 @@ package axl.utils
 	 * If there's no response on SyncEvent, the dispatcher instance becomes ruling primary listener to SyncEvents, and 
 	 * it's only allowed one to continue with building it's contents.
 	 */
-	public class LiveAranger
+	public class LiveArranger
 	{
-		public static var instance:LiveAranger;
+		public static var instance:LiveArranger;
 		
 		private var subject:DisplayObject;
 		private var subjectParent:DisplayObjectContainer;
@@ -80,7 +79,7 @@ package axl.utils
 		public var userKeyboarOpenSequence:Array = [117];
 		
 		/** @see LiveAranger*/
-		public function LiveAranger()
+		public function LiveArranger()
 		{
 			U.log(tname, "[constructor]");
 			U.STG.loaderInfo.sharedEvents.dispatchEvent(new SyncEvent('axl.utils.LiveAranger',true,false,[this]));
@@ -445,7 +444,7 @@ package axl.utils
 			U.STG.removeEventListener(KeyboardEvent.KEY_UP, keyUp);
 			U.STG.removeEventListener(KeyboardEvent.KEY_DOWN, keyDown);
 			U.STG.loaderInfo.sharedEvents.removeEventListener('axl.utils.LiveAranger',liveArangerAlreadyExists);
-			instance = v as LiveAranger;
+			instance = v as LiveArranger;
 			
 			if(xselector)
 			{

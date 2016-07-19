@@ -36,12 +36,12 @@ package axl.ui
 	 * @see #maxOffset
 	 * @see #getChildClosestToCenter()
 	 */
-	public class Carusele extends Sprite
+	public class Carousel extends Sprite
 	{
 		public static const version:Number = 1.0;
 		private static const modH:Object = { a : 'x', d : 'width', s: 'scaleX'};
 		private static const modV:Object = { a : 'y', d : 'height', s: 'scaleY'};
-		public function get version():Number { return Carusele.version }
+		public function get version():Number { return Carousel.version }
 		
 		protected var mod:Object;
 		protected var modA:Object;
@@ -67,7 +67,7 @@ package axl.ui
 		 * (shifted by half of its dimension against 0) (true) or left at 0 (false) @default true */
 		public var manageOppositeAxleCenter:Boolean=true;
 		/** @see axl.ui.Carusele */
-		public function Carusele()
+		public function Carousel()
 		{
 			super();
 			gap = 0;

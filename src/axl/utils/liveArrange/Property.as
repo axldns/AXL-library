@@ -7,7 +7,7 @@
  * in accordance with the terms of the accompanying license agreement.
  *
  */
-package axl.utils.liveArange
+package axl.utils.liveArrange
 {
 	import flash.display.Sprite;
 	import flash.system.System;
