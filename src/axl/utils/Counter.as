@@ -47,6 +47,9 @@ package axl.utils {
 		/** Log function for counter. By default U.log if available, native trace otherwise. 
 		 * Logging occures only if debug is set to true @see #debug*/
 		public var log:Function = ApplicationDomain.currentDomain.hasDefinition('axl.utils::U') ? Class(getDefinitionByName('axl.utils::U')).log : trace;
+		/** Determines if timer starts right after setting time and/or timing. 
+		 * Set this to false to use it as formatter only. @see #timing see #time @default true */
+		public var autoStart:Boolean=true;
 		
 		private var initTime:int;
 		private var intervalID:uint = 0;
@@ -80,7 +83,7 @@ package axl.utils {
 			clearTimeout(timeoutID);
 			xTime = v;
 			initTime = getTimer();
-			if(timing != null)
+			if(autoStart && timing != null)
 			{
 				xTimeIndex = -2;
 				findTimeIndex();
@@ -117,8 +120,10 @@ package axl.utils {
 		{
 			xTiming = v;
 			xTimeIndex = -2;
+			maxIndex = timing.length-1;
 			clearTimeout(timeoutID);
-			findTimeIndex();
+			if(autoStart)
+				findTimeIndex();
 		}
 		
 		/** Returns current period id figured out based on comparison of <i>time</i> against <i>timing</i> array
@@ -285,9 +290,9 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise. 
 		 * @see #timing @see #timeIndex  */
-		public function millisecondsTillNext(nextSybiling:String='s',mod:int=1,leadingZeros:int=0):String
+		public function millisecondsTillNext(nextSybiling:String='s',mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod)*1000, out:String;
+			var stn:Number =  Number(time || getOffset(mod)*1000), out:String;
 			switch(nextSybiling) {
 				case "s": stn = stn % 1000; break;
 				case "m": stn = stn % 60000; break;
@@ -297,7 +302,7 @@ package axl.utils {
 				case "M": stn = stn % (365.25/12 * 86400000); break;
 				case "y": stn = stn % (365.25 * 86400000); break;
 			}
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			out = String(leadingZeros < 0 ? stn : int(stn)).replace('-',"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
@@ -311,9 +316,9 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise. 
 		 * @see #timing @see #timeIndex */
-		public function secondsTillNext(nextSybiling:String='m',mod:int=1,leadingZeros:int=0):String
+		public function secondsTillNext(nextSybiling:String='m',mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod), out:String;
+			var stn:Number =  Number(time || getOffset(mod)), out:String;
 			switch(nextSybiling) {
 				case "m": stn = stn % 60; break;
 				case "h": stn = stn % 3600; break; // 60 * 60
@@ -322,7 +327,7 @@ package axl.utils {
 				case "M": stn = stn % (365.25/12 * 86400); break;
 				case "y": stn = stn % (365.25 * 86400); break;
 			}
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			out = String(leadingZeros < 0 ? stn : int(stn)).replace('-',"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
@@ -335,9 +340,9 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise.  
 		 * @see #timing @see #timeIndex */
-		public function minutesTillNext(nextSybiling:String='h',mod:int=1,leadingZeros:int=0):String
+		public function minutesTillNext(nextSybiling:String='h',mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod) / 60, out:String;
+			var stn:Number =  Number(time || getOffset(mod)) / 60, out:String;
 			switch(nextSybiling) {
 				case "h": stn = stn % 60; break;
 				case "d": stn = stn % 1440; break; // 60 * 24
@@ -345,7 +350,7 @@ package axl.utils {
 				case "M": stn = stn % (365.25/12 * 1440); break;
 				case "y": stn = stn % (365.25 * 1440); break;
 			}
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			out = String(leadingZeros < 0 ? stn : int(stn)).replace('-',"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
@@ -359,16 +364,16 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise.  
 		 * @see #timing @see #timeIndex */
-		public function hoursTillNext(nextSybiling:String='d',mod:int=1,leadingZeros:int=0):String
+		public function hoursTillNext(nextSybiling:String='d',mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod) / 3600, out:String;
+			var stn:Number =  Number(time || getOffset(mod)) / 3600, out:String;
 			switch(nextSybiling) {
 				case "d": stn = stn % 24; break; 
 				case "w": stn = stn % 168; break; // 24 * 7
 				case "M": stn = stn % (365.25/12 * 24); break;
 				case "y": stn = stn % (365.25 * 24); break;
 			}
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			out = String(leadingZeros < 0 ? stn : int(stn)).replace('-',"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
@@ -382,15 +387,15 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise.  
 		 * @see #timing @see #timeIndex */
-		public function daysTillNext(nextSybiling:String='w',mod:int=1,leadingZeros:int=0):String
+		public function daysTillNext(nextSybiling:String='w',mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod) / 86400, out:String;
+			var stn:Number =  Number(time || getOffset(mod)) / 86400, out:String;
 			switch(nextSybiling) {
 				case "w": stn = stn % 7; break; 
 				case "M": stn = stn % (365.25/12); break;
 				case "y": stn = stn % (365.25); break;
 			}
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			out = String(leadingZeros < 0 ? stn : int(stn)).replace('-',"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
@@ -404,14 +409,14 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise.  
 		 * @see #timing @see #timeIndex */
-		public function weeksTillNext(nextSybiling:String='M',mod:int=1,leadingZeros:int=0):String
+		public function weeksTillNext(nextSybiling:String='M',mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod) / 604800, out:String;
+			var stn:Number =  Number(time || getOffset(mod)) / 604800, out:String;
 			switch(nextSybiling) {
 				case "M": stn = stn % (4.34524); break;
 				case "y": stn = stn % (52.1429); break;
 			}
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			out = String(leadingZeros < 0 ? stn : int(stn)).replace('-',"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
@@ -424,13 +429,13 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise.  
 		 * @see #timing @see #timeIndex */
-		public function monthsTillNext(nextSybiling:String='y',mod:int=1,leadingZeros:int=0):String
+		public function monthsTillNext(nextSybiling:String='y',mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod) / (365.25/12 * 86400), out:String;
+			var stn:Number = Number(time || getOffset(mod)) / (365.25/12 * 86400), out:String;
 			switch(nextSybiling) {
 				case "y": stn = stn % (12); break;
 			}
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			out = String(leadingZeros < 0 ? stn : int(stn)).replace('-',"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
@@ -442,16 +447,19 @@ package axl.utils {
 		 * @param leadingZeros: - adds as many zeros at the begining of output value as needed to match 
 		 * output value's <u>length</u>. If leadingZeros is positive - returned value is floored, raw otherwise.  
 		 * @see #timing @see #timeIndex */
-		public function yearsTillNext(nextSybiling:String=null,mod:int=1,leadingZeros:int=0):String
+		public function yearsTillNext(nextSybiling:String=null,mod:int=1,leadingZeros:int=0,time:Number=0):String
 		{
-			var stn:Number = getOffset(mod) / (365.25 * 86400),out:String;
-			out = String(leadingZeros < 0 ? stn : Math.floor(stn));
+			var stn:Number = Number(time || getOffset(mod)) / (365.25 * 86400),out:String;
+			out = String(leadingZeros < 0 ? stn : int(stn));
+			out.replace(/-/g,"");
 			while(out.length < leadingZeros)
 				out = '0' + out;
 			return out;
 		}
-		
-		private function getOffset(mod:int):Number 
+		/** Returns time remaining till "next" period, where next is defined by mod. 
+		 * @param mod (default 1) : <ul><li>positive: next period defined as timeIndex + mod</li>
+		 * <li>negative: next period defined as timing.length + mod (-1 would take "end" value)</li></ul>  */
+		public function getOffset(mod:int=1):Number 
 		{
 			if(mod < 0)
 				mod += timing.length;
@@ -494,9 +502,10 @@ package axl.utils {
 		 * @param mod (default 1) : <ul><li>positive: next period defined as timeIndex + mod</li>
 		 * <li>negative: next period defined as timing.length + mod (-1 would take "end" value)</li></ul>
 		 * @see #timing @see #timeIndex */
-		public function tillNext(format:String=null,mod:int=1):String
+		public function tillNext(format:String=null,mod:int=1,time:Number=0):String
 		{
 			updateRemaining();
+			var timep:Number =  Number(time || getOffset(mod))
 			format = format || defaultFormat;
 			var a:Array = format.match(regexp), out:String='';
 			var bm:Object={};
@@ -509,14 +518,14 @@ package axl.utils {
 				switch(s)
 				{
 					case "'": out += a[i].replace(/'/g, ""); break;
-					case "y": out += yearsTillNext(null,mod,l); break;
-					case "M": out += monthsTillNext(bm.y?'y':null,mod,l); break;
-					case "w": out += weeksTillNext(bm.M?'M':(bm.y?'y':null),mod,l); break;
-					case "d": out += daysTillNext(bm.w?'w':(bm.M?'M':(bm.y?'y':null)),mod,l); break;
-					case "h": out += hoursTillNext(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null))),mod,l); break;
-					case "m": out += minutesTillNext(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null)))),mod,l); break;
-					case "s": out += secondsTillNext(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null))))),mod,l); break;
-					case "S": out += millisecondsTillNext(bm.s?'s':(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null)))))),mod,l); break;
+					case "y": out += yearsTillNext(null,mod,l,timep); break;
+					case "M": out += monthsTillNext(bm.y?'y':null,mod,l,timep); break;
+					case "w": out += weeksTillNext(bm.M?'M':(bm.y?'y':null),mod,l,timep); break;
+					case "d": out += daysTillNext(bm.w?'w':(bm.M?'M':(bm.y?'y':null)),mod,l,timep); break;
+					case "h": out += hoursTillNext(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null))),mod,l,timep); break;
+					case "m": out += minutesTillNext(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null)))),mod,l,timep); break;
+					case "s": out += secondsTillNext(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null))))),mod,l,timep); break;
+					case "S": out += millisecondsTillNext(bm.s?'s':(bm.m?'m':(bm.h?'h':(bm.d?'d':(bm.w?'w':(bm.M?'M':(bm.y?'y':null)))))),mod,l,timep); break;
 					default: out +=a[i];
 				}
 			}
