@@ -157,9 +157,9 @@ package axl.utils
 			U.log("PHP>SEND_RAW_DATA>", urlreq.url);
 		}
 		
-		/** Sends POST request to <code>defaultAddress</code> or <code>address</code>.
+		/** Sends POST or GET request to <code>defaultAddress</code> or <code>address</code>.
 		 * @param urlVarObject - object will be <code>JSON.stringify</code>, processed with <code>encryption</code> if specified
-		 * and sent to <code>address</code> as <code>variable</code> specified in constructor.
+		 * and sent to <code>address</code> as <code>variable</code> specified in constructor. If urlVarObject is null - makes it GET request
 		 * @param onComplete - function to execute once request is complete. 
 		 * Should accept one argument: loaded data <code>Object</code> (JSON strings are parsed autumatically) or <code>Error</code> 
 		 * if request was unsuccessful.
