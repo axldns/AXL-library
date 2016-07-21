@@ -478,7 +478,6 @@ package  axl.utils
 					loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete);
 					break;
 				case "swf":
-					U.log("SWF LOADING");
 					try { loaderInfo = instantiateImage(urlLoader.data, onError, onLoaderComplete) }
 					catch(e:Error) { log(e), bothLoadersComplete(bytes) }
 					break;
@@ -487,8 +486,13 @@ package  axl.utils
 					catch(e:Error) { log(e) }
 					if(obj != null) bytes.clear();
 					else obj = bytes;
-					bothLoadersComplete(obj)
+					bothLoadersComplete(obj);
 					break
+				case "csv":
+				case "txt":
+					obj = bytes.readUTFBytes(bytes.length);
+					bothLoadersComplete(obj);
+					break;
 				default: 
 					try { var obj:Object = tryAutodetect(bytes)}
 					catch(e:Error) { log(e)}
