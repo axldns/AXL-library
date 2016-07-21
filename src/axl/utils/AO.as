@@ -330,7 +330,6 @@ package axl.utils
 			
 			if(durationPassed) // end of period
 			{
-				
 				if(!intervalLock && continuesCycles()) // waits for another tick (yoyo e.g.
 				{
 					if(passedTotal > 0) 
@@ -597,7 +596,7 @@ package axl.utils
 			removeFromPool();
 			if(goToDirection > 0) gotoEnd();
 			else if(goToDirection < 0) gotoStart();
-			isSetup = !readNchanges;
+			isSetup = isSetup ? !readNchanges : false;
 		}
 		
 		/** Restarts an animation instantly (stops it, goes to direction and calls start).
