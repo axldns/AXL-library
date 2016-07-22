@@ -170,7 +170,7 @@ package axl.utils.binAgent
 			bInput = new TextField();
 			bInput.defaultTextFormat = input_textFormat;
 			bInput.multiline = false;
-			bInput.wordWrap= true;
+			bInput.wordWrap= false;
 			bInput.border = true;
 			bInput.width = 500;
 			bInput.height = 17;
