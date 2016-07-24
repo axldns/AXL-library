@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -11,20 +11,17 @@ package axl.utils
 {
 	
 	/**
-	 * Setting properies in this class distributes it
-	 * to <code>Ldr</code> and <code>ConnectPHP</code> classes
-	 * to keep all in sync.
+	 * Keeps properties used by <code>Ldr</code>, <code>ConnectPHP</code> and <code>Flow</code> classes
+	 * to keep all in sync. 
 	 */
 	public class NetworkSettings
 	{
 		private static var uAppRemoteAddresses:Array;
 		private static var uGatewayPath:String;
 
-
 		private static var uUpdateRequestObjectFactory:Function;
 		public static var openConnectionTimeout:int;
 		
-		public static var smartStickToSuccess:Boolean;
 		private static var uConfigPath:String;
 		private static var addressIndex:int = 0;
 		private static var numAddresses:int;

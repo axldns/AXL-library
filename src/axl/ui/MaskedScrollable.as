@@ -21,9 +21,9 @@ package axl.ui
 	 * visibleHeight, visibleX, visibleY</i></li>
 	 * <li>provides <code>controller</code> property - an instance of BoundBox class, which allows to scroll, drag and move
 	 * masked contents within masked area</li><li>exposes ability to make bi-directional connections with any other BoundBox controllers,
-	 * e.g. members of <code>Scroll</code> (&lt;scrollBar/&gt;) instance </li></ul>
+	 * e.g. members of <code>Scroll</code>  instance </li></ul>
 	 * <br>Instance auto-recognizes Scroll instance added to it's display list, places it outside of masked container
-	 * and auto-connects scroll bar's controller to xMasked controller.<br><br>
+	 * and auto-connects scroll bar's controller to MaskedScrollable controller.<br><br>
 	 * Since method above is just a short-hand kept for backward ccompatibility, 
 	 * all other controllers should be connected via <code>connectController</code> function.
 	 * Initial controller initial values can be overriden, default values as follows:<br>
@@ -49,12 +49,9 @@ package axl.ui
 		/** Deterimines if masked content movement can be triggered by mouse wheel events.  @see #deltaMultiplier */
 		public var wheelScrollAllowed:Boolean = true;
 		
-		/** Class instantiated from <b> &lt;msk/&gt;</b>.<br>Easy masking and movable/scorllable container, 
-		 * with ability to "connect" multiple controllers. Auto-recognition of &lt;scrollBar/&gt; children.
-		 * @param definition - xml definition
-		 * @param xroot - reference to parent xRoot object @see axl.xdef.types.display.xMasked
-		 * @see axl.xdef.interfaces.ixDef#def  @see axl.xdef.interfaces.ixDef#xroot
-		 * @see axl.xdef.XSupport#getReadyType2() */
+		/** <br>Easy masking and movable/scorllable container, 
+		 * with ability to "connect" multiple controllers. Auto-recognition of Scroll instances added to display list of this.
+		 * */
 		public function MaskedScrollable()
 		{
 			ctrl = new BoundBox();

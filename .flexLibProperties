@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<flexLibProperties includeAllClasses="false" useMultiPlatformConfig="false" version="3">
+  <includeClasses>
+    <classEntry path="axl.ui.Carousel"/>
+    <classEntry path="axl.ui.MaskedScrollable"/>
+    <classEntry path="axl.ui.Messages"/>
+    <classEntry path="axl.ui.Scroll"/>
+    <classEntry path="axl.ui.controllers.BoundBox"/>
+    <classEntry path="axl.utils.AO"/>
+    <classEntry path="axl.utils.ConnectPHP"/>
+    <classEntry path="axl.utils.Counter"/>
+    <classEntry path="axl.utils.Easings"/>
+    <classEntry path="axl.utils.Flow"/>
+    <classEntry path="axl.utils.Ldr"/>
+    <classEntry path="axl.utils.NetworkSettings"/>
+    <classEntry path="axl.utils.Req"/>
+    <classEntry path="axl.utils.U"/>
+    <classEntry path="axl.utils.binAgent.BinAgent"/>
+    <classEntry path="axl.utils.binAgent.Console"/>
+    <classEntry path="axl.utils.binAgent.RootFinder"/>
+    <classEntry path="axl.utils.liveArrange.EditorWindow"/>
+    <classEntry path="axl.utils.liveArrange.LiveArranger"/>
+    <classEntry path="axl.utils.liveArrange.Property"/>
+    <classEntry path="axl.utils.liveArrange.Selector"/>
+  </includeClasses>
+  <includeResources/>
+  <namespaceManifests/>
+</flexLibProperties>

@@ -6,7 +6,18 @@ package axl.ui
 	import flash.events.MouseEvent;
 	
 	import axl.ui.controllers.BoundBox;
-	
+	/** Class provides simple scroll bar functionality.<br>
+	 * It makes use of <code>axl.ui.controllers.BoundBox</code> controler, which needs
+	 * two Display Objects to satisfy functionality (bound &amp; box), here named as
+	 * <code>rail</code> and <code>train</code>.
+	 * <br>Scroll bar can have only one orientation at the time.<br>
+	 * If scroll bar requires buttons, these should call <code>increase</code> and <code>decrease</code>
+	 * functions for guaranteed results. No manual position validation is needed in this case. 
+	 * Controller's initial values can be overriden, default values as follows:<br>
+	 * <code>ctrl.bound = rail;<br>ctrl.box = train;<br>ctrl.horizontalBehavior = BoundBox.inscribed;
+	 * <br>ctrl.verticalBehavior = BoundBox.inscribed;<br>ctrl.liveChanges = true;</code></br>
+	 * <u>Requires to set initial orinetation</u>
+	 * 	@see axl.ui.controllers.BoundBox */
 	public class Scroll extends Sprite
 	{
 		private var ctrl:BoundBox;
@@ -17,12 +28,10 @@ package axl.ui
 		public var deltaMultiplier:Number=1;
 		/** Deterimines if masked content movement can be triggered by mouse wheel events.  @see #deltaMultiplier */
 		public var wheelScrollAllowed:Boolean = false;
-		/** Class provides simple scroll bar functionality. Instantiated from &lt;scrollBar/&gt;.<br>
+		/** Class provides simple scroll bar functionality.<br>
 		 * It makes use of <code>axl.ui.controllers.BoundBox</code> controler, which needs two Display Objects
 		 * to satisfy functionality (bound &amp; box), here named as <code>rail</code> and <code>train</code>.
-		 * @param definition - xml definition @param xroot - reference to parent xRoot object
-		 * @see axl.xdef.types.display.xScroll  @see axl.xdef.interfaces.ixDef#def  @see axl.xdef.interfaces.ixDef#xroot
-		 * @see axl.xdef.XSupport#getReadyType2() */
+		 * */
 		public function Scroll()
 		{
 			makeBox();
@@ -40,7 +49,8 @@ package axl.ui
 			ctrl.horizontalBehavior = BoundBox.inscribed;
 			ctrl.verticalBehavior = BoundBox.inscribed;
 		}
-		
+		/** Moves horizontal scroll bar's train right and/or vertical scroll bar trains' down.
+		 * Moves it by <code>deltaMultiplier</code> value. */
 		public function increase(e:Event=null):void
 		{
 			if(controller.horizontal)
@@ -48,7 +58,8 @@ package axl.ui
 			else if(controller.vertical)
 				ctrl.movementVer(deltaMultiplier,false,this);
 		}
-		
+		/** Moves horizontal scroll bar's train left and/or vertical scroll bar trains' up.
+		 * Moves it by <code>deltaMultiplier</code> value. */
 		public function decrease(e:Event=null):void
 		{
 			if(controller.horizontal)

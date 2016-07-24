@@ -1,7 +1,7 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
@@ -9,30 +9,19 @@
  */
 package axl.utils
 {
-	import flash.display.DisplayObject;
-	import flash.events.ErrorEvent;
+	import flash.events.ErrorEvent;	
 	import flash.events.Event;
-	import flash.events.EventDispatcher;
 	import flash.utils.ByteArray;
+	import flash.events.EventDispatcher;
 	import flash.utils.setTimeout;
-	
-	import axl.ui.IprogBar;
 	import axl.ui.Messages;
 	
-
+	/** Automates initial flow of the project by loading files and updates. */
 	public class Flow extends EventDispatcher
 	{
-
 		private var uUpdateRequestObjectFactory:Function;
 		
-		/** <code>Ldr.load</code> first argument: string, file, XML, XMLList or Arrays or Vectors of these. 
-		 * @see axl.utls.Ldr#load*/
-		public var filesToLoad:Object;
-		public var onAllDone:Function;
-		public var onConfigLoaded:Function;
-		
 		private var flowName:String;
-		private var progBar:IprogBar;
 		private var configDefinedFiles:Object;
 		private var webflow:Boolean;
 		private var mobileflow:Boolean;
@@ -45,6 +34,19 @@ package axl.utils
 		private var configToLoad:String;
 		private var updateRequest:Function;
 		
+		/** Function to fire when all flow elements (load config, load files defined in config, update config, reload config) are done.
+		 * Called right before dispatching event complete*/
+		public var onAllDone:Function;
+		/** Dispatched when file specified in NetworkSettings.configPath is loaded.
+		 * @see axl.utils.NetworkSettings#configPath */
+		public var onConfigLoaded:Function;
+		/** If files are defined in config file, loader loads them in the flow. This function will be called every time 
+		 * progress Event is received from queue of files. Function must accept Number argument - total progress (0-1)
+		 * @see axl.utils.Ldr#load()*/
+		public var onFilesLoadProgress:Function;
+		/** <code>Ldr.load</code> first argument: string, file, XML, XMLList or Arrays or Vectors of these. 
+		 * @see axl.utls.Ldr#load*/
+		public var filesToLoad:Object;
 		/** If your app loads config and/or files and/or makes update requests,
 		 * then setup your Network Settings Class first */
 		public function Flow()
@@ -53,20 +55,7 @@ package axl.utils
 			updateRequest = NetworkSettings.filesUpdateRequestObjectFactory;
 		}
 		
-		/** can be set any time. if its loading at the moment and its' displayObject,
-		 * it will get added to stage straight away */
-		public function get progressBar():IprogBar { return progBar }
-		public function set progressBar(value:IprogBar):void
-		{
-			if(value == progBar) return;
-			if(progBar != null)
-				progBar.destroy();
-			progBar = value;
-			if(Ldr.isLoading) progBar.build();
-			if(progBar is DisplayObject && U.STG != null)
-				U.STG.addChild(progressBar as DisplayObject);
-		}
-		
+		/** Starts the flow */
 		public function start():void
 		{
 			mobileflow = Ldr.fileInterfaceAvailable;
@@ -279,18 +268,16 @@ package axl.utils
 			
 			if(files.length < 1)
 				return filesLoaded();
-			if(progBar != null) progBar.build();
-			if(progBar is DisplayObject)
-				U.STG.addChild(progBar as DisplayObject);
 			Ldr.load(files, filesLoaded,fileProgressListener);
 			files = null;
 				
 		}
 		protected function fileProgressListener(fname:String):void
 		{
-			U.log('progress:', (Ldr.numAllLoaded+ Ldr.numAllSkipped)/Ldr.numAllQueued * 100 + '%');
-			if(progBar != null)
-				progBar.setProgress((Ldr.numAllLoaded+Ldr.numAllSkipped)/Ldr.numAllQueued);
+			var p:Number = (Ldr.numAllLoaded+ Ldr.numAllSkipped)/Ldr.numAllQueued;
+			U.log('progress:', p* 100 + '%');
+			if(onFilesLoadProgress != null)
+				onFilesLoadProgress(p);
 		}
 		
 		protected function filesLoaded():void
@@ -322,8 +309,6 @@ package axl.utils
 			onAllDone = null;
 			if(php != null) php.destroy(true);
 			php = null
-			if(progBar) progBar.destroy();
-			progBar = null;
 			updateFiles = null;
 		}
 	}

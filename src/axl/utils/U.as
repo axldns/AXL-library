@@ -30,7 +30,7 @@ package axl.utils
 	 */
 	public class U
 	{
-		private static var version:String = '1.1.2';
+		private static var version:String = '1.2.0';
 		public static function get VERSION():String { return version}
 		private static var tname:String = '[U ' + version + ']';
 		Ldr.verbose = log;
@@ -421,6 +421,17 @@ package axl.utils
 				bitmap.x =  toFit.width - bitmap.width >>1;
 				bitmap.y = toFit.height - bitmap.height >> 1;
 				return bitmap;
+		}
+		
+		/** Converts an angle from degrees into radians. */
+		public function deg2rad(deg:Number):Number { return deg / 180.0 * Math.PI }
+		/** Converts an angle from radians to degrees. */
+		public static function rad2deg(rad:Number):Number { return rad * 180/Math.PI}
+		/** Returns an angle (degrees) between two points. Use object.stageX object.stageY on
+		 * both objects if they don't share same coordination space (different parrent) */
+		public static function angleBetweenPoints(p1x:Number, p1y:Number, p2x:Number=0, p2y:Number=0):Number
+		{
+			return Math.atan2(p1y-p2y,p1x-p2x) * 180/Math.PI;
 		}
 		
 		/** Displays or hides flash stage splash if both splash and stage are instantiated.

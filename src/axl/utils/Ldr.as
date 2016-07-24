@@ -1,12 +1,13 @@
 /**
  *
  * AXL Library
- * Copyright 2014-2015 Denis Aleksandrowicz. All Rights Reserved.
+ * Copyright 2014-2016 Denis Aleksandrowicz. All Rights Reserved.
  *
  * This program is free software. You can redistribute and/or modify it
  * in accordance with the terms of the accompanying license agreement.
  *
  */
+
 package  axl.utils
 {
 	import flash.display.Bitmap;
@@ -60,34 +61,37 @@ package  axl.utils
 	 * <br>/config/workflow/init.xml
 	 * 
 	 */
+	
 	public class Ldr
 	{
 		private static var externalProgressListeners:Vector.<Function> = new Vector.<Function>();
-
-		public static function get loaders():Object	{return uloaders}
-		public static function get loaderInfos():Object	{return linfos}
-		public static function get objects():Object {return uobjects}
-
-		public static function log(...args):void { if(_verbose is Function) _verbose.apply(null,args) }
-		public static function set verbose(func:Function):void { _verbose = func = Req.verbose = func }
+		private static var requests:Vector.<Req> = new Vector.<Req>();
+		private static var xunloadEvent:Event = new Event('unload');
+		private static var behaviors:Behaviors;
 		private static var _verbose:Function;
-		public static const defaultValue:String = ":default";
-		
-		public static const behaviours:Behaviors = new Behaviors();
+
 		private static var uobjects:Object = {};
 		private static var uloaders:Object = {};
 		private static var linfos:Object = {};
-		private static var requests:Vector.<Req> = new Vector.<Req>();
-		public static var displayStateBreakDown:Boolean;
-		private static var xunloadEvent:Event = new Event('unload');
-		public static function get unloadEvent():Event { return xunloadEvent }
-		
 		private static var IS_LOADING:Boolean;
+		
+		public static var displayStateBreakDown:Boolean;
 		public static var policyFileCheck:Boolean;
 		
 		/** Indicates weather app has flash.filesystem.File class accessible */
 		public static function get fileInterfaceAvailable():Boolean { return Req.fileInterfaceAvailable }
+		public static function get unloadEvent():Event { return xunloadEvent }
 		public static function get FileClass():Class { return Req.FileClass }
+		public static function get loaders():Object	{return uloaders}
+		public static function get loaderInfos():Object	{return linfos}
+		public static function get objects():Object {return uobjects}
+		public static function get behaviours():Behaviors 
+		{ 
+			if(behaviors == null) behaviors = new Behaviors();
+			return behaviors
+		}
+		public static function set verbose(func:Function):void { _verbose = func = Req.verbose = func }
+		public static function log(...args):void { if(_verbose is Function) _verbose.apply(null,args) }
 		/**
 		 * (AIR only)<br>
 		 Defines default value if <code>storeDirectory</code> argument of method <code>Ldr.load</code> is ommited.
@@ -378,9 +382,9 @@ package  axl.utils
 		 * <li><code>-1</code> if there are no resources specified and queue is already started</li>
 		 * <li><code><i>ID</i></code> of the queue</li></ul>*/
 		public static function load(resources:Object=null, onComplete:Function=null, individualComplete:Function=null
-												,onProgress:Function=null, pathPrefixes:Object=Ldr.defaultValue, 
-												 loadBehavior:Object=Ldr.defaultValue, storingBehavior:Object=Ldr.defaultValue,
-												 storeDirectory:Object=Ldr.defaultValue, timeOutMS:int=0,differentContext:LoaderContext=null):int
+												,onProgress:Function=null, pathPrefixes:Object=null, 
+												 loadBehavior:Object=null, storingBehavior:Object=null,
+												 storeDirectory:Object=null, timeOutMS:int=0,differentContext:LoaderContext=null):int
 		{
 			log("[Ldr] request load.");
 			var req:Req;
@@ -399,19 +403,19 @@ package  axl.utils
 				requests[len] = req;
 			}
 			
-				req.loadBehavior = (loadBehavior == Ldr.defaultValue ? Ldr.defaultLoadBehavior :  loadBehavior)
+				req.loadBehavior = loadBehavior || Ldr.defaultLoadBehavior;
 			if(Req.fileInterfaceAvailable)
 			{
-				req.storeDirectory = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
-				req.storingBehavior = (storingBehavior == Ldr.defaultValue ? Ldr.defaultStoringBehavior : storingBehavior);
+				req.storeDirectory = storeDirectory || Ldr.defaultStoreDirectory;
+				req.storingBehavior = storingBehavior || Ldr.defaultStoringBehavior;
 			}
 				req.onComplete = onComplete;
 				req.individualComplete = individualComplete;
 				req.onProgress = onProgress;
 				
 				req.addPaths(resources);
-				req.addPrefixes((pathPrefixes == Ldr.defaultValue ? Ldr.defaultPathPrefixes : pathPrefixes));
-				req.timeOut = (timeOutMS > 0) ? timeOutMS : (globalTimeout || NetworkSettings.defaultTimeout)
+				req.addPrefixes(pathPrefixes || Ldr.defaultPathPrefixes);
+				req.timeOut = timeOutMS || globalTimeout || NetworkSettings.defaultTimeout;
 			if(!IS_LOADING)
 			{
 				IS_LOADING = true;
@@ -563,11 +567,12 @@ package  axl.utils
 			return s;
 		}
 		
-		/**(AIR) Saves single file to storeDirectory + / subpath
+		/**(AIR) Saves single file to storeDirectory + / subpath. If store directory is not defined,
+		 * saves in Ldr.defaultStoreDirectory
 		 * @param <code>subpath</code> e.g. "/assets/cfg.xml"
 		 * @param <code>data</code> contents of the file. Preferably <code>ByteArray</code>
-		 * however <code>String</code>and <code>XML</code> objects will be convertedto BA automatically. */
-		public static function save(subpath:String, data:Object, storeDirectory:Object=Ldr.defaultValue):void
+		 * however <code>String</code>and <code>XML</code> objects will be converted to BA automatically. */
+		public static function save(subpath:String, data:Object, storeDirectory:Object=null):void
 		{
 			var ba:ByteArray;
 			if(!(data is ByteArray))
@@ -577,7 +582,7 @@ package  axl.utils
 				else if(data is XML || data is XMLList) ba.writeUTFBytes(XML(data));
 			} else ba = data as ByteArray
 			var req:Req = new Req();
-				req.storeDirectory = (storeDirectory == Ldr.defaultValue ? Ldr.defaultStoreDirectory : storeDirectory);
+				req.storeDirectory =  storeDirectory || Ldr.defaultStoreDirectory;
 				req.storingBehavior = /./;
 				req.saveIfRequested(ba, subpath,false);
 				req.destroy();
@@ -657,4 +662,12 @@ package  axl.utils
 			IS_LOADING = false;
 		}
 	}
+}
+
+internal class Behaviors
+{
+	public const loadOverwrite:int=0;
+	public const loadSkip:int=1;
+	public const downloadOnly:int=2;
+	public function Behaviors(){}
 }
