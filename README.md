@@ -18,8 +18,16 @@ The AXL library consists of 10 main 'must have' elements.
 * [Counter](http://axldns.com/docs/axl/utils/Counter.html) - Combination of timeout and interval. Ideal for countdowns with single and multiple time periods, custom and user defined time formatting.
 * [Messages](http://axldns.com/?page_id=150) - standardized alert system.
 
-The AXL library is base for AXLX framework. They're separate repositories. AXL can live with AXLX, but AXLX can't with AXL. 
-To see them both in action visit [examples page](http://axldns.com/?page_id=283)
+The AXL library is the base for AXLX framework. They're separate repositories but AXLX can't live without AXL. 
+
+Examples
+--------------------
+To see them both AXL and AXLX in action visit [examples page](http://axldns.com/?page_id=283)
+
+Documentation
+--------------------
+[http://axldns.com/docs/](http://axldns.com/docs/)
+
 
 Minimum Requirements
 --------------------
