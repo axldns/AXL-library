@@ -65,7 +65,7 @@ package axl.ui
 		public var maxOffset:Number = 0.25;
 		/** Determines if rail's oppisite axle (v if horizontal and h if vertical) should be "center registered"
 		 * (shifted by half of its dimension against 0) (true) or left at 0 (false) @default true */
-		public var manageOppositeAxleCenter:Boolean=true;
+		public var manageOppositeAxleCenter:Boolean=false;
 		/** @see axl.ui.Carusele */
 		public function Carousel()
 		{

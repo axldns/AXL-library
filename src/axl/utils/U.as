@@ -30,7 +30,7 @@ package axl.utils
 	 */
 	public class U
 	{
-		private static var version:String = '1.2.0';
+		private static var version:String = '1.2.1';
 		public static function get VERSION():String { return version}
 		private static var tname:String = '[U ' + version + ']';
 		Ldr.verbose = log;
@@ -612,7 +612,7 @@ package axl.utils
 			else
 				trace.apply(null,args);
 		}
-		
+		/** Strips url to get filename*/
 		public static function fileNameFromUrl(v:String,removeQuerry:Boolean=false,removeExtension:Boolean=false):String
 		{
 			if(!v) return null
@@ -623,6 +623,16 @@ package axl.utils
 			else
 				fileName = fileName.split('/').pop();
 			return removeExtension ? fileName.replace(/.\w+$/i, "") : fileName;
+		}
+		/** Strips URL from queires to return valid server dir */
+		public static function dirFromUrl(v:String):String
+		{
+			if(!v) return null
+			var dir:String = v;
+			var q:int = dir.indexOf('?');
+			if(q > -1)
+				dir = dir.substring(0,q);
+			return dir.substring(0, dir.lastIndexOf("/")+1);
 		}
 	}
 }

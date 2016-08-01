@@ -27,8 +27,7 @@ package axl.utils {
 	 * is equal to int.MAX_VALUE which is approx. 24.8 days. Ideal solution for countdowns.
 	 * <h3>Example</h3>
 	 * Custom formating can be defined similarly to <i>flash.globalization.DateTimeFormatter</i> manner.<br>
-	 * <code>time = 0;<br>timing = [3667];<br>tillNext("'time left:' dd : hh : mm : s"); </code>// time left 00 : 01 : 01 : 7<br>
-	 * <code>tillNext("mm 'minutes' ss 'seconds left'"); </code>// 61 minutes  07 seconds left
+	 * <pre>time = 0;<br>timing = [3667];<br>tillNext("'time left:' dd : hh : mm : s");// time left 00 : 01 : 01 : 7<br>tillNext("mm 'minutes' ss 'seconds left'"); // 61 minutes  07 seconds left<br></pre>
 	 * @see #timing @see #timeIndex
 	 * */
 	public class Counter
