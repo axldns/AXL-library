@@ -30,7 +30,6 @@ package  axl.utils
 	import flash.utils.ByteArray;
 	import flash.utils.clearTimeout;
 	import flash.utils.getDefinitionByName;
-	import flash.utils.getQualifiedClassName;
 	import flash.utils.getTimer;
 	import flash.utils.setTimeout;
 	
@@ -255,7 +254,7 @@ package  axl.utils
 		{
 			var i:int = ar.length;
 			if(v is String) ar[i] = String(v);
-			else if (fileInterfaceAvailable && (getQualifiedClassName(v) == 'File'))//ar[i] = v.url;
+			else if (fileInterfaceAvailable && (v is FileClass))
 			{
 				if(filesLookUp) processFilesRecurse(v, ar); // paths
 				else if(v.isDirectory) ar[i] = v.url; // prefixes 
